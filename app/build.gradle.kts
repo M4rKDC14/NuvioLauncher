@@ -131,7 +131,7 @@ android {
     ndkVersion = "29.0.14206865"
 
     defaultConfig {
-        applicationId = "com.nuvio.tv"
+        applicationId = "tv.nuviolauncher"   // Nuvio Launcher: own id, installs beside the official Nuvio
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 24
         targetSdk = 36
@@ -186,7 +186,8 @@ android {
         create("full") {
             dimension = "distribution"
             buildConfigField("boolean", "FEATURE_PLUGINS_ENABLED", "true")
-            buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
+            // Nuvio Launcher: off, the updater would offer official Nuvio builds over this fork
+            buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "false")
             buildConfigField("boolean", "FEATURE_IN_APP_TRAILERS_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_TRAILERS_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_PLAYBACK_KEEP_ALIVE_ENABLED", "true")
@@ -305,8 +306,9 @@ android {
         abi {
             isEnable = !buildingAppBundle
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true
+            // Nuvio Launcher: the 65C6K runs 32-bit apps only; -PlauncherAllAbis=true restores Nuvio's full set
+            if (providers.gradleProperty("launcherAllAbis").orNull == "true") include("armeabi-v7a", "arm64-v8a", "x86", "x86_64") else include("armeabi-v7a")
+            isUniversalApk = providers.gradleProperty("launcherAllAbis").orNull == "true"
         }
     }
 
