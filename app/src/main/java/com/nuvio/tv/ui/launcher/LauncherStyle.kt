@@ -113,8 +113,6 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
         // dark wash on the left and bottom so text stays readable
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x8C141518), 0.6f to Color(0x26141518))))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x1A141518), 1f to Color(0x73141518))))
-        // the whole blurred background 20% darker (owner's request)
-        Box(Modifier.fillMaxSize().background(Color(0x33000000)))
     }
 }
 
@@ -124,6 +122,7 @@ fun LauncherGlass(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(24.dp),
     hazeState: HazeState? = null,
+    tint: Color = Color(0xB3121316),
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
@@ -132,7 +131,7 @@ fun LauncherGlass(
             .clip(shape)
             // 1.4.2 performance: no live blur (it was redrawn on every frame and made scrolling stutter on
             // the TV's chip). A see-through dark tint over what is behind, which is already a blurred picture.
-            .background(Color(0xB3121316), shape)
+            .background(tint, shape)
             .background(LauncherStyle.glassBrush(), shape)
             .border(1.dp, LauncherStyle.Edge, shape),
         content = content

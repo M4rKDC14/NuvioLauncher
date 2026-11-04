@@ -901,7 +901,8 @@ private fun RightStreamSection(
             LauncherGlass(
                 modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(24.dp),
-                hazeState = hazeState
+                hazeState = hazeState,
+                tint = Color(0xC2121316)   // sources panel 20% darker than the other glass (owner)
             ) {
             Column(
                 modifier = Modifier
