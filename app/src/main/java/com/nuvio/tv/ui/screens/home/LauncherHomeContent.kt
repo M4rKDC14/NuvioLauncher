@@ -147,6 +147,7 @@ internal fun LauncherHomeContent(
     var heroIndex by remember { mutableIntStateOf(0) }
     var heroFocused by remember { mutableStateOf(true) }
     var focusedRow by remember { mutableIntStateOf(-1) }
+    var rowBackdrop by remember { mutableStateOf<String?>(null) }   // the focused tile's picture, blurred behind the rows
     var lastKeyAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
@@ -191,14 +192,16 @@ internal fun LauncherHomeContent(
             .onPreviewKeyEvent { if (it.type == KeyEventType.KeyDown) lastKeyAt = System.currentTimeMillis(); false }
     ) {
         val screenH = maxHeight
+        // Under the carousel picture: the focused tile's picture, blurred. It shows as the carousel scrolls away.
+        com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(url = rowBackdrop ?: current?.background ?: current?.poster)
         // Backdrop of the current carousel title, bright, with only a light shade on the left.
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = heroAlpha }) {
             Crossfade(targetState = current?.background ?: current?.poster, animationSpec = tween(600), label = "backdrop") { url ->
                 if (url != null) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x73000000), 0.45f to Color(0x1F000000), 0.65f to Color.Transparent)))
-            // bottom of the picture blends into the grey below it
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 0.85f to Color(0x80000000), 1f to Color(0xFF1E1F23))))
+            // bottom of the picture darkens into the blurred rows background below it
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color(0x80000000))))
         }
 
         // Focus in the rows keeps that row in the middle; focus in the carousel keeps the page at the top.
@@ -238,7 +241,7 @@ internal fun LauncherHomeContent(
                             focused = focusedRow == ri,
                             first = ri == 0,
                             tiles = tiles,
-                            onRowFocused = { heroFocused = false; focusedRow = ri },
+                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) rowBackdrop = b },
                             onVertical = { fromRow, x, down ->
                                 val target = if (down) fromRow + 1 else fromRow - 1
                                 if (target < 0) { runCatching { playFocus.requestFocus() }; true }
@@ -348,7 +351,7 @@ private fun HeroButton(
     }
 }
 
-private class Tile(val key: String, val title: String, val image: String?, val landscape: Boolean, val square: Boolean = false, val progress: Float? = null, val badge: String? = null, val onClick: () -> Unit)
+private class Tile(val key: String, val title: String, val image: String?, val landscape: Boolean, val square: Boolean = false, val progress: Float? = null, val badge: String? = null, val backdrop: String? = null, val onClick: () -> Unit)
 
 @Composable
 private fun RowBlock(
@@ -357,7 +360,7 @@ private fun RowBlock(
     focused: Boolean,
     first: Boolean,
     tiles: MutableMap<Int, MutableMap<Int, Pair<FocusRequester, Float>>>,
-    onRowFocused: () -> Unit,
+    onRowFocused: (String?) -> Unit,
     onVertical: (Int, Float, Boolean) -> Boolean,
     onNavigateToDetail: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
@@ -374,18 +377,18 @@ private fun RowBlock(
                         val left = if (p.duration > 0) ((p.duration - p.position) / 60_000L).coerceAtLeast(1) else null
                         val ep = if (p.season != null && p.episode != null) " · S${p.season} E${p.episode}" else ""
                         Tile("cw_" + p.contentId + "_" + p.videoId, p.name + ep, cw.customLandscapePoster ?: cw.episodeThumbnail ?: p.backdrop ?: p.poster, true,
-                            progress = pct.coerceIn(0f, 1f), badge = left?.let { "▶ $it min left" }) { onContinueWatchingClick(cw) }
+                            progress = pct.coerceIn(0f, 1f), badge = left?.let { "▶ $it min left" }, backdrop = p.backdrop ?: p.poster) { onContinueWatchingClick(cw) }
                     }
                     is ContinueWatchingItem.NextUp -> {
                         val i = cw.info
                         Tile("nu_" + i.contentId + "_" + i.videoId, i.name + " · S${i.season} E${i.episode}", cw.customLandscapePoster ?: i.thumbnail ?: i.backdrop ?: i.poster, true,
-                            badge = "▶ Next episode") { onContinueWatchingClick(cw) }
+                            badge = "▶ Next episode", backdrop = i.backdrop ?: i.poster) { onContinueWatchingClick(cw) }
                     }
                 }
             }
             is LRow.Catalog -> row.row.items.map { m ->
                 val land = m.posterShape == PosterShape.LANDSCAPE
-                Tile("m_" + m.id, m.name, if (land) (m.landscapePoster ?: m.background ?: m.poster) else (m.poster ?: m.background), land) {
+                Tile("m_" + m.id, m.name, if (land) (m.landscapePoster ?: m.background ?: m.poster) else (m.poster ?: m.background), land, backdrop = m.background ?: m.poster) {
                     onNavigateToDetail(m.id, m.apiTypeOrRaw(), row.row.addonBaseUrl)
                 }
             }
@@ -434,7 +437,7 @@ private fun RowBlock(
                                     else -> false
                                 }
                             },
-                        onFocused = onRowFocused
+                        onFocused = { onRowFocused(t.backdrop ?: t.image) }
                     )
                 }
             }
