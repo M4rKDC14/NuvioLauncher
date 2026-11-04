@@ -464,10 +464,11 @@ private fun RowBlock(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            row.title, color = if (focused) Color.White else Soft, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            row.title, color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, fontSize = 16.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 60.dp, top = if (first) 0.dp else 26.dp), maxLines = 1
         )
-        Spacer(Modifier.height(if (first) 12.dp else 22.dp))
+        // Title to tiles halved (owner's request): was 12/22 + 6 above the tiles, now 3/8 + 6.
+        Spacer(Modifier.height(if (first) 3.dp else 8.dp))
         if (items.isEmpty()) {
             // Not loaded yet: quiet placeholders where the posters will appear.
             Row(Modifier.padding(start = Start), horizontalArrangement = Arrangement.spacedBy(look.gap)) {
@@ -549,7 +550,7 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: 
         }
         if (tile.title.isNotEmpty()) {
             Text(
-                tile.title, color = if (focused) Color.White else Soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                tile.title, color = if (focused) Color.White else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 // Same layout height whether focused or not (a changing row height made the page jitter);
                 // the focused title only moves down visually, clear of the zoomed tile.
                 modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) titleLift.toPx() else 0f }

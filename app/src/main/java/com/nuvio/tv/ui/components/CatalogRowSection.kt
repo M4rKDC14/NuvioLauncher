@@ -312,8 +312,7 @@ fun CatalogRowSection(
                 text = launcherTitle.ifBlank { " " },
                 color = when {
                     launcherTitle.isBlank() -> Color.Transparent
-                    rowHasFocusRef.value -> Color.White
-                    else -> LauncherStyle.Soft
+                    else -> LauncherStyle.TileTitleIdle   // grey always: only the focused tile's title is white
                 },
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
@@ -322,7 +321,8 @@ fun CatalogRowSection(
                 style = MaterialTheme.typography.titleMedium.copy(
                     textDirection = launcherTitle.contentTextDirection()
                 ),
-                modifier = Modifier.padding(start = 60.dp, end = rowStart, bottom = 10.dp)
+                // title to tiles halved (owner's request): was 10 + 6 above the tiles, now 2 + 6
+                modifier = Modifier.padding(start = 60.dp, end = rowStart, bottom = 2.dp)
             )
         } else Row(
             modifier = Modifier

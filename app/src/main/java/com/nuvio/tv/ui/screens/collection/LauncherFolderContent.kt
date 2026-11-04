@@ -279,11 +279,12 @@ private fun FolderRowBlock(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            row.title, color = if (focused) Color.White else LauncherStyle.Soft, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
+            row.title, color = LauncherStyle.TileTitleIdle, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 60.dp, end = LauncherStyle.Start, top = 12.dp)
         )
-        Spacer(Modifier.height(8.dp))
+        // title to tiles halved (owner's request): was 8, now 4 (plus the row's own top padding)
+        Spacer(Modifier.height(4.dp))
         when {
             tab.error != null && items.isEmpty() -> {
                 Text(
@@ -392,7 +393,7 @@ private fun FolderTile(
             }
         }
         Text(
-            item.name, color = if (focused) Color.White else LauncherStyle.Soft, fontSize = 12.sp, lineHeight = 16.sp,
+            item.name, color = if (focused) Color.White else LauncherStyle.TileTitleIdle, fontSize = 12.sp, lineHeight = 16.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             // Same layout height whether focused or not; the focused title only moves down visually, clear of the zoom.
             modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) titleLift.toPx() else 0f }

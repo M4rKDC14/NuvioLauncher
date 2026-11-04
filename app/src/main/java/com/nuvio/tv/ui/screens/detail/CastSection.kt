@@ -582,7 +582,7 @@ private fun CastMemberItem(
             Text(
                 text = member.name,
                 style = nameStyle,
-                color = if (isFocused) Color.White else LauncherStyle.Soft,
+                color = if (isFocused) Color.White else LauncherStyle.TileTitleIdle,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis

@@ -2176,6 +2176,7 @@ private fun MetaDetailsContent(
     // copy of the backdrop; grey while it loads or when the picture has no real colour.
     var shadeColor by remember(backdropDataUrl) { mutableStateOf(backgroundColor) }
     LaunchedEffect(backdropDataUrl) {
+        if (!DetailsHeroShade) return@LaunchedEffect
         val u = backdropDataUrl ?: return@LaunchedEffect
         val result = runCatching {
             localContext.imageLoader.execute(
@@ -3225,7 +3226,7 @@ private fun BackdropLayer(
                 .fillMaxSize()
                 .drawWithCache {
                     onDrawBehind {
-                        if (gradientAlphaState.value > 0f) {
+                        if (DetailsHeroShade && gradientAlphaState.value > 0f) {
                             drawImage(
                                 leftGradient,
                                 dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
@@ -3333,6 +3334,12 @@ private fun LibraryListPickerDialog(
         }
     }
 }
+
+/**
+ * Nuvio Launcher: the shade over the title's picture (left and bottom) is switched off at the owner's request:
+ * the picture is shown uncovered. Set true to bring it back (tinted with the title's colour, as before).
+ */
+private const val DetailsHeroShade = false
 
 /** Nuvio Launcher: the left shade is 30% see-through (its strongest point 70% opaque instead of 100%). */
 private const val LeftShadeOpacity = 0.7f

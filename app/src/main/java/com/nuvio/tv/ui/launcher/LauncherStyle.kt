@@ -44,6 +44,9 @@ import kotlinx.coroutines.launch
 object LauncherStyle {
     val Soft = Color(0xB8FFFFFF)            // the carousel synopsis's soft white (72%)
     val Dim = Color(0x8CFFFFFF)             // secondary lines (55%)
+    // Tile titles, as on Apple TV: grey when the tile is not focused, white when it is. (Soft, white at 72%,
+    // read as almost white on the dark background, so the change on focus didn't show.)
+    val TileTitleIdle = Color(0xFF8E8E93)
     val GreyTop = Color(0xFF2A2B30)
     val GreyBottom = Color(0xFF1E1F23)
     val FocusWhite = Color(0xF2F2F4F8)      // focused pill / card

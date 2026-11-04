@@ -83,6 +83,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
@@ -635,6 +637,9 @@ fun SearchScreen(
         val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
         val density = LocalDensity.current
         val rowGapPx = with(density) { NuvioTheme.spacing.lg.toPx() }
+        // true after Left/Right, false after Up/Down: a sideways press never scrolls the page vertically
+        // (on the TV it made every row shoot up and back down on each Left/Right in the results).
+        val sidewaysPress = remember { booleanArrayOf(false) }
         val resultsBringIntoViewSpec = remember(defaultBringIntoViewSpec, listState, rowGapPx) {
             @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             object : BringIntoViewSpec {
@@ -643,6 +648,7 @@ fun SearchScreen(
                     if (!resultRowsMode) {
                         return defaultBringIntoViewSpec.calculateScrollDistance(offset, size, containerSize)
                     }
+                    if (sidewaysPress[0]) return 0f
                     val centre = (offset + size / 2f) - containerSize / 2f
                     // The first results row (item 1, right after the field): scroll at least until the field's
                     // bottom, one row gap above it, is at the top edge.
@@ -672,6 +678,18 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .recompositionHighlighter()
+                .onPreviewKeyEvent { e ->
+                    if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
+                        when (e.key) {
+                            androidx.compose.ui.input.key.Key.DirectionLeft,
+                            androidx.compose.ui.input.key.Key.DirectionRight -> sidewaysPress[0] = true
+                            androidx.compose.ui.input.key.Key.DirectionUp,
+                            androidx.compose.ui.input.key.Key.DirectionDown -> sidewaysPress[0] = false
+                            else -> Unit
+                        }
+                    }
+                    false
+                }
                 .dpadRepeatThrottle(),
             state = listState,
             contentPadding = PaddingValues(
@@ -1079,7 +1097,7 @@ private fun RecentSearchesSection(
                     },
                 colors = ButtonDefaults.colors(
                     containerColor = LauncherStyle.PillIdle,
-                    contentColor = LauncherStyle.Soft,
+                    contentColor = LauncherStyle.TileTitleIdle,
                     focusedContainerColor = LauncherStyle.FocusWhite,
                     focusedContentColor = LauncherStyle.FocusText
                 ),
@@ -1139,7 +1157,7 @@ private fun RecentSearchesSection(
                             },
                         colors = ButtonDefaults.colors(
                             containerColor = LauncherStyle.PillIdle,
-                            contentColor = LauncherStyle.Soft,
+                            contentColor = LauncherStyle.TileTitleIdle,
                             focusedContainerColor = LauncherStyle.FocusWhite,
                             focusedContentColor = LauncherStyle.FocusText
                         ),

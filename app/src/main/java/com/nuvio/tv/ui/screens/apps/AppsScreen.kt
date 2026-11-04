@@ -236,7 +236,7 @@ fun AppsScreen() {
                             Column(Modifier.onFocusChanged { rowFocused = it.hasFocus }) {
                                 Text(
                                     text = title,
-                                    color = if (rowFocused) Color.White else LauncherStyle.Soft,
+                                    color = LauncherStyle.TileTitleIdle,   // grey always
                                     fontSize = 16.sp,
                                     lineHeight = 20.sp,
                                     fontWeight = FontWeight.Bold,
@@ -327,7 +327,7 @@ private fun AppTile(
         // (the layout stays the same, so the page never jumps), soft white otherwise.
         Text(
             text = app.label,
-            color = if (focused) Color.White else LauncherStyle.Soft,
+            color = if (focused) Color.White else LauncherStyle.TileTitleIdle,
             fontSize = 12.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.SemiBold,

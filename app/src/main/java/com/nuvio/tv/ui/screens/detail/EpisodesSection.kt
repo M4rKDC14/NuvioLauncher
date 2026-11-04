@@ -1187,7 +1187,7 @@ private fun EpisodeCard(
         text = episode.title.localizeEpisodeTitle(context),
         focused = isFocused && !suppressMarquee,
         style = typography.labelLarge.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
-        color = if (isFocused) Color.White else LauncherStyle.Soft,
+        color = if (isFocused) Color.White else LauncherStyle.TileTitleIdle,
         modifier = Modifier
             .padding(top = 8.dp)
             .graphicsLayer { translationY = if (isFocused) 10.dp.toPx() else 0f }

@@ -176,7 +176,7 @@ internal fun LibraryLauncherTile(
         }
         Text(
             item.name,
-            color = if (focused) Color.White else LauncherStyle.Soft,
+            color = if (focused) Color.White else LauncherStyle.TileTitleIdle,
             fontSize = 12.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.SemiBold,
@@ -213,7 +213,7 @@ internal fun LibraryPill(
     val textColor = when {
         focused -> LauncherStyle.FocusText
         selected -> Color.White
-        else -> LauncherStyle.Soft
+        else -> LauncherStyle.TileTitleIdle
     }
     Surface(
         onClick = onClick,

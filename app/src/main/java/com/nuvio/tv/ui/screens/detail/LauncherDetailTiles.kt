@@ -258,7 +258,7 @@ internal fun LauncherTileCaption(title: String, subtitle: String?, focused: Bool
         if (title.isNotBlank()) {
             Text(
                 text = title,
-                color = if (focused) Color.White else LauncherStyle.Soft,
+                color = if (focused) Color.White else LauncherStyle.TileTitleIdle,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,

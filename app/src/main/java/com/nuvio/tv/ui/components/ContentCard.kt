@@ -698,7 +698,7 @@ fun ContentCard(
             )
             Text(
                 text = item.name,
-                color = if (isFocused) Color.White else LauncherStyle.Soft,
+                color = if (isFocused) Color.White else LauncherStyle.TileTitleIdle,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
