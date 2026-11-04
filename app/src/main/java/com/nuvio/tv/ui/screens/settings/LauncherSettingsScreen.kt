@@ -615,7 +615,8 @@ private fun CarouselCatalogsPage(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            title = "Home catalogs · ${selectedKeys.size} ticked",
+            // Counted against the catalogs that exist: saved keys of catalogs no longer installed are not counted.
+            title = "Home catalogs · ${catalogs.count { it.key in selectedKeys }} ticked",
             subtitle = "OK ticks or unticks a catalog. None ticked: the carousel uses the first Home row."
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
