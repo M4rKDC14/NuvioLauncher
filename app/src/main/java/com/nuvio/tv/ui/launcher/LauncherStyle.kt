@@ -17,11 +17,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.graphics.drawOutline
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -131,7 +126,7 @@ fun LauncherGlass(
 ) {
     Box(
         modifier
-            .launcherShadow(18.dp, shape)   // painted, not live (1.4.3 performance)
+            .shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)   // soft two-layer look of the mockup
             .clip(shape)
             // 1.4.2 performance: no live blur (it was redrawn on every frame and made scrolling stutter on
             // the TV's chip). A see-through dark tint over what is behind, which is already a blurred picture.
@@ -140,34 +135,4 @@ fun LauncherGlass(
             .border(1.dp, LauncherStyle.Edge, shape),
         content = content
     )
-}
-
-/**
- * 1.4.3 performance: a painted soft shadow instead of a live elevation shadow. A few stacked, slightly larger,
- * translucent copies of the tile's shape under it, offset downwards. No blur, so it costs almost nothing per
- * frame on the TV's chip, and it scales with the tile's zoom because it's drawn inside the same layer.
- * Same parameters as Modifier.shadow so call sites read the same.
- */
-fun Modifier.launcherShadow(
-    elevation: androidx.compose.ui.unit.Dp,
-    shape: Shape,
-    @Suppress("UNUSED_PARAMETER") ambientColor: Color = Color.Black,
-    @Suppress("UNUSED_PARAMETER") spotColor: Color = Color.Black
-): Modifier = this.drawBehind {
-    val e = elevation.toPx()
-    if (e <= 0f || size.width <= 0f || size.height <= 0f) return@drawBehind
-    val outline = shape.createOutline(size, layoutDirection, this)
-    val layers = 5
-    val strength = (0.10f + elevation.value / 17f * 0.06f).coerceAtMost(0.16f)   // deeper for the focused tile
-    for (i in layers downTo 1) {
-        val spread = e * 0.55f * i / layers
-        val sx = 1f + 2f * spread / size.width
-        val sy = 1f + 2f * spread / size.height
-        withTransform({
-            translate(top = e * 0.45f)
-            scale(sx, sy, pivot = center)
-        }) {
-            drawOutline(outline, Color.Black.copy(alpha = strength * (1f - (i - 1f) / layers) * 0.6f))
-        }
-    }
 }

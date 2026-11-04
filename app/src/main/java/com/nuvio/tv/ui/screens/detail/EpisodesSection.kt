@@ -1,7 +1,5 @@
 package com.nuvio.tv.ui.screens.detail
 
-import com.nuvio.tv.ui.launcher.launcherShadow
-
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
@@ -883,7 +881,7 @@ private fun EpisodeCard(
                 scaleX = launcherScale
                 scaleY = launcherScale
             }
-            .launcherShadow(
+            .shadow(
                 elevation = if (isFocused) 17.dp else 7.dp,
                 shape = shape,
                 ambientColor = Color.Black,

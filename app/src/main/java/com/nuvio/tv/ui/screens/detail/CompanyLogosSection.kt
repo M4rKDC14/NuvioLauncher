@@ -5,8 +5,6 @@
 
 package com.nuvio.tv.ui.screens.detail
 
-import com.nuvio.tv.ui.launcher.launcherShadow
-
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.core.tween
@@ -280,7 +278,7 @@ private fun CompanyLogoCard(
                 scaleX = launcherScale
                 scaleY = launcherScale
             }
-            .launcherShadow(
+            .shadow(
                 elevation = if (isFocused) 17.dp else 7.dp,
                 shape = LauncherStyle.Corner,
                 ambientColor = Color.Black,

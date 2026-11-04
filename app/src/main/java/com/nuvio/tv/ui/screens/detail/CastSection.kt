@@ -1,7 +1,5 @@
 package com.nuvio.tv.ui.screens.detail
 
-import com.nuvio.tv.ui.launcher.launcherShadow
-
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.ui.components.LocalCardDepthStyle
@@ -502,7 +500,7 @@ private fun CastMemberItem(
                     scaleX = launcherScale
                     scaleY = launcherScale
                 }
-                .launcherShadow(
+                .shadow(
                     elevation = if (isFocused) 17.dp else 7.dp,
                     shape = CircleShape,
                     ambientColor = Color.Black,
