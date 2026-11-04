@@ -218,7 +218,7 @@ private val LauncherText = Color(0xEBFFFFFF)
 
 /** The Apple TV-style glass used by the sidebar and the time pill (blur 11, sheen top-left, faint dark edge). */
 internal val LauncherGlassBlur = 11.dp
-internal val LauncherGlassEdge = Color(0x470A0C10)
+internal val LauncherGlassEdge = Color(0x2B0A0C10)   // 40% lighter edge (was 0x47)
 internal fun launcherGlassBrush(): Brush = Brush.linearGradient(
     0f to Color(0x24FFFFFF),
     0.45f to Color(0x08FFFFFF),

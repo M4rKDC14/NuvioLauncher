@@ -176,6 +176,8 @@ internal fun LauncherHomeContent(
     }
 
     val current = hero.getOrNull(heroIndex.coerceAtMost((hero.size - 1).coerceAtLeast(0)))
+    // the carousel title on screen is the "last focused picture" while the carousel has focus
+    LaunchedEffect(current?.id, heroFocused) { if (heroFocused) (current?.background ?: current?.poster)?.let { com.nuvio.tv.LauncherChrome.lastBackdrop.value = it } }
     // As the carousel scrolls up, its picture fades out to the launcher's grey, as in the old launcher.
     val density = androidx.compose.ui.platform.LocalDensity.current
     val heroFadePx = with(density) { 300.dp.toPx() }   // about 55% of the screen height
@@ -243,7 +245,7 @@ internal fun LauncherHomeContent(
                             focused = focusedRow == ri,
                             first = ri == 0,
                             tiles = tiles,
-                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) rowBackdrop.value = b },
+                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
                             onVertical = { fromRow, x, down ->
                                 val target = if (down) fromRow + 1 else fromRow - 1
                                 if (target < 0) { runCatching { playFocus.requestFocus() }; true }

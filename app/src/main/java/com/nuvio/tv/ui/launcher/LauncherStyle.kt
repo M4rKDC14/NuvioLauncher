@@ -48,7 +48,7 @@ object LauncherStyle {
     val PillIdle = Color(0x1FFFFFFF)
     val PillSelected = Color(0x4DFFFFFF)
     val CardIdle = Color(0x14FFFFFF)
-    val Edge = Color(0x470A0C10)
+    val Edge = Color(0x2B0A0C10)   // thin outer edge of every glass panel (17%)
     val Corner = RoundedCornerShape(7.dp)
     val Gap = 29.dp
     val Start = 56.dp
@@ -123,10 +123,12 @@ fun LauncherGlass(
 ) {
     Box(
         modifier
-            .shadow(14.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
+            .shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)   // soft two-layer look of the mockup
             .clip(shape)
             .then(if (hazeState != null) Modifier.hazeEffect(state = hazeState) { blurRadius = 11.dp; noiseFactor = 0f } else Modifier)
-            .background(Color(if (hazeState != null) 0x33000000 else 0xD91C1D21), shape)
+            // 1.4: one darkness for every launcher panel (sources, settings, review popup), matched by eye
+            // to the review popup over the blurred page. Without blur (below Android 12) a near-solid frame.
+            .background(Color(if (hazeState != null) 0x8F121316 else 0xE61C1D21), shape)
             .background(LauncherStyle.glassBrush(), shape)
             .border(1.dp, LauncherStyle.Edge, shape),
         content = content

@@ -191,6 +191,7 @@ internal fun LauncherFolderContent(
                                 focusedItemIndex = i
                                 focusedItem.value = item
                                 backdrop.value = item.background ?: tileImage(item)
+                                com.nuvio.tv.LauncherChrome.lastBackdrop.value = backdrop.value
                                 onItemFocus(item)
                                 val cr = row.tab.catalogRow
                                 if (cr != null && cr.hasMore && !cr.isLoading && i >= cr.items.size - LoadMoreAhead) {

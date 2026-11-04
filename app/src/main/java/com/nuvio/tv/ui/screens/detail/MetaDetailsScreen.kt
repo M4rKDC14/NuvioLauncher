@@ -2323,6 +2323,7 @@ private fun MetaDetailsContent(
                 .fillMaxSize()
                 .graphicsLayer { alpha = blurredBackdropAlpha }
         ) {
+            LaunchedEffect(backdropDataUrl) { if (backdropDataUrl != null) com.nuvio.tv.LauncherChrome.lastBackdrop.value = backdropDataUrl }
             LauncherBlurredBackdrop(url = backdropDataUrl)
         }
         // Sticky background — backdrop or trailer

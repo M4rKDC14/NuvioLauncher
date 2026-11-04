@@ -282,7 +282,7 @@ private fun CastDetailContent(
                         FilmographyRow(
                             credits = allCredits,
                             modifier = Modifier.onFocusChanged { filmographyHasFocus = it.hasFocus },
-                            onItemFocused = { focusedCredit.value = it },
+                            onItemFocused = { focusedCredit.value = it; com.nuvio.tv.LauncherChrome.lastBackdrop.value = it.background ?: it.poster },
                             landscape = globalLandscape,
                             posterCardStyle = filmographyPosterStyle,
                             firstItemFocusRequester = firstPosterFocusRequester,
