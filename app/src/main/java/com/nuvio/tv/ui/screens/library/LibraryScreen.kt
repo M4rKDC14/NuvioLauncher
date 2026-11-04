@@ -30,6 +30,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -306,10 +308,17 @@ fun LibraryScreen(
 
     val globalLandscape = com.nuvio.tv.ui.components.LocalLandscapePosterMode.current
 
+    // Nuvio Launcher: the Home tiles' size, spacing and zoom (Settings → Launcher → catalog tiles).
+    val launcherSettings by com.nuvio.tv.data.local.LauncherSettingsHolder.settings.collectAsState()
+    val tileScale = launcherSettings.catalogScale
+    val tileZoom = launcherSettings.catalogZoom
+    val tileWidth = libraryTileWidth(globalLandscape, tileScale)
+    val tileGap = com.nuvio.tv.ui.launcher.zoomSafeGap(launcherSettings.catalogTileSpacingDp.dp, tileWidth, tileZoom)
+    val savedGrid = viewMode == LibraryViewMode.Saved
+
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(
-            minSize = if (globalLandscape) posterCardStyle.height else posterCardStyle.width
-        ),
+        // Saved: fixed-width launcher tiles from the left edge; Cloud and Servers: full-width rows.
+        columns = if (savedGrid) GridCells.FixedSize(tileWidth) else GridCells.Fixed(1),
         state = gridState,
         modifier = Modifier
             .fillMaxSize()
@@ -332,138 +341,139 @@ fun LibraryScreen(
                 }
                 false
             },
-        contentPadding = PaddingValues(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.xl, bottom = NuvioTheme.spacing.xxl),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
+        // Title at ~64, pills at ~108, first tiles at ~160 (mockup). The end padding is smaller so six
+        // posters fit across at the default size, as on Home.
+        contentPadding = PaddingValues(
+            start = LauncherStyle.Start,
+            end = if (savedGrid) 24.dp else LauncherStyle.Start,
+            top = 60.dp,
+            bottom = 48.dp
+        ),
+        horizontalArrangement = Arrangement.spacedBy(if (savedGrid) tileGap else 0.dp),
+        verticalArrangement = Arrangement.spacedBy(26.dp)
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
+        item(key = "library_header", span = { GridItemSpan(maxLineSpan) }) {
+            Column {
                 Text(
                     text = stringResource(R.string.library_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = if (showBuiltInHeader) NuvioTheme.colors.TextPrimary else Color.Transparent,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.5.sp
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    lineHeight = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
-                Text(
-                    text = when {
-                        viewMode == LibraryViewMode.Cloud -> stringResource(R.string.library_source_cloud).uppercase()
-                        viewMode == LibraryViewMode.Servers -> stringResource(R.string.library_source_servers).uppercase()
-                        uiState.sourceMode == LibrarySourceMode.TRAKT -> "TRAKT"
-                        uiState.sourceMode == LibrarySourceMode.SIMKL -> "SIMKL"
-                        uiState.sourceMode == LibrarySourceMode.MDBLIST -> "MDBLIST"
-                        uiState.isNuvioAccount -> "NUVIO"
-                        else -> stringResource(R.string.library_source_local)
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (showBuiltInHeader) NuvioTheme.colors.TextTertiary else Color.Transparent,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 2.sp
-                )
-            }
-        }
-
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            LibraryViewModeRow(
-                modes = viewModes,
-                selectedMode = viewMode,
-                primaryFocusRequester = primaryFocusRequester,
-                onSelected = { mode ->
-                    selectedViewMode = mode
-                    expandedPicker = null
-                },
-                // Refresh belongs to the cloud view only, pinned right in line with the tabs.
-                trailing = if (viewMode == LibraryViewMode.Cloud) {
-                    {
-                        Button(
-                            onClick = viewModel::refreshCloudLibrary,
-                            enabled = !uiState.cloudLibrary.isRefreshing,
-                            colors = ButtonDefaults.colors(
-                                containerColor = LauncherStyle.PillIdle,
-                                contentColor = LauncherStyle.Soft,
-                                focusedContainerColor = LauncherStyle.FocusWhite,
-                                focusedContentColor = LauncherStyle.FocusText
+                Spacer(modifier = Modifier.height(16.dp))
+                // One compact row: source tabs, then the filters of the current source.
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    LibraryViewModePills(
+                        modes = viewModes,
+                        selectedMode = viewMode,
+                        primaryFocusRequester = primaryFocusRequester,
+                        onSelected = { mode ->
+                            selectedViewMode = mode
+                            expandedPicker = null
+                        }
+                    )
+                    if (viewMode != LibraryViewMode.Servers) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    when (viewMode) {
+                        LibraryViewMode.Saved -> {
+                            LibraryFilterPills(
+                                sourceMode = uiState.sourceMode,
+                                listTabs = uiState.listTabs,
+                                typeTabs = uiState.availableTypeTabs,
+                                sortOptions = uiState.availableSortOptions,
+                                genres = uiState.availableGenres,
+                                years = uiState.availableYears,
+                                selectedListKey = uiState.selectedListKey,
+                                selectedTypeTab = uiState.selectedTypeTab,
+                                selectedSortOption = uiState.selectedSortOption,
+                                selectedGenre = uiState.selectedGenre,
+                                selectedYear = uiState.selectedYear,
+                                selectedWatchedFilter = uiState.selectedWatchedFilter,
+                                primaryFocusRequester = selectorFocusRequester,
+                                expandedPicker = expandedPicker,
+                                onExpandedChange = { picker, shouldExpand ->
+                                    expandedPicker = if (shouldExpand) picker else null
+                                },
+                                onSelectList = { key ->
+                                    viewModel.onSelectListTab(key)
+                                    expandedPicker = null
+                                },
+                                onSelectType = { type ->
+                                    viewModel.onSelectTypeTab(type)
+                                    expandedPicker = null
+                                },
+                                onSelectSort = { sort ->
+                                    viewModel.onSelectSortOption(sort)
+                                    expandedPicker = null
+                                },
+                                onSelectGenre = { key ->
+                                    viewModel.onSelectGenre(key)
+                                    expandedPicker = null
+                                },
+                                onSelectYear = { key ->
+                                    viewModel.onSelectYear(key)
+                                    expandedPicker = null
+                                },
+                                onSelectWatchedFilter = { filter ->
+                                    viewModel.onSelectWatchedFilter(filter)
+                                    expandedPicker = null
+                                }
                             )
-                        ) {
-                            Text(
-                                if (uiState.cloudLibrary.isRefreshing) {
+                            if (uiState.listManagement != null && uiState.isTrackingAuthenticated) {
+                                LibraryActionPills(
+                                    pending = uiState.pendingOperation,
+                                    isSyncing = uiState.isSyncing,
+                                    showManageLists = uiState.listManagement != null,
+                                    onManageLists = viewModel::onOpenManageLists,
+                                    onRefresh = viewModel::onRefresh
+                                )
+                            }
+                        }
+                        LibraryViewMode.Cloud -> {
+                            CloudLibraryFilterPills(
+                                providerOptions = uiState.availableCloudProviders,
+                                typeOptions = uiState.availableCloudTypes,
+                                selectedProviderId = uiState.selectedCloudProviderId,
+                                selectedType = uiState.selectedCloudType,
+                                expandedPicker = expandedPicker,
+                                onExpandedChange = { picker, shouldExpand ->
+                                    expandedPicker = if (shouldExpand) picker else null
+                                },
+                                onSelectProvider = { providerId ->
+                                    viewModel.onSelectCloudProvider(providerId)
+                                    expandedPicker = null
+                                },
+                                onSelectType = { type ->
+                                    viewModel.onSelectCloudType(type)
+                                    expandedPicker = null
+                                }
+                            )
+                            // Refresh belongs to the cloud view only, in line with its filters.
+                            LibraryPill(
+                                text = if (uiState.cloudLibrary.isRefreshing) {
                                     stringResource(R.string.library_syncing_btn)
                                 } else {
                                     stringResource(R.string.cloud_library_refresh)
-                                }
+                                },
+                                selected = false,
+                                enabled = !uiState.cloudLibrary.isRefreshing,
+                                onClick = viewModel::refreshCloudLibrary
                             )
                         }
+                        LibraryViewMode.Servers -> Unit
                     }
-                } else {
-                    null
                 }
-            )
+            }
         }
 
         if (viewMode == LibraryViewMode.Saved) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                LibrarySelectorsRow(
-                    sourceMode = uiState.sourceMode,
-                    listTabs = uiState.listTabs,
-                    typeTabs = uiState.availableTypeTabs,
-                    sortOptions = uiState.availableSortOptions,
-                    genres = uiState.availableGenres,
-                    years = uiState.availableYears,
-                    selectedListKey = uiState.selectedListKey,
-                    selectedTypeTab = uiState.selectedTypeTab,
-                    selectedSortOption = uiState.selectedSortOption,
-                    selectedGenre = uiState.selectedGenre,
-                    selectedYear = uiState.selectedYear,
-                    selectedWatchedFilter = uiState.selectedWatchedFilter,
-                    primaryFocusRequester = selectorFocusRequester,
-                    upFocusRequester = primaryFocusRequester,
-                    expandedPicker = expandedPicker,
-                    onExpandedChange = { picker, shouldExpand ->
-                        expandedPicker = if (shouldExpand) picker else null
-                    },
-                    onSelectList = { key ->
-                        viewModel.onSelectListTab(key)
-                        expandedPicker = null
-                    },
-                    onSelectType = { type ->
-                        viewModel.onSelectTypeTab(type)
-                        expandedPicker = null
-                    },
-                    onSelectSort = { sort ->
-                        viewModel.onSelectSortOption(sort)
-                        expandedPicker = null
-                    },
-                    onSelectGenre = { key ->
-                        viewModel.onSelectGenre(key)
-                        expandedPicker = null
-                    },
-                    onSelectYear = { key ->
-                        viewModel.onSelectYear(key)
-                        expandedPicker = null
-                    },
-                    onSelectWatchedFilter = { filter ->
-                        viewModel.onSelectWatchedFilter(filter)
-                        expandedPicker = null
-                    }
-                )
-            }
-
-            if (uiState.listManagement != null && uiState.isTrackingAuthenticated) {
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryActionsRow(
-                        pending = uiState.pendingOperation,
-                        isSyncing = uiState.isSyncing,
-                        showManageLists = uiState.listManagement != null,
-                        onManageLists = viewModel::onOpenManageLists,
-                        onRefresh = viewModel::onRefresh
-                    )
-                }
-            }
-
             if (uiState.visibleItems.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     val selectedTypeLabel = uiState.selectedTypeTab?.let { localizedTypeLabel(it.key) }?.lowercase() ?: stringResource(R.string.library_type_items)
@@ -495,12 +505,13 @@ fun LibraryScreen(
                 val previewForLongPress = remember(item) {
                     item.toMetaPreview().copy(posterShape = PosterShape.POSTER)
                 }
-                GridContentCard(
+                LibraryLauncherTile(
                     item = previewForLongPress,
-                    posterCardStyle = posterCardStyle,
+                    landscape = globalLandscape,
+                    scale = tileScale,
+                    zoom = tileZoom,
                     isWatched = if (isSeries) item.id in watchedSeriesIds else item.id in watchedMovieIds,
                     focusRequester = posterFocusRequesters[focusKey],
-                    showLabel = true,
                     onFocused = {
                         lastFocusedPosterKey = focusKey
                         viewModel.prefetchMetaOnFocus(item.id, item.type)
@@ -521,7 +532,7 @@ fun LibraryScreen(
             libraryServerContent(
                 shelves = serverShelves,
                 posterCardStyle = posterCardStyle,
-                rowInset = NuvioTheme.spacing.xxxl,
+                rowInset = LauncherStyle.Start,
                 focusTarget = serverFocusTarget,
                 focusedIndexes = serversViewModel.focusedIndexes,
                 onItemFocused = { shelfKey, index ->
@@ -540,28 +551,6 @@ fun LibraryScreen(
                 onItemLongPress = { item, addonBaseUrl -> viewModel.posterOptions.show(item, addonBaseUrl) }
             )
         } else {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                CloudLibrarySelectorsRow(
-                    providerOptions = uiState.availableCloudProviders,
-                    typeOptions = uiState.availableCloudTypes,
-                    selectedProviderId = uiState.selectedCloudProviderId,
-                    selectedType = uiState.selectedCloudType,
-                    upFocusRequester = primaryFocusRequester,
-                    expandedPicker = expandedPicker,
-                    onExpandedChange = { picker, shouldExpand ->
-                        expandedPicker = if (shouldExpand) picker else null
-                    },
-                    onSelectProvider = { providerId ->
-                        viewModel.onSelectCloudProvider(providerId)
-                        expandedPicker = null
-                    },
-                    onSelectType = { type ->
-                        viewModel.onSelectCloudType(type)
-                        expandedPicker = null
-                    }
-                )
-            }
-
             item(span = { GridItemSpan(maxLineSpan) }) {
                 CloudLibrarySearchRow(
                     query = uiState.cloudSearchQuery,
@@ -732,64 +721,40 @@ fun LibraryScreen(
     )
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+/** The source tabs (Saved / Cloud / Servers, only those that exist) as compact launcher pills. */
 @Composable
-private fun LibraryViewModeRow(
+private fun LibraryViewModePills(
     modes: List<LibraryViewMode>,
     selectedMode: LibraryViewMode,
     primaryFocusRequester: FocusRequester,
-    onSelected: (LibraryViewMode) -> Unit,
-    /** Optional action pinned to the right of the tabs (used for the cloud refresh button). */
-    trailing: (@Composable () -> Unit)? = null
+    onSelected: (LibraryViewMode) -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)) {
-            modes.forEach { mode ->
-                val selected = mode == selectedMode
-                Button(
-                    onClick = { onSelected(mode) },
-                    modifier = Modifier
-                        .then(if (selected) Modifier.focusRequester(primaryFocusRequester) else Modifier)
-                        .semantics {
-                            role = Role.Tab
-                            this.selected = selected
-                        },
-                    // Launcher look: sidebar-style pills.
-                    colors = ButtonDefaults.colors(
-                        containerColor = if (selected) LauncherStyle.PillSelected else LauncherStyle.PillIdle,
-                        contentColor = if (selected) Color.White else LauncherStyle.Soft,
-                        focusedContainerColor = LauncherStyle.FocusWhite,
-                        focusedContentColor = LauncherStyle.FocusText
-                    ),
-                    shape = ButtonDefaults.shape(RoundedCornerShape(14.dp)),
-                    scale = ButtonDefaults.scale(focusedScale = 1f)
-                ) {
-                    Text(
-                        text = when (mode) {
-                            LibraryViewMode.Saved -> stringResource(R.string.library_source_saved)
-                            LibraryViewMode.Cloud -> stringResource(R.string.library_source_cloud)
-                            LibraryViewMode.Servers -> stringResource(R.string.library_source_servers)
-                        }
-                    )
+    modes.forEach { mode ->
+        val selected = mode == selectedMode
+        LibraryPill(
+            text = when (mode) {
+                LibraryViewMode.Saved -> stringResource(R.string.library_source_saved)
+                LibraryViewMode.Cloud -> stringResource(R.string.library_source_cloud)
+                LibraryViewMode.Servers -> stringResource(R.string.library_source_servers)
+            },
+            selected = selected,
+            onClick = { onSelected(mode) },
+            modifier = Modifier
+                .then(if (selected) Modifier.focusRequester(primaryFocusRequester) else Modifier)
+                .semantics {
+                    role = Role.Tab
+                    this.selected = selected
                 }
-            }
-        }
-        trailing?.invoke()
+        )
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun CloudLibrarySelectorsRow(
+private fun CloudLibraryFilterPills(
     providerOptions: List<FilterOption>,
     typeOptions: List<FilterOption>,
     selectedProviderId: String?,
     selectedType: CloudLibraryItemType?,
-    upFocusRequester: FocusRequester,
     expandedPicker: String?,
     onExpandedChange: (String, Boolean) -> Unit,
     onSelectProvider: (String?) -> Unit,
@@ -800,42 +765,35 @@ private fun CloudLibrarySelectorsRow(
     val selectedProviderLabel = providerOptions.firstOrNull { it.key == selectedProviderId }?.label ?: allLabel
     val selectedTypeLabel = selectedType?.localizedLabel() ?: typeAllLabel
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-    ) {
-        LibraryDropdownPicker(
-            modifier = Modifier.weight(1f),
-            upFocusRequester = upFocusRequester,
-            title = stringResource(R.string.cloud_library_select_provider),
-            value = selectedProviderLabel,
-            selectedValue = selectedProviderId ?: "__all__",
-            expanded = expandedPicker == "cloud_provider",
-            options = listOf(LibraryOption(allLabel, "__all__")) + providerOptions.map {
-                LibraryOption("${it.label} (${it.count})", it.key)
-            },
-            onExpandedChange = { onExpandedChange("cloud_provider", it) },
-            onSelect = { option ->
-                onSelectProvider(if (option.value == "__all__") null else option.value)
-            }
-        )
+    LibraryDropdownPicker(
+        title = "Provider",
+        value = selectedProviderLabel,
+        selectedValue = selectedProviderId ?: "__all__",
+        active = selectedProviderId != null,
+        expanded = expandedPicker == "cloud_provider",
+        options = listOf(LibraryOption(allLabel, "__all__")) + providerOptions.map {
+            LibraryOption("${it.label} (${it.count})", it.key)
+        },
+        onExpandedChange = { onExpandedChange("cloud_provider", it) },
+        onSelect = { option ->
+            onSelectProvider(if (option.value == "__all__") null else option.value)
+        }
+    )
 
-        LibraryDropdownPicker(
-            modifier = Modifier.weight(1f),
-            upFocusRequester = upFocusRequester,
-            title = stringResource(R.string.cloud_library_select_type),
-            value = selectedTypeLabel,
-            selectedValue = selectedType?.name ?: "__all__",
-            expanded = expandedPicker == "cloud_type",
-            options = listOf(LibraryOption(typeAllLabel, "__all__")) + typeOptions.map {
-                LibraryOption("${it.label} (${it.count})", it.key)
-            },
-            onExpandedChange = { onExpandedChange("cloud_type", it) },
-            onSelect = { option ->
-                onSelectType(CloudLibraryItemType.entries.firstOrNull { it.name == option.value })
-            }
-        )
-    }
+    LibraryDropdownPicker(
+        title = stringResource(R.string.library_filter_type),
+        value = selectedTypeLabel,
+        selectedValue = selectedType?.name ?: "__all__",
+        active = selectedType != null,
+        expanded = expandedPicker == "cloud_type",
+        options = listOf(LibraryOption(typeAllLabel, "__all__")) + typeOptions.map {
+            LibraryOption("${it.label} (${it.count})", it.key)
+        },
+        onExpandedChange = { onExpandedChange("cloud_type", it) },
+        onSelect = { option ->
+            onSelectType(CloudLibraryItemType.entries.firstOrNull { it.name == option.value })
+        }
+    )
 }
 
 @Composable
@@ -1162,9 +1120,9 @@ private fun CloudFilePickerDialog(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+/** The type pills plus the list, sort, genre, year and watched filters as compact dropdown pills. */
 @Composable
-private fun LibrarySelectorsRow(
+private fun LibraryFilterPills(
     sourceMode: LibrarySourceMode,
     listTabs: List<LibraryListTab>,
     typeTabs: List<LibraryTypeTab>,
@@ -1178,7 +1136,6 @@ private fun LibrarySelectorsRow(
     selectedYear: String?,
     selectedWatchedFilter: LibraryWatchedFilter,
     primaryFocusRequester: FocusRequester,
-    upFocusRequester: FocusRequester,
     expandedPicker: String?,
     onExpandedChange: (String, Boolean) -> Unit,
     onSelectList: (String) -> Unit,
@@ -1190,156 +1147,139 @@ private fun LibrarySelectorsRow(
 ) {
     val selectedListLabel = listTabs.firstOrNull { it.key == selectedListKey }?.localizedTitle()
         ?: stringResource(R.string.action_select)
-    val selectedTypeLabel = selectedTypeTab?.let {
-        if (it.key == LibraryTypeTab.ALL_KEY) stringResource(R.string.library_type_all) else localizedTypeLabel(it.key)
-    } ?: stringResource(R.string.library_type_all)
     val selectedSortLabel = stringResource(selectedSortOption.labelResId)
     val allLabel = stringResource(R.string.library_type_all)
     val selectedGenreLabel = selectedGenre?.let { localizedGenreLabel(it) } ?: allLabel
     val selectedYearLabel = selectedYear ?: allLabel
+    val selectedTypeKey = selectedTypeTab?.key ?: LibraryTypeTab.ALL_KEY
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-        ) {
-            if (sourceMode != LibrarySourceMode.LOCAL) {
-                LibraryDropdownPicker(
-                    modifier = Modifier
-                        .weight(1f)
-                        .focusRequester(primaryFocusRequester),
-                    upFocusRequester = upFocusRequester,
-                    title = stringResource(R.string.library_filter_list),
-                    value = selectedListLabel,
-                    selectedValue = selectedListKey,
-                    expanded = expandedPicker == "list",
-                    options = listTabs.map { LibraryOption(it.localizedTitle(), it.key) },
-                    onExpandedChange = { onExpandedChange("list", it) },
-                    onSelect = { onSelectList(it.value) }
-                )
-            }
-
-            LibraryDropdownPicker(
-                modifier = if (sourceMode != LibrarySourceMode.LOCAL) {
-                    Modifier.weight(1f)
-                } else {
-                    Modifier
-                        .weight(1f)
-                        .focusRequester(primaryFocusRequester)
-                },
-                upFocusRequester = upFocusRequester,
-                title = stringResource(R.string.library_filter_type),
-                value = selectedTypeLabel,
-                selectedValue = selectedTypeTab?.key,
-                expanded = expandedPicker == "type",
-                options = typeTabs.map {
-                    val label = if (it.key == LibraryTypeTab.ALL_KEY) it.label else {
-                        val countPart = it.label.substringAfterLast("(", "").removeSuffix(")")
-                        val localizedName = localizedTypeLabel(it.key)
-                        if (countPart.isNotBlank()) "$localizedName ($countPart)" else localizedName
-                    }
-                    LibraryOption(label, it.key)
-                },
-                onExpandedChange = { onExpandedChange("type", it) },
-                onSelect = { option ->
-                    typeTabs.firstOrNull { it.key == option.value }?.let(onSelectType)
-                }
-            )
-
-            if (sortOptions.isNotEmpty()) {
-                LibraryDropdownPicker(
-                    modifier = Modifier.weight(1f),
-                    upFocusRequester = upFocusRequester,
-                    title = stringResource(R.string.library_filter_sort),
-                    value = selectedSortLabel,
-                    selectedValue = selectedSortOption.key,
-                    expanded = expandedPicker == "sort",
-                    options = sortOptions.map { LibraryOption(stringResource(it.labelResId), it.key) },
-                    onExpandedChange = { onExpandedChange("sort", it) },
-                    onSelect = { option ->
-                        sortOptions.firstOrNull { it.key == option.value }?.let(onSelectSort)
-                    }
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-        ) {
-            if (genres.isNotEmpty()) {
-                val genreAllOption = LibraryOption(allLabel, "__all__")
-                LibraryDropdownPicker(
-                    modifier = Modifier.weight(1f),
-                    title = stringResource(R.string.library_filter_genre),
-                    value = selectedGenreLabel,
-                    selectedValue = selectedGenre ?: "__all__",
-                    expanded = expandedPicker == "genre",
-                    options = listOf(genreAllOption) + genres.map {
-                        LibraryOption("${localizedGenreLabel(it.label)} (${it.count})", it.key)
-                    },
-                    onExpandedChange = { onExpandedChange("genre", it) },
-                    onSelect = { option ->
-                        onSelectGenre(if (option.value == "__all__") null else option.value)
-                    }
-                )
-            }
-
-            if (years.isNotEmpty()) {
-                val yearAllOption = LibraryOption(allLabel, "__all__")
-                LibraryDropdownPicker(
-                    modifier = Modifier.weight(1f),
-                    title = stringResource(R.string.library_filter_year),
-                    value = selectedYearLabel,
-                    selectedValue = selectedYear ?: "__all__",
-                    expanded = expandedPicker == "year",
-                    options = listOf(yearAllOption) + years.map {
-                        LibraryOption("${it.label} (${it.count})", it.key)
-                    },
-                    onExpandedChange = { onExpandedChange("year", it) },
-                    onSelect = { option ->
-                        onSelectYear(if (option.value == "__all__") null else option.value)
-                    }
-                )
-            }
-
-            val watchedFilterLabel = stringResource(selectedWatchedFilter.labelResId)
-            LibraryDropdownPicker(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.library_filter_watched),
-                value = watchedFilterLabel,
-                selectedValue = selectedWatchedFilter.key,
-                expanded = expandedPicker == "watched",
-                options = LibraryWatchedFilter.entries.map {
-                    LibraryOption(stringResource(it.labelResId), it.key)
-                },
-                onExpandedChange = { onExpandedChange("watched", it) },
-                onSelect = { option ->
-                    LibraryWatchedFilter.entries.firstOrNull { it.key == option.value }
-                        ?.let(onSelectWatchedFilter)
-                }
-            )
-        }
+    if (sourceMode != LibrarySourceMode.LOCAL) {
+        LibraryDropdownPicker(
+            modifier = Modifier.focusRequester(primaryFocusRequester),
+            title = stringResource(R.string.library_filter_list),
+            value = selectedListLabel,
+            selectedValue = selectedListKey,
+            expanded = expandedPicker == "list",
+            options = listTabs.map { LibraryOption(it.localizedTitle(), it.key) },
+            onExpandedChange = { onExpandedChange("list", it) },
+            onSelect = { onSelectList(it.value) }
+        )
     }
+
+    // Type: one pill per type (All / Movies / Shows / ...), the selected one highlighted.
+    val types = typeTabs.ifEmpty { listOf(LibraryTypeTab.All) }
+    types.forEachIndexed { index, tab ->
+        val selected = tab.key == selectedTypeKey
+        LibraryPill(
+            text = libraryTypePillLabel(tab.key),
+            selected = selected,
+            onClick = { onSelectType(tab) },
+            modifier = Modifier
+                .then(
+                    if (index == 0 && sourceMode == LibrarySourceMode.LOCAL) Modifier.focusRequester(primaryFocusRequester)
+                    else Modifier
+                )
+                .semantics {
+                    role = Role.Tab
+                    this.selected = selected
+                }
+        )
+    }
+
+    if (sortOptions.isNotEmpty()) {
+        LibraryDropdownPicker(
+            title = stringResource(R.string.library_filter_sort),
+            value = selectedSortLabel,
+            selectedValue = selectedSortOption.key,
+            expanded = expandedPicker == "sort",
+            options = sortOptions.map { LibraryOption(stringResource(it.labelResId), it.key) },
+            onExpandedChange = { onExpandedChange("sort", it) },
+            onSelect = { option ->
+                sortOptions.firstOrNull { it.key == option.value }?.let(onSelectSort)
+            }
+        )
+    }
+
+    if (genres.isNotEmpty()) {
+        val genreAllOption = LibraryOption(allLabel, "__all__")
+        LibraryDropdownPicker(
+            title = stringResource(R.string.library_filter_genre),
+            value = selectedGenreLabel,
+            selectedValue = selectedGenre ?: "__all__",
+            active = selectedGenre != null,
+            expanded = expandedPicker == "genre",
+            options = listOf(genreAllOption) + genres.map {
+                LibraryOption("${localizedGenreLabel(it.label)} (${it.count})", it.key)
+            },
+            onExpandedChange = { onExpandedChange("genre", it) },
+            onSelect = { option ->
+                onSelectGenre(if (option.value == "__all__") null else option.value)
+            }
+        )
+    }
+
+    if (years.isNotEmpty()) {
+        val yearAllOption = LibraryOption(allLabel, "__all__")
+        LibraryDropdownPicker(
+            title = stringResource(R.string.library_filter_year),
+            value = selectedYearLabel,
+            selectedValue = selectedYear ?: "__all__",
+            active = selectedYear != null,
+            expanded = expandedPicker == "year",
+            options = listOf(yearAllOption) + years.map {
+                LibraryOption("${it.label} (${it.count})", it.key)
+            },
+            onExpandedChange = { onExpandedChange("year", it) },
+            onSelect = { option ->
+                onSelectYear(if (option.value == "__all__") null else option.value)
+            }
+        )
+    }
+
+    val watchedFilterLabel = stringResource(selectedWatchedFilter.labelResId)
+    LibraryDropdownPicker(
+        title = stringResource(R.string.library_filter_watched),
+        value = watchedFilterLabel,
+        selectedValue = selectedWatchedFilter.key,
+        active = selectedWatchedFilter != LibraryWatchedFilter.ALL,
+        expanded = expandedPicker == "watched",
+        options = LibraryWatchedFilter.entries.map {
+            LibraryOption(stringResource(it.labelResId), it.key)
+        },
+        onExpandedChange = { onExpandedChange("watched", it) },
+        onSelect = { option ->
+            LibraryWatchedFilter.entries.firstOrNull { it.key == option.value }
+                ?.let(onSelectWatchedFilter)
+        }
+    )
 }
 
+/** "All", "Movies", "Shows", or the type's own name for anything else (anime, channels...). */
+@Composable
+private fun libraryTypePillLabel(key: String): String = when (key.lowercase()) {
+    LibraryTypeTab.ALL_KEY -> stringResource(R.string.library_type_all)
+    "movie" -> stringResource(R.string.type_movies)
+    "series", "tv", "show" -> stringResource(R.string.trakt_stat_shows)
+    else -> localizedTypeLabel(key)
+}
+
+/**
+ * A filter as one compact dropdown pill, "Sort: Added ↓ ⌄". The menu is the same as before; it opens under the
+ * pill, at least 220 wide. [active] shows the pill as selected when the filter is narrowing the library.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun LibraryDropdownPicker(
     modifier: Modifier = Modifier,
-    upFocusRequester: FocusRequester? = null,
     title: String,
     value: String,
     selectedValue: String?,
+    active: Boolean = false,
     expanded: Boolean,
     options: List<LibraryOption>,
     onExpandedChange: (Boolean) -> Unit,
     onSelect: (LibraryOption) -> Unit
 ) {
-    var isFocused by remember { mutableStateOf(false) }
     var anchorSize by remember { mutableStateOf(IntSize.Zero) }
     // Seed focused option with the current selection so reopen highlights the right row
     // even before focus lands (fixes #2848 / incomplete #2507 race on TV).
@@ -1370,63 +1310,18 @@ private fun LibraryDropdownPicker(
         }
     }
 
-    Box(modifier = modifier) {
-        Card(
+    val pillDescription = if (expanded) stringResource(R.string.cd_collapse, title) else stringResource(R.string.cd_expand, title)
+    Box {
+        LibraryPill(
+            text = "$title: $value",
+            selected = active,
+            dropdown = true,
+            expanded = expanded,
             onClick = { onExpandedChange(!expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (upFocusRequester != null) {
-                        Modifier.focusProperties { up = upFocusRequester }
-                    } else {
-                        Modifier
-                    }
-                )
+            modifier = modifier
                 .onSizeChanged { anchorSize = it }
-                .onFocusChanged { isFocused = it.isFocused },
-            shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
-            // Launcher look: the sidebar pill, white with dark text when focused, no ring.
-            colors = CardDefaults.colors(
-                containerColor = LauncherStyle.PillIdle,
-                focusedContainerColor = LauncherStyle.FocusWhite
-            ),
-            border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
-            scale = CardDefaults.scale(
-                focusedScale = 1.0f,
-                pressedScale = 1.0f
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isFocused) LauncherStyle.FocusText.copy(alpha = 0.6f) else LauncherStyle.Dim
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isFocused) LauncherStyle.FocusText else Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (expanded) stringResource(R.string.cd_collapse, title) else stringResource(R.string.cd_expand, title),
-                        tint = if (isFocused) LauncherStyle.FocusText else LauncherStyle.Soft
-                    )
-                }
-            }
-        }
+                .semantics { contentDescription = pillDescription }
+        )
 
         DropdownMenu(
             expanded = expanded,
@@ -1435,7 +1330,7 @@ private fun LibraryDropdownPicker(
                 onExpandedChange(false)
             },
             modifier = Modifier
-                .width(with(LocalDensity.current) { anchorSize.width.toDp() })
+                .width(maxOf(with(LocalDensity.current) { anchorSize.width.toDp() }, 220.dp))
                 .heightIn(max = 320.dp),
             shape = RoundedCornerShape(14.dp),
             containerColor = NuvioTheme.colors.BackgroundCard,
@@ -1511,46 +1406,29 @@ private data class LibraryOption(
     val value: String
 )
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+/** Manage lists and Sync (Trakt / Simkl), as pills at the end of the filter row. */
 @Composable
-private fun LibraryActionsRow(
+private fun LibraryActionPills(
     pending: Boolean,
     isSyncing: Boolean,
     showManageLists: Boolean,
     onManageLists: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-    ) {
-        if (showManageLists) {
-            Button(
-                onClick = onManageLists,
-                enabled = !pending && !isSyncing,
-                colors = ButtonDefaults.colors(
-                    containerColor = LauncherStyle.PillIdle,
-                    contentColor = LauncherStyle.Soft,
-                    focusedContainerColor = LauncherStyle.FocusWhite,
-                    focusedContentColor = LauncherStyle.FocusText
-                )
-            ) {
-                Text(stringResource(R.string.library_manage_lists))
-            }
-        }
-        Button(
-            onClick = onRefresh,
+    if (showManageLists) {
+        LibraryPill(
+            text = stringResource(R.string.library_manage_lists),
+            selected = false,
             enabled = !pending && !isSyncing,
-            colors = ButtonDefaults.colors(
-                containerColor = LauncherStyle.PillIdle,
-                contentColor = LauncherStyle.Soft,
-                focusedContainerColor = LauncherStyle.FocusWhite,
-                focusedContentColor = LauncherStyle.FocusText
-            )
-        ) {
-            Text(if (isSyncing) stringResource(R.string.library_syncing_btn) else stringResource(R.string.library_sync_btn))
-        }
+            onClick = onManageLists
+        )
     }
+    LibraryPill(
+        text = if (isSyncing) stringResource(R.string.library_syncing_btn) else stringResource(R.string.library_sync_btn),
+        selected = false,
+        enabled = !pending && !isSyncing,
+        onClick = onRefresh
+    )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
