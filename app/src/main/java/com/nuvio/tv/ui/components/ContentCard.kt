@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -351,7 +353,7 @@ fun ContentCard(
                     if (launcherTiles) {
                         Modifier
                             .graphicsLayer { scaleX = launcherZoom; scaleY = launcherZoom }
-                            .shadow(
+                            .launcherShadow(
                                 elevation = if (isFocused) 17.dp else 7.dp,
                                 shape = cardShape,
                                 ambientColor = Color.Black,

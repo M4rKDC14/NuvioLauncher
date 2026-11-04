@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.home
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
@@ -479,7 +481,7 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: 
         Box(
             Modifier
                 .graphicsLayer { scaleX = scale; scaleY = scale }
-                .shadow(elevation = if (focused) 17.dp else 7.dp, shape = Corner, ambientColor = Color.Black, spotColor = Color.Black)
+                .launcherShadow(elevation = if (focused) 17.dp else 7.dp, shape = Corner, ambientColor = Color.Black, spotColor = Color.Black)
         ) {
             Card(
                 onClick = tile.onClick,

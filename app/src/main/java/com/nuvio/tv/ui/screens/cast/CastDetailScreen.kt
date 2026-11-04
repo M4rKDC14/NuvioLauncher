@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.cast
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.shadow
@@ -344,7 +346,7 @@ private fun HeroSection(
         Card(
             onClick = onPortraitClick,
             modifier = Modifier
-                .shadow(7.dp, LauncherStyle.Corner, ambientColor = Color.Black, spotColor = Color.Black)
+                .launcherShadow(7.dp, LauncherStyle.Corner, ambientColor = Color.Black, spotColor = Color.Black)
                 .width(110.dp)
                 .height(165.dp)
                 .focusRequester(portraitFocusRequester)

@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.collection
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -344,7 +346,7 @@ private fun FolderTile(
         Box(
             Modifier
                 .graphicsLayer { scaleX = scale; scaleY = scale }
-                .shadow(elevation = if (focused) 17.dp else 7.dp, shape = LauncherStyle.Corner, ambientColor = Color.Black, spotColor = Color.Black)
+                .launcherShadow(elevation = if (focused) 17.dp else 7.dp, shape = LauncherStyle.Corner, ambientColor = Color.Black, spotColor = Color.Black)
         ) {
             Card(
                 onClick = onClick,

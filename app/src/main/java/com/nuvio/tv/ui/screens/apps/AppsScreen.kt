@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.apps
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -205,7 +207,7 @@ private fun AppTile(app: LauncherApp, sizeScale: Float, zoom: Float, modifier: M
             onClick = onClick,
             modifier = modifier
                 .size(tileWidth, tileHeight)
-                .shadow(elevation = if (focused) 17.dp else 7.dp, shape = TileShape, ambientColor = Color.Black, spotColor = Color.Black)
+                .launcherShadow(elevation = if (focused) 17.dp else 7.dp, shape = TileShape, ambientColor = Color.Black, spotColor = Color.Black)
                 .onFocusChanged { focused = it.hasFocus },
             shape = CardDefaults.shape(TileShape),
             scale = CardDefaults.scale(focusedScale = zoom),

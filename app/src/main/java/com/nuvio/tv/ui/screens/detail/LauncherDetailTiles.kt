@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -128,7 +130,7 @@ internal fun LauncherMetaTile(
                     scaleX = scale
                     scaleY = scale
                 }
-                .shadow(
+                .launcherShadow(
                     elevation = if (isFocused) 17.dp else 7.dp,
                     shape = LauncherStyle.Corner,
                     ambientColor = Color.Black,

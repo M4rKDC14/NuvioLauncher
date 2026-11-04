@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.ui.launcher.launcherShadow
+
 import androidx.compose.ui.semantics.clearAndSetSemantics
 
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -578,7 +580,7 @@ fun CatalogRowSection(
                             .then(
                                 if (launcherTiles) {
                                     Modifier
-                                        .shadow(
+                                        .launcherShadow(
                                             elevation = if (seeAllFocused) 17.dp else 7.dp,
                                             shape = seeAllShape,
                                             ambientColor = Color.Black,
