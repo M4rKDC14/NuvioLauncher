@@ -36,7 +36,13 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import com.nuvio.tv.R
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 internal val SettingsRowContentInset = 18.dp
@@ -95,17 +101,19 @@ internal fun SettingsSectionLabel(
             ),
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
     ) {
+        // On the launcher glass the darker grey would sink into the picture: white .6 instead.
+        val labelColor = if (isSettingsGlass()) SettingsGlassColors.TextIdleSecondary else NuvioTheme.colors.TextTertiary
         Text(
             text = text.uppercase(),
             style = MaterialTheme.typography.labelMedium,
             letterSpacing = 1.2.sp,
-            color = NuvioTheme.colors.TextTertiary
+            color = labelColor
         )
         if (!description.isNullOrBlank()) {
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = NuvioTheme.colors.TextTertiary
+                color = labelColor
             )
         }
     }
@@ -121,7 +129,7 @@ internal fun SettingsNote(
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = when (tone) {
-            SettingsNoteTone.Info -> NuvioTheme.colors.TextSecondary
+            SettingsNoteTone.Info -> settingsSecondaryColor(false)
             SettingsNoteTone.Warning -> NuvioTheme.colors.Warning
             SettingsNoteTone.Danger -> NuvioTheme.colors.Error
         },
@@ -143,7 +151,7 @@ internal fun SettingsRailDivider() {
             .fillMaxWidth()
             .padding(start = SettingsRowContentInset, end = SettingsRowContentInset, bottom = 10.dp)
             .height(NuvioTheme.spacing.hairline)
-            .background(NuvioTheme.colors.Border)
+            .background(if (isSettingsGlass()) SettingsGlassColors.Divider else NuvioTheme.colors.Border)
     )
 }
 
@@ -154,7 +162,7 @@ internal fun SettingsTopBarDivider() {
             .padding(end = NuvioTheme.spacing.sm)
             .width(NuvioTheme.spacing.hairline)
             .height(20.dp)
-            .background(NuvioTheme.colors.Border)
+            .background(if (isSettingsGlass()) SettingsGlassColors.Divider else NuvioTheme.colors.Border)
     )
 }
 
@@ -165,13 +173,23 @@ internal fun SettingsResetButton(
     modifier: Modifier = Modifier,
     onFocused: () -> Unit = {}
 ) {
-    val flat = isFlatSettingsStyle()
+    val glass = isSettingsGlass()
+    val flat = isFlatSettingsStyle() || glass
     val shape = if (flat) settingsRowShape() else RoundedCornerShape(SettingsPillRadius)
+    var isFocused by remember { mutableStateOf(false) }
     Button(
         onClick = onClick,
-        modifier = modifier.onFocusChanged { if (it.isFocused) onFocused() },
+        modifier = modifier.onFocusChanged {
+            isFocused = it.isFocused
+            if (it.isFocused) onFocused()
+        },
         shape = ButtonDefaults.shape(shape = shape),
-        colors = ButtonDefaults.colors(
+        colors = if (glass) ButtonDefaults.colors(
+            containerColor = SettingsGlassColors.RowIdle,
+            contentColor = Color.White,
+            focusedContainerColor = LauncherStyle.FocusWhite,
+            focusedContentColor = LauncherStyle.FocusText
+        ) else ButtonDefaults.colors(
             containerColor = NuvioTheme.colors.Background,
             focusedContainerColor = if (flat) settingsFocusFillColor() else NuvioTheme.colors.Background
         ),
@@ -191,14 +209,14 @@ internal fun SettingsResetButton(
             Icon(
                 imageVector = Icons.Default.RestartAlt,
                 contentDescription = null,
-                tint = NuvioTheme.colors.TextSecondary,
+                tint = settingsSecondaryColor(isFocused),
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                color = NuvioTheme.colors.TextPrimary
+                color = settingsTitleColor(isFocused)
             )
         }
     }

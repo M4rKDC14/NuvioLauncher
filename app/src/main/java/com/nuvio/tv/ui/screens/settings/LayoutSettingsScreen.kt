@@ -63,7 +63,7 @@ fun LayoutSettingsContent(
         focusedPosterHasOptions = uiState.focusedPosterHasOptions()
     )
     var expandedSections by rememberSaveable(essentialMode) {
-        mutableStateOf(if (essentialMode) listOf(LayoutSection.HOME_LAYOUT.name) else emptyList())
+        mutableStateOf(if (essentialMode) listOf(LayoutSection.HOME_CONTENT.name) else emptyList())
     }
     val customPosterQrFocusRequester = remember { FocusRequester() }
     val streamBadgeQrFocusRequester = remember { FocusRequester() }
@@ -79,9 +79,8 @@ fun LayoutSettingsContent(
     ) {
         SettingsDetailHeader(
             title = stringResource(R.string.layout_title),
-            subtitle = stringResource(
-                if (essentialMode) R.string.layout_selection_subtitle else R.string.layout_subtitle
-            )
+            // Nuvio Launcher: no layout choice here any more, so the plain subtitle in both modes.
+            subtitle = stringResource(R.string.layout_subtitle)
         )
 
         Box(

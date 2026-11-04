@@ -47,6 +47,12 @@ import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.ui.components.MemberBrandWordmark
 
+/**
+ * Nuvio Launcher: the update rows (channel, banner, auto install and its notice, check for
+ * updates) would point at Nuvio's own releases, not the launcher's, so About never shows them.
+ */
+private const val SHOW_UPDATE_ROWS = false
+
 @Composable
 fun AboutScreen(
     onNavigateToSupportersContributors: () -> Unit = {},
@@ -140,7 +146,7 @@ fun AboutSettingsContent(
 
                             Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
 
-                            if (AppFeaturePolicy.inAppUpdatesEnabled) {
+                            if (SHOW_UPDATE_ROWS && AppFeaturePolicy.inAppUpdatesEnabled) {
                                 UpdateChannelSettings(initialFocusRequester, modifier = firstRowModifier)
                             }
 
@@ -148,7 +154,7 @@ fun AboutSettingsContent(
                                 title = stringResource(R.string.about_privacy_policy),
                                 subtitle = stringResource(R.string.about_privacy_policy_subtitle),
                                 trailingIcon = Icons.Default.OpenInNew,
-                                modifier = if (!AppFeaturePolicy.inAppUpdatesEnabled) {
+                                modifier = if (!(SHOW_UPDATE_ROWS && AppFeaturePolicy.inAppUpdatesEnabled)) {
                                     firstRowModifier.then(
                                         if (initialFocusRequester != null) Modifier.focusRequester(initialFocusRequester)
                                         else Modifier

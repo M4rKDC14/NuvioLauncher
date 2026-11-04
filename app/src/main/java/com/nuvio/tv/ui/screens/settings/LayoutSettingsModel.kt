@@ -32,16 +32,26 @@ internal enum class LayoutSection(
     STREAMS(R.string.layout_section_streams, R.string.layout_section_streams_desc, Icons.AutoMirrored.Filled.ViewList)
 }
 
+/**
+ * Nuvio Launcher: sections that only shape Nuvio's own Home layouts. The launcher draws its own
+ * Home (its carousel catalogs live on the Launcher settings page), so these are hidden.
+ */
+internal val LauncherHiddenLayoutSections = setOf(
+    LayoutSection.HOME_LAYOUT,
+    LayoutSection.FOCUSED_POSTER,
+    LayoutSection.POSTER_CARD,
+    LayoutSection.CARD_DEPTH
+)
+
 internal fun visibleLayoutSections(
     essentialMode: Boolean,
-    focusedPosterHasOptions: Boolean
+    @Suppress("UNUSED_PARAMETER") focusedPosterHasOptions: Boolean
 ): List<LayoutSection> =
     if (essentialMode) {
-        listOf(LayoutSection.HOME_LAYOUT)
+        // Nuvio's essential mode only offered the Home layout choice, which the launcher hides.
+        listOf(LayoutSection.HOME_CONTENT)
     } else {
-        LayoutSection.entries.filter { section ->
-            section != LayoutSection.FOCUSED_POSTER || focusedPosterHasOptions
-        }
+        LayoutSection.entries.filter { section -> section !in LauncherHiddenLayoutSections }
     }
 
 internal object LayoutSettingsTestTags {

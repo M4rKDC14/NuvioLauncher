@@ -3,7 +3,6 @@ package com.nuvio.tv.ui.screens.search
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -82,8 +81,9 @@ fun DiscoverScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background)
     ) {
+        // Nuvio Launcher: the blurred picture of the last focused title instead of a solid page.
+        com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(com.nuvio.tv.LauncherChrome.lastBackdrop.value)
         if (uiState.discoverLocation == DiscoverLocation.OFF) {
             EmptyScreenState(
                 title = stringResource(R.string.discover_disabled_title),

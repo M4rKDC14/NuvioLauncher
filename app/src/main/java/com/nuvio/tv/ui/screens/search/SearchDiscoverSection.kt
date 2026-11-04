@@ -344,20 +344,12 @@ private fun DiscoverDropdownPicker(
                     else Modifier
                 ),
             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
+            // Launcher look: the sidebar pill, white with dark text when focused, no ring.
             colors = CardDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.FocusBackground
+                containerColor = com.nuvio.tv.ui.launcher.LauncherStyle.PillIdle,
+                focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
             ),
-            border = CardDefaults.border(
-                border = Border(
-                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                    shape = RoundedCornerShape(14.dp)
-                ),
-                focusedBorder = Border(
-                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                    shape = RoundedCornerShape(14.dp)
-                )
-            ),
+            border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
             scale = CardDefaults.scale(
                 focusedScale = 1.0f,
                 pressedScale = 1.0f
@@ -372,7 +364,7 @@ private fun DiscoverDropdownPicker(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelSmall,
-                    color = NuvioTheme.colors.TextTertiary
+                    color = if (isFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText.copy(alpha = 0.6f) else com.nuvio.tv.ui.launcher.LauncherStyle.Dim
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -384,7 +376,7 @@ private fun DiscoverDropdownPicker(
                         style = MaterialTheme.typography.titleMedium.copy(
                             textDirection = value.contentTextDirection()
                         ),
-                        color = NuvioTheme.colors.TextPrimary,
+                        color = if (isFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -392,7 +384,7 @@ private fun DiscoverDropdownPicker(
                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = if (expanded) stringResource(R.string.cd_collapse, title) else stringResource(R.string.cd_expand, title),
                         modifier = Modifier.size(20.dp),
-                        tint = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.TextSecondary
+                        tint = if (isFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.Soft
                     )
                 }
             }

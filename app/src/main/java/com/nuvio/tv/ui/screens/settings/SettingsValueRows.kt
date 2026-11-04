@@ -57,6 +57,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import kotlin.math.roundToInt
 
 @Composable
@@ -163,6 +164,18 @@ private fun SliderSettingsItemLayout(
     val contentAlpha = if (enabled) 1f else 0.4f
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val shape = settingsTallRowShape()
+    val glass = isSettingsGlass()
+    // Launcher look: white value and bar on the glass, dark ones on the focused white pill.
+    val accentColor = when {
+        !glass -> NuvioTheme.colors.Primary
+        isFocused -> LauncherStyle.FocusText
+        else -> Color.White
+    }
+    val trackColor = when {
+        !glass -> NuvioTheme.colors.BackgroundElevated
+        isFocused -> LauncherStyle.FocusText.copy(alpha = 0.15f)
+        else -> Color.White.copy(alpha = 0.18f)
+    }
 
     Card(
         onClick = { },
@@ -215,7 +228,7 @@ private fun SliderSettingsItemLayout(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = NuvioTheme.colors.TextPrimary.copy(alpha = contentAlpha),
+                        color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -224,7 +237,7 @@ private fun SliderSettingsItemLayout(
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = NuvioTheme.colors.TextSecondary.copy(alpha = contentAlpha),
+                            color = settingsSecondaryColor(isFocused).copy(alpha = contentAlpha),
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -236,7 +249,7 @@ private fun SliderSettingsItemLayout(
                 Text(
                     text = valueText.keepLtr(),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = NuvioTheme.colors.Primary.copy(alpha = contentAlpha)
+                    color = accentColor.copy(alpha = contentAlpha)
                 )
             }
 
@@ -250,6 +263,7 @@ private fun SliderSettingsItemLayout(
                 SliderStepButton(
                     icon = Icons.Default.Remove,
                     contentDescription = stringResource(R.string.cd_decrease),
+                    rowFocused = isFocused,
                     enabled = enabled,
                     onClick = onDecrease,
                     onFocused = onFocused
@@ -260,20 +274,21 @@ private fun SliderSettingsItemLayout(
                         .weight(1f)
                         .height(NuvioTheme.spacing.sm)
                         .clip(RoundedCornerShape(NuvioTheme.radii.xs))
-                        .background(NuvioTheme.colors.BackgroundElevated)
+                        .background(trackColor)
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(progressFraction.coerceIn(0f, 1f))
                             .height(NuvioTheme.spacing.sm)
                             .clip(RoundedCornerShape(NuvioTheme.radii.xs))
-                            .background(NuvioTheme.colors.Primary.copy(alpha = contentAlpha))
+                            .background(accentColor.copy(alpha = contentAlpha))
                     )
                 }
 
                 SliderStepButton(
                     icon = Icons.Default.Add,
                     contentDescription = stringResource(R.string.cd_increase),
+                    rowFocused = isFocused,
                     enabled = enabled,
                     onClick = onIncrease,
                     onFocused = onFocused
@@ -289,11 +304,13 @@ private fun SliderStepButton(
     contentDescription: String,
     enabled: Boolean,
     onClick: () -> Unit,
-    onFocused: () -> Unit
+    onFocused: () -> Unit,
+    rowFocused: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val contentAlpha = if (enabled) 1f else 0.4f
     val flat = isFlatSettingsStyle()
+    val glass = isSettingsGlass()
 
     Card(
         onClick = { if (enabled) onClick() },
@@ -304,11 +321,17 @@ private fun SliderStepButton(
                 if (nowFocused) onFocused()
             }
         },
-        colors = CardDefaults.colors(
+        colors = if (glass) {
+            // On the focused white row the idle button is a faint dark disc instead of a white one.
+            CardDefaults.colors(
+                containerColor = if (rowFocused) LauncherStyle.FocusText.copy(alpha = 0.1f) else SettingsGlassColors.RowIdle,
+                focusedContainerColor = LauncherStyle.FocusWhite
+            )
+        } else CardDefaults.colors(
             containerColor = NuvioTheme.colors.Background,
             focusedContainerColor = if (flat) settingsFocusFillColor() else NuvioTheme.colors.Background
         ),
-        border = if (flat) {
+        border = if (flat || glass) {
             CardDefaults.border(border = Border.None, focusedBorder = Border.None)
         } else {
             CardDefaults.border(
@@ -328,8 +351,12 @@ private fun SliderStepButton(
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = (if (isFocused) NuvioTheme.colors.OnPrimary else NuvioTheme.colors.TextPrimary)
-                    .copy(alpha = contentAlpha),
+                tint = (when {
+                    glass && (isFocused || rowFocused) -> LauncherStyle.FocusText
+                    glass -> Color.White
+                    isFocused -> NuvioTheme.colors.OnPrimary
+                    else -> NuvioTheme.colors.TextPrimary
+                }).copy(alpha = contentAlpha),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -374,7 +401,7 @@ internal fun ColorSettingsItem(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = NuvioTheme.colors.TextPrimary.copy(alpha = contentAlpha),
+                color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)

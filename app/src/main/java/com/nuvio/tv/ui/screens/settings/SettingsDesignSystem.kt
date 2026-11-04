@@ -40,7 +40,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -99,6 +101,9 @@ import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.theme.NuvioComponents
 import com.nuvio.tv.ui.theme.NuvioRadii
 import com.nuvio.tv.ui.util.rememberRawSvgPainter
+import com.nuvio.tv.ui.launcher.LauncherGlass
+import com.nuvio.tv.ui.launcher.LauncherStyle
+import dev.chrisbanes.haze.HazeState
 
 internal val SettingsContainerRadius = NuvioComponents.tokens.settings.containerRadius
 internal val SettingsPillRadius = NuvioRadii.tokens.full
@@ -112,7 +117,9 @@ internal val SettingsHorizonGroupShape = RoundedCornerShape(16.dp)
 @Composable
 @androidx.compose.runtime.ReadOnlyComposable
 internal fun settingsGroupShape(): RoundedCornerShape =
-    if (isFlatSettingsStyle()) {
+    if (LocalSettingsGlass.current) {
+        SettingsGlassColors.GroupShape
+    } else if (isFlatSettingsStyle()) {
         SettingsHorizonGroupShape
     } else {
         RoundedCornerShape(SettingsSecondaryCardRadius)
@@ -149,7 +156,7 @@ internal fun settingsHeaderInset(): Dp = when (NuvioTheme.settingsUiStyle) {
 
 @Composable
 @androidx.compose.runtime.ReadOnlyComposable
-internal fun settingsRowShape(): RoundedCornerShape = when (NuvioTheme.settingsUiStyle) {
+internal fun settingsRowShape(): RoundedCornerShape = if (LocalSettingsGlass.current) SettingsGlassColors.RowShape else when (NuvioTheme.settingsUiStyle) {
     SettingsUiStyle.CLASSIC -> RoundedCornerShape(SettingsPillRadius)
     SettingsUiStyle.ZEN -> SettingsZenRowShape
     SettingsUiStyle.HORIZON -> SettingsHorizonRowShape
@@ -158,10 +165,12 @@ internal fun settingsRowShape(): RoundedCornerShape = when (NuvioTheme.settingsU
 @Composable
 @androidx.compose.runtime.ReadOnlyComposable
 internal fun settingsTallRowShape(): RoundedCornerShape =
-    if (isFlatSettingsStyle()) settingsRowShape() else RoundedCornerShape(SettingsSecondaryCardRadius)
+    if (isFlatSettingsStyle() || LocalSettingsGlass.current) settingsRowShape() else RoundedCornerShape(SettingsSecondaryCardRadius)
 
 @Composable
-internal fun settingsRowColors(): CardColors = if (isFlatSettingsStyle()) {
+internal fun settingsRowColors(): CardColors = if (isSettingsGlass()) {
+    settingsGlassPillColors()
+} else if (isFlatSettingsStyle()) {
     CardDefaults.colors(
         containerColor = Color.Transparent,
         focusedContainerColor = settingsFocusFillColor()
@@ -177,7 +186,7 @@ internal fun settingsRowColors(): CardColors = if (isFlatSettingsStyle()) {
 internal fun settingsRowBorder(
     contentAlpha: Float = 1f,
     shape: RoundedCornerShape = settingsRowShape()
-): CardBorder = if (isFlatSettingsStyle()) {
+): CardBorder = if (isFlatSettingsStyle() || isSettingsGlass()) {
     CardDefaults.border(border = Border.None, focusedBorder = Border.None)
 } else {
     CardDefaults.border(
@@ -187,6 +196,73 @@ internal fun settingsRowBorder(
         )
     )
 }
+
+/**
+ * Nuvio Launcher: true while drawing inside the Settings screen, which sits over the blurred
+ * picture of the last focused title. Rows become see-through, the focused row is the launcher's
+ * white pill with dark text, and the main card is the launcher glass. Off everywhere else, so
+ * other screens that reuse these components keep Nuvio's own look.
+ */
+internal val LocalSettingsGlass = staticCompositionLocalOf { false }
+
+/** The blurred backdrop's haze source, for the glass cards. Null below Android 12 (no blur). */
+internal val LocalSettingsHazeState = staticCompositionLocalOf<HazeState?> { null }
+
+/** True inside a glass card, so a card nested in it draws as a plain group instead of more glass. */
+private val LocalSettingsInGlassCard = staticCompositionLocalOf { false }
+
+internal object SettingsGlassColors {
+    val RowIdle = Color(0x12FFFFFF)              // white .07
+    val RailSelected = Color(0x2EFFFFFF)         // white .18
+    val TextIdleSecondary = Color(0x99FFFFFF)    // white .6
+    val TextIdleTertiary = Color(0x80FFFFFF)     // white .5
+    val Divider = Color(0x1FFFFFFF)              // white .12
+    val TrackOn = Color(0xFFE8E8EA)
+    val TrackOff = Color(0x2EFFFFFF)
+    val KnobOn = Color(0xFF111111)
+    val KnobOff = Color(0x8CFFFFFF)
+    val GroupShape = RoundedCornerShape(16.dp)
+    val RowShape = RoundedCornerShape(12.dp)
+    val RailShape = RoundedCornerShape(10.dp)
+}
+
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
+internal fun isSettingsGlass(): Boolean = LocalSettingsGlass.current
+
+/** Title colour of a row: white, or the launcher's dark text on the focused white pill. */
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
+internal fun settingsTitleColor(focused: Boolean): Color = when {
+    !LocalSettingsGlass.current -> NuvioTheme.colors.TextPrimary
+    focused -> LauncherStyle.FocusText
+    else -> Color.White
+}
+
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
+internal fun settingsSecondaryColor(focused: Boolean): Color = when {
+    !LocalSettingsGlass.current -> NuvioTheme.colors.TextSecondary
+    focused -> LauncherStyle.FocusText.copy(alpha = 0.65f)
+    else -> SettingsGlassColors.TextIdleSecondary
+}
+
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
+internal fun settingsTertiaryColor(focused: Boolean): Color = when {
+    !LocalSettingsGlass.current -> NuvioTheme.colors.TextTertiary
+    focused -> LauncherStyle.FocusText.copy(alpha = 0.5f)
+    else -> SettingsGlassColors.TextIdleTertiary
+}
+
+/** Card colours for a launcher pill (step buttons, chips, reset): white .07, white when focused. */
+@Composable
+internal fun settingsGlassPillColors(selected: Boolean = false): CardColors = CardDefaults.colors(
+    containerColor = if (selected) SettingsGlassColors.RailSelected else SettingsGlassColors.RowIdle,
+    contentColor = Color.White,
+    focusedContainerColor = LauncherStyle.FocusWhite,
+    focusedContentColor = LauncherStyle.FocusText
+)
 
 internal object SettingsTestTags {
     const val ROW_ICON = "settings_row_icon"
@@ -202,7 +278,9 @@ private fun SettingsRowLeadingIcon(
     Icon(
         imageVector = icon,
         contentDescription = null,
-        tint = (if (focused && enabled) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary)
+        tint = (if (isSettingsGlass()) {
+            settingsTitleColor(focused && enabled)
+        } else if (focused && enabled) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary)
             .copy(alpha = contentAlpha),
         modifier = Modifier
             .size(NuvioTheme.spacing.xl)
@@ -337,7 +415,7 @@ internal fun SettingsWorkspaceSurface(
     classicContainer: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
-    if (isFlatSettingsStyle() || !classicContainer) {
+    if (isFlatSettingsStyle() || !classicContainer || isSettingsGlass()) {
         Box(
             modifier = modifier.padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm),
             content = content
@@ -371,14 +449,27 @@ internal fun SettingsRailButton(
     suppressSelectedVisual: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val zen = isFlatSettingsStyle()
-    val railShape = if (zen) SettingsZenRowShape else RoundedCornerShape(SettingsPillRadius)
+    val glass = isSettingsGlass()
+    // The launcher look has no accent bar or chevron, like the flat style.
+    val zen = isFlatSettingsStyle() || glass
+    val railShape = when {
+        glass -> SettingsGlassColors.RailShape
+        zen -> SettingsZenRowShape
+        else -> RoundedCornerShape(SettingsPillRadius)
+    }
     val appliedModifier = if (focusRequester != null) {
         modifier.focusRequester(focusRequester)
     } else {
         modifier
     }
     val showSelected = isSelected && !suppressSelectedVisual
+    val railContentColor = when {
+        glass && isFocused -> LauncherStyle.FocusText
+        glass && isSelected -> Color.White
+        glass -> LauncherStyle.Soft
+        isSelected || isFocused -> NuvioTheme.colors.TextPrimary
+        else -> NuvioTheme.colors.TextSecondary
+    }
 
     Card(
         onClick = onClick,
@@ -398,7 +489,15 @@ internal fun SettingsRailButton(
                 role = Role.Tab
                 this.selected = isSelected
             },
-        colors = CardDefaults.colors(
+        colors = if (glass) {
+            // Straight on the picture: idle items have no fill, the selected one a white .18 pill.
+            CardDefaults.colors(
+                containerColor = if (showSelected) SettingsGlassColors.RailSelected else Color.Transparent,
+                contentColor = Color.White,
+                focusedContainerColor = LauncherStyle.FocusWhite,
+                focusedContentColor = LauncherStyle.FocusText
+            )
+        } else CardDefaults.colors(
             containerColor = when {
                 zen -> Color.Transparent
                 showSelected -> NuvioTheme.colors.BackgroundCard
@@ -440,7 +539,7 @@ internal fun SettingsRailButton(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (zen) {
+                    if (zen && !glass) {
                         Box(
                             modifier = Modifier
                                 .width(3.dp)
@@ -458,15 +557,13 @@ internal fun SettingsRailButton(
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
                             contentScale = ContentScale.Fit,
-                            colorFilter = ColorFilter.tint(
-                                if (isSelected || isFocused) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary
-                            )
+                            colorFilter = ColorFilter.tint(railContentColor)
                         )
                     } else if (icon != null) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = if (isSelected || isFocused) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary,
+                            tint = railContentColor,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -482,7 +579,7 @@ internal fun SettingsRailButton(
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = if (isSelected || isFocused) FontWeight.SemiBold else FontWeight.Medium
                         ),
-                        color = if (isSelected || isFocused) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary,
+                        color = railContentColor,
                     )
                 }
 
@@ -525,6 +622,7 @@ internal fun SettingsTopBarTab(
         targetValue = when {
             isFocused -> NuvioTheme.colors.OnSecondary
             showSelected -> NuvioTheme.colors.TextPrimary
+            isSettingsGlass() -> LauncherStyle.Soft
             else -> NuvioTheme.colors.TextSecondary
         },
         animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
@@ -553,7 +651,9 @@ internal fun SettingsTopBarTab(
                 }
             },
         colors = CardDefaults.colors(
-            containerColor = if (showSelected) {
+            containerColor = if (showSelected && isSettingsGlass()) {
+                SettingsGlassColors.RailSelected
+            } else if (showSelected) {
                 NuvioTheme.colors.Secondary.copy(alpha = 0.18f)
             } else {
                 Color.Transparent
@@ -624,7 +724,7 @@ internal fun SettingsDetailHeader(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = NuvioTheme.colors.TextTertiary
+                color = if (isSettingsGlass()) SettingsGlassColors.TextIdleSecondary else NuvioTheme.colors.TextTertiary
             )
         }
         SettingsUiStyle.HORIZON -> Column(
@@ -641,7 +741,7 @@ internal fun SettingsDetailHeader(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = NuvioTheme.colors.TextSecondary
+                color = settingsSecondaryColor(false)
             )
         }
         SettingsUiStyle.CLASSIC -> Column(
@@ -656,7 +756,7 @@ internal fun SettingsDetailHeader(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = NuvioTheme.colors.TextSecondary
+                color = settingsSecondaryColor(false)
             )
         }
     }
@@ -669,6 +769,10 @@ internal fun SettingsGroupCard(
     subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    if (isSettingsGlass()) {
+        SettingsGlassGroupCard(modifier = modifier, title = title, subtitle = subtitle, content = content)
+        return
+    }
     when (NuvioTheme.settingsUiStyle) {
         SettingsUiStyle.ZEN, SettingsUiStyle.HORIZON -> Column(
             modifier = modifier
@@ -736,6 +840,67 @@ internal fun SettingsGroupCard(
     }
 }
 
+/**
+ * The launcher look of [SettingsGroupCard]: the launcher glass with 14 inside on every side, the
+ * title as an uppercase section label right at the top. A card inside another card is only a
+ * group: no second layer of glass.
+ */
+@Composable
+private fun SettingsGlassGroupCard(
+    modifier: Modifier,
+    title: String?,
+    subtitle: String?,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val nested = LocalSettingsInGlassCard.current
+    val header: @Composable ColumnScope.() -> Unit = {
+        if (!title.isNullOrBlank()) {
+            Text(
+                text = title.uppercase(),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                letterSpacing = 1.2.sp,
+                color = SettingsGlassColors.TextIdleSecondary,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = SettingsGlassColors.TextIdleSecondary,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+        }
+    }
+    if (nested) {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            header()
+            content()
+        }
+        return
+    }
+    LauncherGlass(
+        modifier = modifier.fillMaxWidth(),
+        shape = SettingsGlassColors.GroupShape,
+        hazeState = LocalSettingsHazeState.current
+    ) {
+        CompositionLocalProvider(LocalSettingsInGlassCard provides true) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                header()
+                content()
+            }
+        }
+    }
+}
+
 @Composable
 internal fun SettingsToggleRow(
     title: String,
@@ -789,7 +954,7 @@ internal fun SettingsToggleRow(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = NuvioTheme.colors.TextPrimary.copy(alpha = contentAlpha),
+                        color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -799,7 +964,9 @@ internal fun SettingsToggleRow(
                         Icon(
                             imageVector = titleTrailingIcon,
                             contentDescription = null,
-                            tint = titleTrailingIconTint.copy(alpha = contentAlpha),
+                            tint = (if (isSettingsGlass() && titleTrailingIconTint == NuvioTheme.colors.TextPrimary) {
+                                settingsTitleColor(isFocused)
+                            } else titleTrailingIconTint).copy(alpha = contentAlpha),
                             modifier = Modifier.size(NuvioTheme.spacing.lg)
                         )
                     }
@@ -809,7 +976,7 @@ internal fun SettingsToggleRow(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = NuvioTheme.colors.TextSecondary.copy(alpha = contentAlpha),
+                        color = settingsSecondaryColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = if (expandSubtitleOnFocus && isFocused) 8 else 3,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -818,7 +985,8 @@ internal fun SettingsToggleRow(
             Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
             SettingsTogglePill(
                 checked = checked,
-                enabled = enabled
+                enabled = enabled,
+                focused = isFocused
             )
         }
     }
@@ -892,7 +1060,7 @@ internal fun SettingsActionRow(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = NuvioTheme.colors.TextPrimary.copy(alpha = contentAlpha),
+                        color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -902,7 +1070,9 @@ internal fun SettingsActionRow(
                         Icon(
                             imageVector = titleTrailingIcon,
                             contentDescription = null,
-                            tint = titleTrailingIconTint.copy(alpha = contentAlpha),
+                            tint = (if (isSettingsGlass() && titleTrailingIconTint == NuvioTheme.colors.TextPrimary) {
+                                settingsTitleColor(isFocused)
+                            } else titleTrailingIconTint).copy(alpha = contentAlpha),
                             modifier = Modifier.size(NuvioTheme.spacing.lg)
                         )
                     }
@@ -912,7 +1082,7 @@ internal fun SettingsActionRow(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = NuvioTheme.colors.TextSecondary.copy(alpha = contentAlpha),
+                        color = settingsSecondaryColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -921,10 +1091,16 @@ internal fun SettingsActionRow(
 
             if (!value.isNullOrBlank()) {
                 Spacer(modifier = Modifier.width(10.dp))
+                // On the glass, the default grey value reads as soft white, or dark on the focused pill.
+                val shownValueColor = when {
+                    !isSettingsGlass() || valueColor != NuvioTheme.colors.TextSecondary -> valueColor
+                    isFocused -> LauncherStyle.FocusText.copy(alpha = 0.65f)
+                    else -> LauncherStyle.Soft
+                }
                 Text(
                     text = value,
                     style = MaterialTheme.typography.labelLarge,
-                    color = valueColor.copy(alpha = contentAlpha),
+                    color = shownValueColor.copy(alpha = contentAlpha),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 260.dp)
@@ -935,7 +1111,7 @@ internal fun SettingsActionRow(
             Icon(
                 imageVector = trailingIcon,
                 contentDescription = null,
-                tint = NuvioTheme.colors.TextTertiary.copy(alpha = contentAlpha),
+                tint = settingsTertiaryColor(isFocused).copy(alpha = contentAlpha),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -1216,6 +1392,7 @@ internal fun SettingsChoiceChip(
     multiSelect: Boolean = false
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val glass = isSettingsGlass()
     val zen = isFlatSettingsStyle()
 
     Card(
@@ -1235,7 +1412,13 @@ internal fun SettingsChoiceChip(
                 this.selected = selected
             }
         },
-        colors = CardDefaults.colors(
+        // Launcher look: the sidebar pills (idle white .12, selected white .30, focused white).
+        colors = if (glass) CardDefaults.colors(
+            containerColor = if (selected) LauncherStyle.PillSelected else LauncherStyle.PillIdle,
+            contentColor = if (selected) Color.White else LauncherStyle.Soft,
+            focusedContainerColor = LauncherStyle.FocusWhite,
+            focusedContentColor = LauncherStyle.FocusText
+        ) else CardDefaults.colors(
             containerColor = when {
                 zen && selected -> NuvioTheme.colors.Secondary.copy(alpha = 0.18f)
                 zen -> Color.Transparent
@@ -1248,7 +1431,9 @@ internal fun SettingsChoiceChip(
                 else -> NuvioTheme.colors.Background
             }
         ),
-        border = if (zen) {
+        border = if (glass) {
+            CardDefaults.border(border = Border.None, focusedBorder = Border.None)
+        } else if (zen) {
             CardDefaults.border(
                 border = if (selected) Border(
                     border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Secondary.copy(alpha = 0.6f)),
@@ -1279,7 +1464,13 @@ internal fun SettingsChoiceChip(
             style = MaterialTheme.typography.labelMedium.copy(
                 textDirection = label.contentTextDirection()
             ),
-            color = if (selected || isFocused) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary,
+            color = when {
+                glass && isFocused -> LauncherStyle.FocusText
+                glass && selected -> Color.White
+                glass -> LauncherStyle.Soft
+                selected || isFocused -> NuvioTheme.colors.TextPrimary
+                else -> NuvioTheme.colors.TextSecondary
+            },
             modifier = Modifier.padding(horizontal = NuvioTheme.spacing.lg, vertical = 10.dp)
         )
     }
@@ -1288,16 +1479,30 @@ internal fun SettingsChoiceChip(
 @Composable
 private fun SettingsTogglePill(
     checked: Boolean,
-    enabled: Boolean
+    enabled: Boolean,
+    focused: Boolean = false
 ) {
     val alpha = if (enabled) 1f else 0.35f
     val zen = isFlatSettingsStyle()
+    val glass = isSettingsGlass()
     val trackColor = when {
+        // Launcher look: a white switch on the glass, a dark one on the focused white pill.
+        glass && focused && checked -> LauncherStyle.FocusText.copy(alpha = alpha)
+        glass && focused -> LauncherStyle.FocusText.copy(alpha = 0.18f * alpha)
+        glass && checked -> SettingsGlassColors.TrackOn.copy(alpha = alpha)
+        glass -> SettingsGlassColors.TrackOff.copy(alpha = SettingsGlassColors.TrackOff.alpha * alpha)
         zen && checked -> NuvioTheme.colors.Secondary.copy(alpha = 0.9f * alpha)
         checked -> NuvioTheme.colors.Secondary.copy(alpha = 0.35f * alpha)
         else -> NuvioTheme.colors.Border.copy(alpha = alpha)
     }
-    val knobColor = if (zen && checked) {
+    val knobColor = if (glass) {
+        when {
+            focused && checked -> Color.White.copy(alpha = alpha)
+            focused -> LauncherStyle.FocusText.copy(alpha = 0.45f * alpha)
+            checked -> SettingsGlassColors.KnobOn.copy(alpha = alpha)
+            else -> SettingsGlassColors.KnobOff.copy(alpha = SettingsGlassColors.KnobOff.alpha * alpha)
+        }
+    } else if (zen && checked) {
         NuvioTheme.colors.OnSecondary.copy(alpha = alpha)
     } else {
         Color.White.copy(alpha = alpha)

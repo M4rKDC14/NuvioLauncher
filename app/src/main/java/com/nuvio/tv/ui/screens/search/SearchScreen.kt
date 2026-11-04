@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -52,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextFieldDefaults
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -563,10 +565,11 @@ fun SearchScreen(
                     backToFieldLatched = false
                 }
                 false
-            }
-            .background(NuvioTheme.colors.Background),
+            },
         contentAlignment = Alignment.TopCenter
     ) {
+        // Nuvio Launcher: the blurred picture of the last focused title instead of a solid page.
+        com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(com.nuvio.tv.LauncherChrome.lastBackdrop.value)
         val listState = rememberLazyListState()
 
         // Step back within Search before falling through to the root handler.
@@ -1015,10 +1018,10 @@ private fun RecentSearchesSection(
                         down = firstSearchFocusRequester
                     },
                 colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary,
-                    focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                    focusedContentColor = NuvioTheme.colors.Primary
+                    containerColor = LauncherStyle.PillIdle,
+                    contentColor = LauncherStyle.Soft,
+                    focusedContainerColor = LauncherStyle.FocusWhite,
+                    focusedContentColor = LauncherStyle.FocusText
                 ),
                 shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
             ) {
@@ -1075,10 +1078,10 @@ private fun RecentSearchesSection(
                                 )
                             },
                         colors = ButtonDefaults.colors(
-                            containerColor = NuvioTheme.colors.BackgroundCard,
-                            contentColor = NuvioTheme.colors.TextPrimary,
-                            focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                            focusedContentColor = NuvioTheme.colors.Primary
+                            containerColor = LauncherStyle.PillIdle,
+                            contentColor = LauncherStyle.Soft,
+                            focusedContainerColor = LauncherStyle.FocusWhite,
+                            focusedContentColor = LauncherStyle.FocusText
                         ),
                         scale = ButtonDefaults.scale(focusedScale = 1f),
                         shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
@@ -1185,6 +1188,7 @@ private fun SearchInputField(
 ) {
     var isDiscoverButtonFocused by remember { mutableStateOf(false) }
     var isVoiceButtonFocused by remember { mutableStateOf(false) }
+    var searchFieldFocused by remember { mutableStateOf(false) }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     Row(
@@ -1203,20 +1207,16 @@ private fun SearchInputField(
                     )
                     .onFocusChanged { isDiscoverButtonFocused = it.isFocused }
                     .size(NuvioTheme.spacing.huge)
-                    .border(
-                        width = if (isDiscoverButtonFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
-                        color = if (isDiscoverButtonFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
-                        shape = RoundedCornerShape(NuvioTheme.radii.md)
-                    )
+                    // Launcher look: a round pill, white when focused.
                     .background(
-                        color = NuvioTheme.colors.BackgroundCard,
-                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                        color = if (isDiscoverButtonFocused) LauncherStyle.FocusWhite else LauncherStyle.PillIdle,
+                        shape = CircleShape
                     )
             ) {
                 Icon(
                     imageVector = Icons.Default.Explore,
                     contentDescription = stringResource(R.string.cd_open_discover),
-                    tint = NuvioTheme.colors.TextPrimary
+                    tint = if (isDiscoverButtonFocused) LauncherStyle.FocusText else Color.White
                 )
             }
 
@@ -1296,20 +1296,31 @@ private fun SearchInputField(
                         )
                         .onFocusChanged { isVoiceButtonFocused = it.isFocused }
                         .size(NuvioTheme.spacing.huge)
-                        .border(
-                            width = if (isVoiceButtonFocused || isVoiceListening) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
-                            color = if (isVoiceListening) themeAccent else if (isVoiceButtonFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
-                            shape = RoundedCornerShape(NuvioTheme.radii.md)
+                        .then(
+                            if (isVoiceListening) {
+                                Modifier.border(NuvioTheme.spacing.xxs, themeAccent, CircleShape)
+                            } else {
+                                Modifier
+                            }
                         )
+                        // Launcher look: a round pill, white when focused.
                         .background(
-                            color = if (isVoiceListening) themeAccent.copy(alpha = 0.15f) else NuvioTheme.colors.BackgroundCard,
-                            shape = RoundedCornerShape(NuvioTheme.radii.md)
+                            color = when {
+                                isVoiceButtonFocused -> LauncherStyle.FocusWhite
+                                isVoiceListening -> themeAccent.copy(alpha = 0.15f)
+                                else -> LauncherStyle.PillIdle
+                            },
+                            shape = CircleShape
                         )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = stringResource(R.string.cd_voice_search),
-                        tint = if (isVoiceListening) themeAccent else NuvioTheme.colors.TextPrimary
+                        tint = when {
+                            isVoiceButtonFocused -> LauncherStyle.FocusText
+                            isVoiceListening -> themeAccent
+                            else -> Color.White
+                        }
                     )
                 }
             }
@@ -1327,6 +1338,7 @@ private fun SearchInputField(
                     canFocus = isScreenActive
                 }
                 .onFocusChanged { focusState ->
+                    searchFieldFocused = focusState.isFocused
                     onSearchFieldFocusChanged(focusState.isFocused)
                 }
                 .onPreviewKeyEvent { keyEvent ->
@@ -1375,24 +1387,25 @@ private fun SearchInputField(
                 }
             ),
             singleLine = true,
-            shape = RoundedCornerShape(NuvioTheme.radii.md),
+            // Launcher look: the white pill with dark text; idle it is the sidebar's soft pill.
+            shape = CircleShape,
             placeholder = {
                 Text(
                     text = stringResource(R.string.search_placeholder),
-                    color = NuvioTheme.colors.TextTertiary
+                    color = if (searchFieldFocused) LauncherStyle.FocusText.copy(alpha = 0.5f) else LauncherStyle.Soft
                 )
             },
             textStyle = TextStyle(
                 textDirection = TextDirection.Content
             ),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = NuvioTheme.colors.BackgroundCard,
-                unfocusedContainerColor = NuvioTheme.colors.BackgroundCard,
-                focusedIndicatorColor = NuvioTheme.colors.FocusRing,
-                unfocusedIndicatorColor = NuvioTheme.colors.Border,
-                focusedTextColor = NuvioTheme.colors.TextPrimary,
-                unfocusedTextColor = NuvioTheme.colors.TextPrimary,
-                cursorColor = NuvioTheme.colors.FocusRing
+                focusedContainerColor = Color(0xE6F2F4F8),
+                unfocusedContainerColor = LauncherStyle.PillIdle,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                focusedTextColor = LauncherStyle.FocusText,
+                unfocusedTextColor = Color.White,
+                cursorColor = LauncherStyle.FocusText
             )
         )
 
@@ -1410,20 +1423,15 @@ private fun SearchInputField(
                 modifier = Modifier
                     .onFocusChanged { isClearButtonFocused = it.isFocused }
                     .size(NuvioTheme.spacing.huge)
-                    .border(
-                        width = if (isClearButtonFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
-                        color = if (isClearButtonFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
-                        shape = RoundedCornerShape(NuvioTheme.radii.md)
-                    )
                     .background(
-                        color = NuvioTheme.colors.BackgroundCard,
-                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                        color = if (isClearButtonFocused) LauncherStyle.FocusWhite else LauncherStyle.PillIdle,
+                        shape = CircleShape
                     )
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(R.string.cd_clear_search),
-                    tint = NuvioTheme.colors.TextPrimary
+                    tint = if (isClearButtonFocused) LauncherStyle.FocusText else Color.White
                 )
             }
         }

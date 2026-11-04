@@ -5,6 +5,7 @@ package com.nuvio.tv.ui.screens.settings
 import com.nuvio.tv.ui.screens.party.PartySettingsContent
 import com.nuvio.tv.ui.screens.party.PartyViewModel
 import com.nuvio.tv.ui.theme.NuvioTheme
+import dev.chrisbanes.haze.hazeSource
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RawRes
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -157,6 +159,7 @@ private fun settingsSectionSpec(category: SettingsCategory): SettingsSectionSpec
     SettingsCategory.ACCOUNT -> SettingsSectionSpec(category, stringResource(R.string.settings_account), Icons.Default.Person, destination = SettingsSectionDestination.Inline)
     SettingsCategory.PROFILES -> SettingsSectionSpec(category, stringResource(R.string.settings_profiles), Icons.Default.People, destination = SettingsSectionDestination.Inline)
     SettingsCategory.WATCH_PARTY -> SettingsSectionSpec(category, stringResource(R.string.party_title), Icons.Rounded.Groups, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.LAUNCHER -> SettingsSectionSpec(category, "Launcher", Icons.Default.Tv, destination = SettingsSectionDestination.Inline)
     SettingsCategory.APPEARANCE -> SettingsSectionSpec(category, stringResource(R.string.appearance_title), Icons.Default.Palette, destination = SettingsSectionDestination.Inline)
     SettingsCategory.LAYOUT -> SettingsSectionSpec(category, stringResource(R.string.settings_layout), Icons.Default.GridView, destination = SettingsSectionDestination.Inline)
     SettingsCategory.CONTENT_DISCOVERY -> SettingsSectionSpec(category, stringResource(R.string.settings_content_discovery), Icons.Default.Explore, destination = SettingsSectionDestination.Inline)
@@ -194,11 +197,8 @@ fun SettingsScreen(
     val experienceModeLoaded = experienceModeState is ExperienceModeLoadState.Loaded
 
     if (!experienceModeLoaded) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(NuvioTheme.colors.Background)
-        )
+        // Nuvio Launcher: the blurred picture of the last focused title, not a solid page.
+        com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(com.nuvio.tv.LauncherChrome.lastBackdrop.value)
         return
     }
 
@@ -230,6 +230,7 @@ fun SettingsScreen(
             SettingsCategory.EXPERIENCE to FocusRequester(),
             SettingsCategory.PROFILES to FocusRequester(),
             SettingsCategory.WATCH_PARTY to FocusRequester(),
+            SettingsCategory.LAUNCHER to FocusRequester(),
             SettingsCategory.LAYOUT to FocusRequester(),
             SettingsCategory.CONTENT_DISCOVERY to FocusRequester(),
             SettingsCategory.INTEGRATION to FocusRequester(),
@@ -406,10 +407,23 @@ fun SettingsScreen(
         pendingContentFocusCategory = null
     }
 
+    // Nuvio Launcher: Settings draws over the blurred picture of the last focused title, and the
+    // settings components switch to the launcher's glass look (LocalSettingsGlass) only in here.
+    val settingsHazeState = remember {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) dev.chrisbanes.haze.HazeState() else null
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+    com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(
+        url = com.nuvio.tv.LauncherChrome.lastBackdrop.value,
+        modifier = if (settingsHazeState != null) Modifier.hazeSource(state = settingsHazeState) else Modifier
+    )
+    androidx.compose.runtime.CompositionLocalProvider(
+        LocalSettingsGlass provides true,
+        LocalSettingsHazeState provides settingsHazeState
+    ) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background)
             .padding(
                 start = NuvioTheme.spacing.xxl,
                 end = NuvioTheme.spacing.xxl,
@@ -828,6 +842,8 @@ fun SettingsScreen(
             }
         }
     }
+    }
+    }
 }
 
 @Composable
@@ -874,6 +890,13 @@ private fun SettingsDetailPane(
             onOpen = onNavigateToWatchParty,
             initialFocusRequester = if (allowDetailAutofocus) {
                 contentFocusRequesters[SettingsCategory.WATCH_PARTY]
+            } else {
+                null
+            }
+        )
+        SettingsCategory.LAUNCHER -> LauncherSettingsContent(
+            initialFocusRequester = if (allowDetailAutofocus) {
+                contentFocusRequesters[SettingsCategory.LAUNCHER]
             } else {
                 null
             }

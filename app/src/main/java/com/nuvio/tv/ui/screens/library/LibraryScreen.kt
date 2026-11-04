@@ -87,6 +87,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.core.cloud.CloudLibraryFile
 import com.nuvio.tv.core.cloud.CloudLibraryItem
 import com.nuvio.tv.core.cloud.CloudLibraryItemType
@@ -264,6 +265,9 @@ fun LibraryScreen(
         }
     }
 
+    // Nuvio Launcher: the blurred picture of the last focused title instead of a solid page.
+    com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(com.nuvio.tv.LauncherChrome.lastBackdrop.value)
+
     if (uiState.isLoading) {
         val loadingFocusRequester = remember { FocusRequester() }
         val loadingLabel = stringResource(R.string.library_syncing_library)
@@ -309,7 +313,6 @@ fun LibraryScreen(
         state = gridState,
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background)
             .focusRestorer {
                 val lastKey = lastFocusedPosterKey
                 (if (lastKey != null && lastKey in posterFocusRequesters) {
@@ -380,8 +383,10 @@ fun LibraryScreen(
                             onClick = viewModel::refreshCloudLibrary,
                             enabled = !uiState.cloudLibrary.isRefreshing,
                             colors = ButtonDefaults.colors(
-                                containerColor = NuvioTheme.colors.BackgroundCard,
-                                contentColor = NuvioTheme.colors.TextPrimary
+                                containerColor = LauncherStyle.PillIdle,
+                                contentColor = LauncherStyle.Soft,
+                                focusedContainerColor = LauncherStyle.FocusWhite,
+                                focusedContentColor = LauncherStyle.FocusText
                             )
                         ) {
                             Text(
@@ -753,10 +758,15 @@ private fun LibraryViewModeRow(
                             role = Role.Tab
                             this.selected = selected
                         },
+                    // Launcher look: sidebar-style pills.
                     colors = ButtonDefaults.colors(
-                        containerColor = if (selected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
-                        contentColor = NuvioTheme.colors.TextPrimary
-                    )
+                        containerColor = if (selected) LauncherStyle.PillSelected else LauncherStyle.PillIdle,
+                        contentColor = if (selected) Color.White else LauncherStyle.Soft,
+                        focusedContainerColor = LauncherStyle.FocusWhite,
+                        focusedContentColor = LauncherStyle.FocusText
+                    ),
+                    shape = ButtonDefaults.shape(RoundedCornerShape(14.dp)),
+                    scale = ButtonDefaults.scale(focusedScale = 1f)
                 ) {
                     Text(
                         text = when (mode) {
@@ -1375,20 +1385,12 @@ private fun LibraryDropdownPicker(
                 .onSizeChanged { anchorSize = it }
                 .onFocusChanged { isFocused = it.isFocused },
             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
+            // Launcher look: the sidebar pill, white with dark text when focused, no ring.
             colors = CardDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.FocusBackground
+                containerColor = LauncherStyle.PillIdle,
+                focusedContainerColor = LauncherStyle.FocusWhite
             ),
-            border = CardDefaults.border(
-                border = androidx.tv.material3.Border(
-                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                    shape = RoundedCornerShape(14.dp)
-                ),
-                focusedBorder = androidx.tv.material3.Border(
-                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                    shape = RoundedCornerShape(14.dp)
-                )
-            ),
+            border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
             scale = CardDefaults.scale(
                 focusedScale = 1.0f,
                 pressedScale = 1.0f
@@ -1403,7 +1405,7 @@ private fun LibraryDropdownPicker(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelSmall,
-                    color = NuvioTheme.colors.TextTertiary
+                    color = if (isFocused) LauncherStyle.FocusText.copy(alpha = 0.6f) else LauncherStyle.Dim
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1413,14 +1415,14 @@ private fun LibraryDropdownPicker(
                     Text(
                         text = value,
                         style = MaterialTheme.typography.titleMedium,
-                        color = NuvioTheme.colors.TextPrimary,
+                        color = if (isFocused) LauncherStyle.FocusText else Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Icon(
                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = if (expanded) stringResource(R.string.cd_collapse, title) else stringResource(R.string.cd_expand, title),
-                        tint = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.TextSecondary
+                        tint = if (isFocused) LauncherStyle.FocusText else LauncherStyle.Soft
                     )
                 }
             }
@@ -1527,8 +1529,10 @@ private fun LibraryActionsRow(
                 onClick = onManageLists,
                 enabled = !pending && !isSyncing,
                 colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary
+                    containerColor = LauncherStyle.PillIdle,
+                    contentColor = LauncherStyle.Soft,
+                    focusedContainerColor = LauncherStyle.FocusWhite,
+                    focusedContentColor = LauncherStyle.FocusText
                 )
             ) {
                 Text(stringResource(R.string.library_manage_lists))
@@ -1538,8 +1542,10 @@ private fun LibraryActionsRow(
             onClick = onRefresh,
             enabled = !pending && !isSyncing,
             colors = ButtonDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                contentColor = NuvioTheme.colors.TextPrimary
+                containerColor = LauncherStyle.PillIdle,
+                contentColor = LauncherStyle.Soft,
+                focusedContainerColor = LauncherStyle.FocusWhite,
+                focusedContentColor = LauncherStyle.FocusText
             )
         ) {
             Text(if (isSyncing) stringResource(R.string.library_syncing_btn) else stringResource(R.string.library_sync_btn))
