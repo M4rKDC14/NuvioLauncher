@@ -173,23 +173,33 @@ internal fun LauncherHomeContent(
     }
 
     val current = hero.getOrNull(heroIndex.coerceAtMost((hero.size - 1).coerceAtLeast(0)))
-    val dim by animateFloatAsState(if (heroFocused) 0f else 0.5f, tween(300), label = "dim")
+    // As the carousel scrolls up, its picture fades out to the launcher's grey, as in the old launcher.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val heroFadePx = with(density) { 300.dp.toPx() }   // about 55% of the screen height
+    val heroAlpha by remember {
+        androidx.compose.runtime.derivedStateOf {
+            if (listState.firstVisibleItemIndex > 0) 0f
+            else (1f - listState.firstVisibleItemScrollOffset / heroFadePx).coerceIn(0f, 1f)
+        }
+    }
     val defaultSpec = LocalBringIntoViewSpec.current
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1E1F23))
+            .background(Brush.verticalGradient(listOf(Color(0xFF2A2B30), Color(0xFF1E1F23))))
             .onPreviewKeyEvent { if (it.type == KeyEventType.KeyDown) lastKeyAt = System.currentTimeMillis(); false }
     ) {
         val screenH = maxHeight
         // Backdrop of the current carousel title, bright, with only a light shade on the left.
-        Crossfade(targetState = current?.background ?: current?.poster, animationSpec = tween(600), label = "backdrop") { url ->
-            if (url != null) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = heroAlpha }) {
+            Crossfade(targetState = current?.background ?: current?.poster, animationSpec = tween(600), label = "backdrop") { url ->
+                if (url != null) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            }
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x73000000), 0.45f to Color(0x1F000000), 0.65f to Color.Transparent)))
+            // bottom of the picture blends into the grey below it
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 0.85f to Color(0x80000000), 1f to Color(0xFF1E1F23))))
         }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x73000000), 0.45f to Color(0x1F000000), 0.65f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.7f to Color.Transparent, 1f to Color(0x59000000))))
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = dim)))
 
         // Focus in the rows keeps that row in the middle; focus in the carousel keeps the page at the top.
         val centeringSpec = remember(heroFocused) {
