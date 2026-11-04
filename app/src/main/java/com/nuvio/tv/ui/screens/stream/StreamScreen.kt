@@ -410,8 +410,8 @@ fun StreamScreen(
             backdrop = uiState.backdrop ?: uiState.poster,
             isLoading = uiState.isLoading,
             launcherStyle = true,
-            modifier = if (streamHazeState != null && uiState.autoPlayDecided && !showOverlay) {
-                Modifier.hazeSource(state = streamHazeState)
+            modifier = if (false && streamHazeState != null && uiState.autoPlayDecided && !showOverlay) {   // 1.4.2: glass no longer blurs live
+                Modifier.hazeSource(state = streamHazeState!!)
             } else {
                 Modifier
             }

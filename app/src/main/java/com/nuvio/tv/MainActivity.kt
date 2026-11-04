@@ -1977,7 +1977,9 @@ private fun ModernSidebarScaffold(
         animationSpec = tween(durationMillis = if (isSidebarExpanded) 280 else 200, easing = animationEasing),
         label = "sidebarSurfaceAlpha"
     )
-    val shouldApplySidebarHaze = showSidebar && modernSidebarBlurEnabled
+    // 1.4.2 performance: record the page for the sidebar blur only while the sidebar is open or closing.
+    // Recording it all the time (for the small time pill) cost a full-screen blur buffer on every frame.
+    val shouldApplySidebarHaze = showSidebar && modernSidebarBlurEnabled && (isSidebarExpanded || sidebarCollapsePending)
     val sidebarTransition = updateTransition(
         targetState = isSidebarExpanded,
         label = "sidebarTransition"
@@ -2318,15 +2320,8 @@ private fun CollapsedSidebarPill(
             .width(95.dp)
             .clip(pillShape)
             .then(
-                if (blurEnabled && hazeState != null) {
-                    Modifier.hazeEffect(state = hazeState) {
-                        blurRadius = LauncherGlassBlur
-                        noiseFactor = 0f
-                        inputScale = HazeInputScale.Fixed(0.66f)
-                    }
-                } else {
-                    Modifier
-                }
+                // 1.4.2 performance: no live blur behind the pill (it forced a full-screen blur buffer every frame)
+                Modifier.background(Color(0x99141518), pillShape)
             )
             .background(brush = if (blurEnabled) launcherGlassBrush() else Brush.verticalGradient(listOf(Color(0xF21C1C1E), Color(0xF21C1C1E))), shape = pillShape)
             .border(width = 1.dp, color = LauncherGlassEdge, shape = pillShape)

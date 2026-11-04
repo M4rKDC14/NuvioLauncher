@@ -16,8 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -29,8 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import coil3.request.transformations
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -67,9 +65,10 @@ object LauncherStyle {
  * doesn't flicker through every title.
  */
 @Composable
-fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: Float = 0.6f, debounceMs: Long = 250) {
+fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: Float = 0.6f, debounceMs: Long = 500) {
     // base: the picture fully shown. incoming: the next one, drawn over it and faded in only once it has loaded,
-    // so a change never dips to black first.
+    // so a change never dips to black first. The picture changes only after focus has rested for debounceMs,
+    // so the fade never runs during a scroll.
     var base by remember { mutableStateOf<String?>(null) }
     var incoming by remember { mutableStateOf<String?>(null) }
     val fade = remember { Animatable(0f) }
@@ -80,22 +79,26 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
         if (url == base) { incoming = null; fade.snapTo(0f) } else { fade.snapTo(0f); incoming = url }
     }
     val context = LocalContext.current
-    val layer = Modifier
-        .fillMaxSize()
-        .graphicsLayer { scaleX = 1.12f; scaleY = 1.12f }
-        .blur(30.dp, BlurredEdgeTreatment.Rectangle)
+    // 1.4.2 performance: the picture is blurred ONCE, as a small 160x90 bitmap (Coil transformation, cached),
+    // then simply stretched to full screen. No live blur, so scrolling over it costs almost nothing.
+    fun request(u: String) = ImageRequest.Builder(context)
+        .data(u)
+        .size(160, 90)
+        .transformations(com.nuvio.tv.ui.util.BlurTransformation(radius = 6))
+        .memoryCacheKey("launcher_blur_" + u)
+        .build()
     Box(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(LauncherStyle.GreyTop, LauncherStyle.GreyBottom)))) {
         base?.let { u ->
             AsyncImage(
-                model = remember(u) { ImageRequest.Builder(context).data(u).size(320, 180).build() },
+                model = remember(u) { request(u) },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = layer.graphicsLayer { this.alpha = alpha }
+                modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha }
             )
         }
         incoming?.let { u ->
             AsyncImage(
-                model = remember(u) { ImageRequest.Builder(context).data(u).size(320, 180).build() },
+                model = remember(u) { request(u) },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 onSuccess = {
@@ -104,7 +107,7 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
                         if (incoming == u) { base = u; incoming = null; fade.snapTo(0f) }
                     }
                 },
-                modifier = layer.graphicsLayer { this.alpha = alpha * fade.value }
+                modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha * fade.value }
             )
         }
         // dark wash on the left and bottom so text stays readable
@@ -125,10 +128,9 @@ fun LauncherGlass(
         modifier
             .shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)   // soft two-layer look of the mockup
             .clip(shape)
-            .then(if (hazeState != null) Modifier.hazeEffect(state = hazeState) { blurRadius = 11.dp; noiseFactor = 0f } else Modifier)
-            // 1.4: one darkness for every launcher panel (sources, settings, review popup), matched by eye
-            // to the review popup over the blurred page. Without blur (below Android 12) a near-solid frame.
-            .background(Color(if (hazeState != null) 0x8F121316 else 0xE61C1D21), shape)
+            // 1.4.2 performance: no live blur (it was redrawn on every frame and made scrolling stutter on
+            // the TV's chip). A see-through dark tint over what is behind, which is already a blurred picture.
+            .background(Color(0xB3121316), shape)
             .background(LauncherStyle.glassBrush(), shape)
             .border(1.dp, LauncherStyle.Edge, shape),
         content = content

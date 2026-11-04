@@ -409,9 +409,8 @@ fun SettingsScreen(
 
     // Nuvio Launcher: Settings draws over the blurred picture of the last focused title, and the
     // settings components switch to the launcher's glass look (LocalSettingsGlass) only in here.
-    val settingsHazeState = remember {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) dev.chrisbanes.haze.HazeState() else null
-    }
+    // 1.4.2 performance: no live blur behind the settings glass; the backdrop is already blurred.
+    val settingsHazeState: dev.chrisbanes.haze.HazeState? = null
     Box(modifier = Modifier.fillMaxSize()) {
     com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(
         url = com.nuvio.tv.LauncherChrome.lastBackdrop.value,
