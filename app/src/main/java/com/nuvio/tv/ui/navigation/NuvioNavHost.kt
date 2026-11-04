@@ -286,6 +286,27 @@ private fun PlaybackNavHost(
                 },
                 onNavigateToFolderDetail = { collectionId, folderId ->
                     navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
+                },
+                onPlayItem = { item ->
+                    // Nuvio Launcher: Play on the carousel. Movies go straight to Nuvio's sources; a series opens its details to pick an episode.
+                    val type = item.rawType.ifBlank { "movie" }
+                    if (type.equals("movie", ignoreCase = true)) {
+                        navController.navigate(
+                            Screen.Stream.createRoute(
+                                videoId = item.id,
+                                contentType = type,
+                                title = item.name,
+                                poster = item.poster,
+                                backdrop = item.background,
+                                logo = item.logo,
+                                contentId = item.id,
+                                contentName = item.name,
+                                returnToHomeOnBack = true
+                            )
+                        )
+                    } else {
+                        navController.navigate(Screen.Detail.createRoute(itemId = item.id, itemType = type, addonBaseUrl = item.sourceAddonBaseUrl ?: ""))
+                    }
                 }
             )
         }

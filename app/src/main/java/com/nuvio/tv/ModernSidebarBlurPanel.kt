@@ -96,16 +96,12 @@ internal fun ModernSidebarBlurPanel(
     onSwitchProfile: () -> Unit,
     clockText: String = ""
 ) {
-    val delayedBlurProgress =
-        ((sidebarExpandProgress - 0.34f) / 0.66f).coerceIn(0f, 1f)
-    val showPanelBlur = blurEnabled &&
-        isSidebarExpanded &&
-        !sidebarCollapsePending &&
-        delayedBlurProgress > 0f
+    // Nuvio Launcher: Apple TV-style glass. Full blur from the first frame (no late ramp), no grain.
+    val showPanelBlur = blurEnabled && (isSidebarExpanded || sidebarCollapsePending)
     val expandedPanelBlurModifier = if (showPanelBlur) {
         Modifier.hazeEffect(state = sidebarHazeState) {
-            blurRadius = NuvioTheme.effects.blurPanel * delayedBlurProgress
-            noiseFactor = 0.04f * delayedBlurProgress
+            blurRadius = LauncherGlassBlur
+            noiseFactor = 0f
             inputScale = HazeInputScale.Fixed(0.66f)
         }
     } else {
@@ -116,22 +112,10 @@ internal fun ModernSidebarBlurPanel(
     val bgCard = colors.BackgroundCard
     val borderBase = colors.Border
     val isAmoledBlack = bgElevated == Color.Black
-    val panelBackgroundBrush = remember(blurEnabled, isAmoledBlack, bgElevated, bgCard) {
-        // Nuvio Launcher: silver glass, as in the 0.23 launcher's sidebar
-        val baseColor = if (blurEnabled) Color(0xFF6E7280) else if (isAmoledBlack) Color.Black else Color(0xFF161618)
-        val alpha = when {
-            blurEnabled -> 0.55f
-            isAmoledBlack -> 1f
-            else -> 0.97f
-        }
-        Brush.verticalGradient(listOf(
-            baseColor.copy(alpha = alpha),
-            baseColor.copy(alpha = alpha)
-        ))
+    val panelBackgroundBrush = remember(blurEnabled) {
+        if (blurEnabled) launcherGlassBrush() else Brush.verticalGradient(listOf(Color(0xF2161618), Color(0xF2161618)))
     }
-    val panelBorderColor = remember(isAmoledBlack, blurEnabled, borderBase) {
-        if (!blurEnabled && isAmoledBlack) borderBase.copy(alpha = 0.9f) else Color.Transparent
-    }
+    val panelBorderColor = LauncherGlassEdge
 
     Column(
         modifier = Modifier
@@ -147,14 +131,8 @@ internal fun ModernSidebarBlurPanel(
             .clip(panelShape)
             .then(expandedPanelBlurModifier)
             .background(brush = panelBackgroundBrush, shape = panelShape)
-            .then(
-                if (panelBorderColor != Color.Transparent) {
-                    Modifier.border(width = NuvioStrokes.tokens.hairline, color = panelBorderColor, shape = panelShape)
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = 6.dp, vertical = 10.dp)
+            .border(width = 1.dp, color = panelBorderColor, shape = panelShape)
+            .padding(horizontal = 7.dp, vertical = 12.dp)
     ) {
         if (showProfileSelector && activeProfileName.isNotEmpty()) {
             Box(
@@ -192,7 +170,7 @@ internal fun ModernSidebarBlurPanel(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(40.dp))   // Apple TV: clear space under the profile row
 
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -232,9 +210,20 @@ internal fun ModernSidebarBlurPanel(
 // Nuvio Launcher: sidebar rows in the 0.23 launcher's style. The current page sits on a translucent pill;
 // the focused row is a solid white pill with dark text and a dark icon chip. Nothing scales, so the pill
 // never runs into the glass edge.
-private val LauncherChipSize = 24.dp
-private val LauncherIconSize = 13.dp
-private val LauncherLabelSize = 11.sp
+private val LauncherChipSize = 20.dp
+private val LauncherIconSize = 11.dp
+private val LauncherLabelSize = 12.sp
+private val LauncherFocusPill = Color(0xE0F2F4F8)   // bright, slightly see-through white
+private val LauncherText = Color(0xEBFFFFFF)
+
+/** The Apple TV-style glass used by the sidebar and the time pill (blur 11, sheen top-left, faint dark edge). */
+internal val LauncherGlassBlur = 11.dp
+internal val LauncherGlassEdge = Color(0x470A0C10)
+internal fun launcherGlassBrush(): Brush = Brush.linearGradient(
+    0f to Color(0x24FFFFFF),
+    0.45f to Color(0x08FFFFFF),
+    1f to Color(0x2E141820)
+)
 
 @Composable
 private fun SidebarNavigationItem(
@@ -252,11 +241,11 @@ private fun SidebarNavigationItem(
     var isFocused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NuvioRadii.tokens.full)
     val background = when {
-        isFocused -> Color(0xFFF2F2F4)
-        selected -> Color.White.copy(alpha = 0.25f)
+        isFocused -> LauncherFocusPill
+        selected -> Color.White.copy(alpha = 0.18f)
         else -> Color.Transparent
     }
-    val content = if (isFocused) Color(0xFF16171B) else Color.White
+    val content = if (isFocused) Color(0xFF16171B) else LauncherText
     Card(
         onClick = onClick,
         modifier = modifier
@@ -278,26 +267,28 @@ private fun SidebarNavigationItem(
                     this.selected = selected
                 }
                 .fillMaxWidth()
-                .padding(start = 5.dp, end = 11.dp, top = 5.dp, bottom = 5.dp),
+                .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .size(LauncherChipSize)
                     .clip(CircleShape)
-                    .background(if (isFocused) Color(0xFF16171B) else Color.White.copy(alpha = 0.2f)),
+                    .background(if (isFocused) Color.Transparent else Color.White.copy(alpha = 0.24f)),
                 contentAlignment = Alignment.Center
             ) {
+                val tint = if (isFocused) Color(0xFF16171B) else Color.White
                 when {
-                    icon != null -> Icon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(LauncherIconSize))
-                    iconRes != null -> Icon(painter = rememberRawSvgPainter(iconRes), contentDescription = null, tint = Color.White, modifier = Modifier.size(LauncherIconSize))
+                    icon != null -> Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(LauncherIconSize))
+                    iconRes != null -> Icon(painter = rememberRawSvgPainter(iconRes), contentDescription = null, tint = tint, modifier = Modifier.size(LauncherIconSize))
                 }
             }
-            Spacer(modifier = Modifier.width(9.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Text(
                 text = label,
                 color = content,
                 fontSize = LauncherLabelSize,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 modifier = Modifier.weight(1f).graphicsLayer { alpha = labelAlpha }
             )
@@ -319,8 +310,8 @@ private fun SidebarProfileItem(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(NuvioRadii.tokens.full)
-    val background = if (isFocused) Color(0xFFF2F2F4) else Color.Transparent
-    val content = if (isFocused) Color(0xFF16171B) else Color.White
+    val background = if (isFocused) LauncherFocusPill else Color.Transparent
+    val content = if (isFocused) Color(0xFF16171B) else LauncherText
     Card(
         onClick = onClick,
         modifier = modifier
@@ -341,27 +332,27 @@ private fun SidebarProfileItem(
                     role = Role.Button
                 }
                 .fillMaxWidth()
-                .padding(start = 5.dp, end = 8.dp, top = 5.dp, bottom = 5.dp),
+                .padding(start = 6.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             ProfileAvatarCircle(
                 name = profileName,
                 colorHex = profileColorHex,
-                size = 25.dp,
+                size = 26.dp,
                 avatarImageUrl = profileAvatarImageUrl,
                 imageCrossfade = false
             )
-            Spacer(modifier = Modifier.width(7.dp))
+            Spacer(modifier = Modifier.width(9.dp))
             Text(
                 text = profileName,
                 color = content,
-                fontSize = LauncherLabelSize,
-                fontWeight = FontWeight.Bold,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 modifier = Modifier.weight(1f).graphicsLayer { alpha = labelAlpha }
             )
             if (clockText.isNotEmpty()) {
-                Text(text = clockText, color = content, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(text = clockText, color = content, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }

@@ -2130,7 +2130,7 @@ private fun ModernSidebarScaffold(
         }
 
         if (showSidebar && (sidebarVisible || sidebarShowExpandedPanel)) {
-            val panelShape = RoundedCornerShape(sidebarTokens.panelRadius)
+            val panelShape = RoundedCornerShape(24.dp)   // Nuvio Launcher: Apple TV corners
             val showExpandedPanel = isSidebarExpanded || sidebarShowExpandedPanel
 
             Box(
@@ -2237,6 +2237,7 @@ private fun ModernSidebarScaffold(
             if (
                 !sidebarCollapsed &&
                 sidebarShowCollapsedPill &&
+                LauncherChrome.pillVisible.value &&   // Nuvio Launcher: Catalog hides it while its rows have focus
                 selectedDrawerRoute != Screen.Search.route
             ) {
                 CollapsedSidebarPill(
@@ -2287,20 +2288,8 @@ private fun CollapsedSidebarPill(
     modifier: Modifier = Modifier,
     onExpand: () -> Unit
 ) {
+    // Nuvio Launcher: the sidebar's glass, 124dp wide, page icon on the left and the time on the right.
     val pillShape = RoundedCornerShape(NuvioRadii.tokens.full)
-    val colors = NuvioTheme.colors
-    val bgElevated = colors.BackgroundElevated
-    val bgCard = colors.BackgroundCard
-    val borderBase = colors.Border
-    val mediaColors = colors.media
-    val pillBackgroundBrush = remember(blurEnabled) {
-        val alpha = if (blurEnabled) 0.65f else 0.96f
-        Brush.verticalGradient(listOf(
-            Color(0xFF1C1C1E).copy(alpha = alpha),
-            Color(0xFF1C1C1E).copy(alpha = alpha)
-        ))
-    }
-
     Row(
         modifier = modifier
             .focusProperties { canFocus = false }
@@ -2309,74 +2298,46 @@ private fun CollapsedSidebarPill(
                 role = Role.Button
                 contentDescription = label
             }
-            .padding(horizontal = NuvioTheme.spacing.hairline, vertical = NuvioTheme.spacing.xxs),
+            .width(124.dp)
+            .clip(pillShape)
+            .then(
+                if (blurEnabled && hazeState != null) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        blurRadius = LauncherGlassBlur
+                        noiseFactor = 0f
+                        inputScale = HazeInputScale.Fixed(0.66f)
+                    }
+                } else {
+                    Modifier
+                }
+            )
+            .background(brush = if (blurEnabled) launcherGlassBrush() else Brush.verticalGradient(listOf(Color(0xF21C1C1E), Color(0xF21C1C1E))), shape = pillShape)
+            .border(width = 1.dp, color = LauncherGlassEdge, shape = pillShape)
+            .padding(start = 7.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .height(NuvioTheme.sizes.player.control)
-                .clip(pillShape)
-                .then(
-                    if (blurEnabled && hazeState != null) {
-                        Modifier.hazeEffect(state = hazeState) {
-                            blurRadius = 24.dp
-                            inputScale = HazeInputScale.Fixed(0.66f)
-                        }
-                    } else {
-                        Modifier
-                    }
-                )
-                .background(brush = pillBackgroundBrush, shape = pillShape)
+                .size(22.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color.White.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .fillMaxHeight()
-                    .padding(start = 5.dp, end = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(NuvioTheme.sizes.sidebar.leadingVisual),
-                    contentAlignment = Alignment.Center
-                ) {
-                    DrawerItemIcon(
-                        iconRes = iconRes,
-                        icon = icon,
-                        tint = NuvioTheme.colors.text.onOverlay,
-                        modifier = Modifier
-                            .size(NuvioTheme.sizes.sidebar.leadingVisual - NuvioTheme.spacing.md)
-                            .offset(y = (-0.5).dp)
-                    )
-                }
-
-                AnimatedVisibility(
-                    visible = !iconOnly,
-                    enter = expandHorizontally(
-                            animationSpec = tween(NuvioMotion.tokens.durations.fast, easing = FastOutSlowInEasing),
-                            expandFrom = Alignment.Start,
-                            clip = true
-                        ),
-                    exit = shrinkHorizontally(
-                            animationSpec = tween(NuvioMotion.tokens.durations.fast, easing = FastOutSlowInEasing),
-                            shrinkTowards = Alignment.Start,
-                            clip = true
-                        )
-                ) {
-                    Text(
-                        text = label,
-                        color = NuvioTheme.colors.text.onOverlay,
-                        style = androidx.tv.material3.MaterialTheme.typography.titleLarge.copy(
-                            lineHeight = 30.sp
-                        ),
-                        modifier = Modifier
-                            .padding(start = 9.dp, end = NuvioTheme.spacing.md - 5.dp)
-                            .offset(y = (-0.5).dp),
-                        maxLines = 1
-                    )
-                }
-            }
+            DrawerItemIcon(
+                iconRes = iconRes,
+                icon = icon,
+                tint = Color.White,
+                modifier = Modifier.size(11.dp)
+            )
         }
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1
+        )
     }
 }
 

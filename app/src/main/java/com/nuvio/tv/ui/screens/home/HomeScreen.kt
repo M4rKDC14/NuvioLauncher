@@ -95,7 +95,8 @@ fun HomeScreen(
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onNavigateToCatalogSeeAll: (String, String, String) -> Unit = { _, _, _ -> },
-    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> }
+    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
+    onPlayItem: (MetaPreview) -> Unit = { item -> onNavigateToDetail(item.id, item.rawType, item.sourceAddonBaseUrl ?: "") }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -364,50 +365,16 @@ fun HomeScreen(
                                 )
                         }
                     ) {
-                        when (uiState.homeLayout) {
-                            HomeLayout.CLASSIC -> ClassicHomeRoute(
-                                viewModel = viewModel,
-                                uiState = uiState,
-                                posterCardStyle = posterCardStyle,
-                                onNavigateToDetail = onNavigateToDetailStable,
-                                onContinueWatchingClick = onContinueWatchingClickStable,
-                                onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
-                                onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
-                                showContinueWatchingManualPlayOption = effectiveAutoplayEnabled,
-                                onNavigateToCatalogSeeAll = onNavigateToCatalogSeeAllStable,
-                                onNavigateToFolderDetail = onNavigateToFolderDetailStable,
-                                isCatalogItemWatched = isCatalogItemWatched,
-                                onCatalogItemLongPress = onCatalogItemLongPress
-                            )
-
-                            HomeLayout.GRID -> GridHomeRoute(
-                                viewModel = viewModel,
-                                uiState = uiState,
-                                posterCardStyle = posterCardStyle,
-                                onNavigateToDetail = onNavigateToDetailStable,
-                                onContinueWatchingClick = onContinueWatchingClickStable,
-                                onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
-                                onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
-                                showContinueWatchingManualPlayOption = effectiveAutoplayEnabled,
-                                onNavigateToCatalogSeeAll = onNavigateToCatalogSeeAllStable,
-                                onNavigateToFolderDetail = onNavigateToFolderDetailStable,
-                                isCatalogItemWatched = isCatalogItemWatched,
-                                onCatalogItemLongPress = onCatalogItemLongPress
-                            )
-
-                            HomeLayout.MODERN -> ModernHomeRoute(
-                                viewModel = viewModel,
-                                uiState = uiState,
-                                onNavigateToDetail = onNavigateToDetailStable,
-                                onContinueWatchingClick = onContinueWatchingClickStable,
-                                onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
-                                onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
-                                showContinueWatchingManualPlayOption = effectiveAutoplayEnabled,
-                                onNavigateToFolderDetail = onNavigateToFolderDetailStable,
-                                isCatalogItemWatched = isCatalogItemWatched,
-                                onCatalogItemLongPress = onCatalogItemLongPress
-                            )
-                        }
+                        // Nuvio Launcher: always the launcher's Catalog page; Nuvio's layout setting is not used.
+                        LauncherHomeContent(
+                            uiState = uiState,
+                            onNavigateToDetail = onNavigateToDetailStable,
+                            onContinueWatchingClick = onContinueWatchingClickStable,
+                            onNavigateToFolderDetail = onNavigateToFolderDetailStable,
+                            onPlayItem = onPlayItem,
+                            onToggleLibrary = { item -> viewModel.togglePosterLibrary(item, item.sourceAddonBaseUrl) },
+                            onRequestLazyCatalogLoad = { key -> viewModel.requestLazyCatalogLoad(key) }
+                        )
                     }
                 }
             }
