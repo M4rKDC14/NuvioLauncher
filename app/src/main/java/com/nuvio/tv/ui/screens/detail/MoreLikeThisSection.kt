@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onPlaced
@@ -43,6 +44,7 @@ import com.nuvio.tv.ui.components.PosterCardStyle
 fun MoreLikeThisSection(
     items: List<MetaPreview>,
     listState: LazyListState,
+    title: String? = null,
     sourceLabel: String? = null,
     posterCardCornerRadius: Dp = NuvioTheme.spacing.md,
     upFocusRequester: FocusRequester? = null,
@@ -117,15 +119,26 @@ fun MoreLikeThisSection(
         )
     }
 
+    var rowHasFocus by remember { mutableStateOf(false) }
+    val lastIndex = items.lastIndex
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else DetailRowTitleTop)
     ) {
+        if (!title.isNullOrBlank()) {
+            LauncherRowTitle(
+                text = title,
+                highlighted = rowHasFocus,
+                modifier = Modifier
+                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = DetailRowTitleGap)
+            )
+        }
         LazyRow(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
+                .onFocusChanged { rowHasFocus = it.hasFocus }
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .focusRestorer {
                     when {
@@ -135,7 +148,7 @@ fun MoreLikeThisSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 22.dp),
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = DetailRowTilesTop, bottom = DetailRowTilesBottom),
             horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
         ) {
             itemsIndexed(
@@ -164,6 +177,7 @@ fun MoreLikeThisSection(
                     )
                 ) {
                     LauncherMetaTile(
+                        modifier = Modifier.stopFocusAtRowEnd(index == lastIndex),
                         item = item,
                         width = 224.dp,
                         height = 126.dp,

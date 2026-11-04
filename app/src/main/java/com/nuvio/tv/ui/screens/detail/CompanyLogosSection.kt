@@ -219,6 +219,7 @@ fun CompanyLogosSection(
                 ) {
                     CompanyLogoCard(
                         company = company,
+                        isLast = index == companies.lastIndex,
                         focusRequester = focusRequester,
                         upFocusRequester = upFocusRequester,
                         onFocused = {
@@ -246,6 +247,7 @@ private fun companyLazyKey(title: String, index: Int, company: MetaCompany): Str
 @Composable
 private fun CompanyLogoCard(
     company: MetaCompany,
+    isLast: Boolean = false,
     focusRequester: FocusRequester? = null,
     upFocusRequester: FocusRequester? = null,
     onFocused: () -> Unit = {},
@@ -297,6 +299,7 @@ private fun CompanyLogoCard(
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
             )
+            .stopFocusAtRowEnd(isLast)
             .onPreviewKeyEvent { event ->
                 if (
                     upFocusRequester != null &&

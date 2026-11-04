@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.launcher.LauncherStyle
 
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -120,17 +122,20 @@ fun EpisodeRatingsSection(
         ?: seasonFocusRequesters[selectedSeason]
         ?: FocusRequester.Default
 
+    // Nuvio Launcher: a stacked row of the details page, its title at 56 like the others.
+    var sectionHasFocus by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = if (hasTitle) 14.dp else 6.dp, bottom = NuvioTheme.spacing.sm)
+            .onFocusChanged { sectionHasFocus = it.hasFocus }
+            .padding(top = if (hasTitle) DetailRowTitleTop else 6.dp, bottom = NuvioTheme.spacing.xs)
     ) {
         if (hasTitle) {
-            Text(
+            LauncherRowTitle(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = NuvioTheme.colors.TextPrimary,
-                modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+                highlighted = sectionHasFocus,
+                modifier = Modifier
+                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = DetailRowTitleGap)
             )
         }
 
@@ -140,7 +145,7 @@ fun EpisodeRatingsSection(
                     text = stringResource(R.string.ratings_loading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.md)
+                    modifier = Modifier.padding(horizontal = LauncherStyle.Start, vertical = NuvioTheme.spacing.md)
                 )
             }
             error != null -> {
@@ -148,7 +153,7 @@ fun EpisodeRatingsSection(
                     text = error,
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.md)
+                    modifier = Modifier.padding(horizontal = LauncherStyle.Start, vertical = NuvioTheme.spacing.md)
                 )
             }
             seasonNumbers.isEmpty() -> {
@@ -156,7 +161,7 @@ fun EpisodeRatingsSection(
                     text = stringResource(R.string.ratings_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.md)
+                    modifier = Modifier.padding(horizontal = LauncherStyle.Start, vertical = NuvioTheme.spacing.md)
                 )
             }
             else -> {
@@ -165,7 +170,7 @@ fun EpisodeRatingsSection(
                         .fillMaxWidth()
                         .focusRestorer { selectedSeasonRequester }
                         .focusGroup(),
-                    contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = LauncherStyle.Start, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(seasonNumbers, key = { it }) { season ->
@@ -185,6 +190,7 @@ fun EpisodeRatingsSection(
                                     if (upRequester != null) up = upRequester
                                     down = effectiveRatingsGridFocusRequester
                                 }
+                                .stopFocusAtRowEnd(season == seasonNumbers.last())
                                 .onFocusChanged { state ->
                                     if (state.isFocused && selectedSeason != season) {
                                         selectedSeason = season
@@ -225,7 +231,7 @@ fun EpisodeRatingsSection(
                     text = stringResource(R.string.ratings_season_summary, selectedSeason, episodesForSeason.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = NuvioTheme.colors.TextTertiary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xxs)
+                    modifier = Modifier.padding(horizontal = LauncherStyle.Start, vertical = NuvioTheme.spacing.xxs)
                 )
 
                 LazyRow(
@@ -234,11 +240,12 @@ fun EpisodeRatingsSection(
                         .focusRequester(effectiveRatingsGridFocusRequester)
                         .focusRestorer(firstEpisodeRatingFocusRequester)
                         .focusGroup(),
-                    contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = LauncherStyle.Start, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(seasonRatings, key = { "${it.seasonNumber}:${it.episodeNumber}" }) { episodeRating ->
                         val isFirstEpisode = episodeRating == seasonRatings.firstOrNull()
+                        val isLastEpisode = episodeRating == seasonRatings.lastOrNull()
 
                         // These chips only display a rating and have no action, but their focus is
                         // load-bearing: the season tabs point "down" at this row and the row's
@@ -258,6 +265,7 @@ fun EpisodeRatingsSection(
                                 .then(
                                     if (isFirstEpisode) Modifier.focusRequester(firstEpisodeRatingFocusRequester) else Modifier
                                 )
+                                .stopFocusAtRowEnd(isLastEpisode)
                                 // (tv-material3's Card only has the clickable overload, so the
                                 // empty onClick stays; clearAndSetSemantics replaces the chip's two
                                 // Texts with one name that carries both the episode and its rating.)

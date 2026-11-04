@@ -50,6 +50,23 @@ import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
  * 111% zoom on focus and a 12sp title under every tile that moves down, clear of the zoomed tile.
  */
 
+/*
+ * The details page's stacked rows (Cast & Crew, Ratings, More like this, Trailers, Collection, ...):
+ * the title sits [DetailRowTitleTop] below the previous row, [DetailRowTitleGap] above the tile row,
+ * whose content padding keeps [DetailRowTilesTop] above the tiles (room for the zoom) and
+ * [DetailRowTilesBottom] below the captions (their 10dp focus shift plus 2). With the next row's
+ * title inset that leaves ~28dp between a focused tile's caption and the next title, as under the
+ * episodes.
+ */
+internal val DetailRowTitleTop = 26.dp
+internal val DetailRowTitleGap = 4.dp
+internal val DetailRowTilesTop = 12.dp
+internal val DetailRowTilesBottom = 12.dp
+
+/** Right (end) on a row's last tile does nothing: focus never jumps to another row sideways. */
+internal fun Modifier.stopFocusAtRowEnd(isLast: Boolean): Modifier =
+    if (isLast) this.focusProperties { end = FocusRequester.Cancel } else this
+
 /** A row title: 16sp bold, white while the row has focus, soft white otherwise. */
 @Composable
 internal fun LauncherRowTitle(

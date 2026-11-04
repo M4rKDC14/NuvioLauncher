@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.relocation.BringIntoViewResponder
@@ -54,6 +55,7 @@ private data class TrailerListItem(
 fun TrailerSection(
     trailers: List<MetaTrailer>,
     listState: LazyListState,
+    title: String? = null,
     posterCardCornerRadius: Dp = NuvioTheme.spacing.md,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
@@ -163,15 +165,25 @@ fun TrailerSection(
         )
     }
 
+    var rowHasFocus by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else DetailRowTitleTop)
     ) {
+        if (!title.isNullOrBlank()) {
+            LauncherRowTitle(
+                text = title,
+                highlighted = rowHasFocus,
+                modifier = Modifier
+                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = DetailRowTitleGap)
+            )
+        }
         LazyRow(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
+                .onFocusChanged { rowHasFocus = it.hasFocus }
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .focusRestorer {
                     when {
@@ -180,7 +192,7 @@ fun TrailerSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 22.dp),
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = DetailRowTilesTop, bottom = DetailRowTilesBottom),
             horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
         ) {
             itemsIndexed(
@@ -211,6 +223,7 @@ fun TrailerSection(
                     )
                 ) {
                     LauncherMetaTile(
+                        modifier = Modifier.stopFocusAtRowEnd(index == trailerItems.lastIndex),
                         item = item.preview,
                         width = 224.dp,
                         height = 126.dp,

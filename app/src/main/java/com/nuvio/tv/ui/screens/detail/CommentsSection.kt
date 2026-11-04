@@ -257,7 +257,7 @@ fun CommentsSection(
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
         ) {
             LauncherRowTitle(
-                text = stringResource(R.string.detail_comments_title),
+                text = "Reviews",   // approved mockup title
                 highlighted = sectionHasFocus
             )
             Image(
@@ -457,7 +457,8 @@ fun CommentsSection(
                                     if (focusState.isFocused && !lockCommentFocusId) {
                                         lastFocusedCommentId = review.id
                                     }
-                                },
+                                }
+                                .stopFocusAtRowEnd(!isLoadingMore && review.id == comments.lastOrNull()?.id),
                             onClick = { onCommentClick(review) }
                         )
                     }

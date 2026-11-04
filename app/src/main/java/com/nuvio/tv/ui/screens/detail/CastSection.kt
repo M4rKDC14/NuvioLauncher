@@ -225,7 +225,7 @@ fun CastSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = if (hasTitle) 26.dp else NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (hasTitle) DetailRowTitleTop else NuvioTheme.spacing.sm)
             .onGloballyPositioned { coords ->
                 val bounds = coords.boundsInWindow()
                 val next = bounds.top >= -1f &&
@@ -237,15 +237,12 @@ fun CastSection(
             }
     ) {
         if (hasTitle) {
-            Text(
+            LauncherRowTitle(
                 text = title,
-                color = if (rowHasFocus) Color.White else LauncherStyle.Soft,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                modifier = Modifier.padding(horizontal = LauncherStyle.Start)
+                highlighted = rowHasFocus,
+                modifier = Modifier
+                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = DetailRowTitleGap)
             )
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
         }
 
         LazyRow(
@@ -269,7 +266,8 @@ fun CastSection(
                 }
                 .focusGroup(),
             state = listState,
-            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 16.dp),
+            // below the names: their 8dp focus shift plus a little, like the other stacked rows
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = DetailRowTilesTop, bottom = DetailRowTilesBottom),
             horizontalArrangement = Arrangement.Start
         ) {
             val standardGap = 14.dp
@@ -296,7 +294,8 @@ fun CastSection(
                             member = member,
                             modifier = Modifier
                                 .focusRequester(focusRequester)
-                                .then(itemFocusPropertiesModifier),
+                                .then(itemFocusPropertiesModifier)
+                                .stopFocusAtRowEnd(cast.isEmpty() && index == leadingCast.lastIndex),
                             itemWidth = itemWidth,
                             cardSize = cardSize,
                             onFocused = {
@@ -347,7 +346,8 @@ fun CastSection(
                         member = member,
                         modifier = Modifier
                             .focusRequester(focusRequester)
-                            .then(itemFocusPropertiesModifier),
+                            .then(itemFocusPropertiesModifier)
+                            .stopFocusAtRowEnd(index == cast.lastIndex),
                         itemWidth = itemWidth,
                         cardSize = cardSize,
                         onFocused = {

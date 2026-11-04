@@ -122,14 +122,14 @@ fun CollectionSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else 26.dp, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else DetailRowTitleTop)
     ) {
         if (!title.isNullOrBlank()) {
             LauncherRowTitle(
                 text = title,
                 highlighted = rowHasFocus,
                 modifier = Modifier
-                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = NuvioTheme.spacing.xs)
+                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = DetailRowTitleGap)
             )
         }
         LazyRow(
@@ -146,7 +146,7 @@ fun CollectionSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 22.dp),
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = DetailRowTilesTop, bottom = DetailRowTilesBottom),
             horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
         ) {
             itemsIndexed(
@@ -175,6 +175,7 @@ fun CollectionSection(
                     )
                 ) {
                     LauncherMetaTile(
+                        modifier = Modifier.stopFocusAtRowEnd(index == items.lastIndex),
                         item = item,
                         width = 224.dp,
                         height = 126.dp,
