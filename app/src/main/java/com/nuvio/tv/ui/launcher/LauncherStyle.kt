@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.launcher
 
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -140,17 +142,31 @@ fun LauncherGlass(
     tint: Color = Color(0xB3121316),
     content: @Composable BoxScope.() -> Unit
 ) {
-    Box(
-        modifier
-            .shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)   // soft two-layer look of the mockup
-            .clip(shape)
-            // 1.4.2 performance: no live blur (it was redrawn on every frame and made scrolling stutter on
-            // the TV's chip). A see-through dark tint over what is behind, which is already a blurred picture.
-            .background(tint, shape)
-            .background(LauncherStyle.glassBrush(), shape)
-            .border(1.dp, LauncherStyle.Edge, shape),
-        content = content
-    )
+    Box(modifier) {
+        // The shadow is drawn only OUTSIDE the panel. The panel is see-through, and an elevation shadow is also
+        // painted under the shape, so it showed through as a lighter/darker inner rectangle inset from the edges.
+        Box(
+            Modifier
+                .matchParentSize()
+                .drawWithContent {
+                    val outline = shape.createOutline(size, layoutDirection, this)
+                    val path = androidx.compose.ui.graphics.Path().apply { addOutline(outline) }
+                    clipPath(path, androidx.compose.ui.graphics.ClipOp.Difference) { this@drawWithContent.drawContent() }
+                }
+        ) {
+            Box(Modifier.matchParentSize().shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black))
+        }
+        Box(
+            Modifier
+                .clip(shape)
+                // 1.4.2 performance: no live blur (it was redrawn on every frame and made scrolling stutter on
+                // the TV's chip). A see-through dark tint over what is behind, which is already a blurred picture.
+                .background(tint, shape)
+                .background(LauncherStyle.glassBrush(), shape)
+                .border(1.dp, LauncherStyle.Edge, shape),
+            content = content
+        )
+    }
 }
 
 /**
