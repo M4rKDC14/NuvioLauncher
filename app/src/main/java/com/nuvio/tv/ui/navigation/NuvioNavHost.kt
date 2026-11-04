@@ -1211,6 +1211,9 @@ private fun PlaybackNavHost(
             )
         }
 
+        composable(Screen.Apps.route) {   // Nuvio Launcher
+            com.nuvio.tv.ui.screens.apps.AppsScreen()
+        }
         composable(Screen.Library.route) {
             LibraryScreen(
                 showBuiltInHeader = !hideBuiltInHeaders,

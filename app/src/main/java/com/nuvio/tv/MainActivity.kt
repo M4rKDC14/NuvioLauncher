@@ -51,6 +51,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -854,10 +855,10 @@ open class MainActivity : ComponentActivity() {
                             }
                         )
                     } else {
-                    val sidebarCollapsed = mainUiPrefs.sidebarCollapsed
-                    val modernSidebarEnabled = mainUiPrefs.modernSidebarEnabled
-                    val modernSidebarBlurEnabled =
-                        mainUiPrefs.modernSidebarBlurPref && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+                    // Nuvio Launcher: always the floating frosted sidebar, with the time pill top left.
+                    val sidebarCollapsed = false
+                    val modernSidebarEnabled = true
+                    val modernSidebarBlurEnabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
                     val hideBuiltInHeadersForFloatingPill = modernSidebarEnabled && !sidebarCollapsed
 
                     val startDestination = when {
@@ -1050,6 +1051,7 @@ open class MainActivity : ComponentActivity() {
                             add(Screen.Home.route)
                             add(Screen.Search.route)
                             add(Screen.Library.route)
+                            add(Screen.Apps.route)
                             add(Screen.Settings.route)
                             if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {
                                 add(Screen.Discover.route)
@@ -1074,7 +1076,7 @@ open class MainActivity : ComponentActivity() {
                             add(
                                 DrawerItem(
                                     route = Screen.Home.route,
-                                    label = strNavHome,
+                                    label = "Catalog",   // Nuvio Launcher
                                     icon = Icons.Default.Home
                                 )
                             )
@@ -1099,6 +1101,13 @@ open class MainActivity : ComponentActivity() {
                                     route = Screen.Library.route,
                                     label = strNavLibrary,
                                     iconRes = R.raw.sidebar_library
+                                )
+                            )
+                            add(
+                                DrawerItem(   // Nuvio Launcher: installed apps, in category rows
+                                    route = Screen.Apps.route,
+                                    label = "Applications",
+                                    icon = Icons.Default.Apps
                                 )
                             )
                             add(
@@ -1857,7 +1866,16 @@ private fun ModernSidebarScaffold(
     var focusedDrawerIndex by remember { mutableStateOf(-1) }
     var isFloatingPillIconOnly by remember { mutableStateOf(false) }
     var pillExpandRequestCount by remember { mutableIntStateOf(0) }
-    val keepFloatingPillExpanded = false
+    val keepFloatingPillExpanded = true   // Nuvio Launcher: the pill always shows the time
+    val launcherContext = androidx.compose.ui.platform.LocalContext.current
+    val clockText by androidx.compose.runtime.produceState(
+        initialValue = android.text.format.DateFormat.getTimeFormat(launcherContext).format(java.util.Date())
+    ) {
+        while (true) {
+            value = android.text.format.DateFormat.getTimeFormat(launcherContext).format(java.util.Date())
+            delay(15_000L)
+        }
+    }
     val keepSidebarFocusDuringCollapse =
         isSidebarExpanded || sidebarCollapsePending || pendingContentFocusTransfer
     val hasSidebarProfileItem = showProfileSelector && activeProfileName.isNotEmpty()
@@ -2118,7 +2136,7 @@ private fun ModernSidebarScaffold(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .width(openSidebarWidth)
+                    .width(LauncherSidebarWidth + NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs + NuvioTheme.spacing.sm)
                     .padding(start = NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.md, end = NuvioTheme.spacing.sm)
                     .graphicsLayer {
                         val progress = sidebarExpandProgress
@@ -2210,7 +2228,8 @@ private fun ModernSidebarScaffold(
                         activeProfileColorHex = activeProfileColorHex,
                         activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
                         showProfileSelector = showProfileSelector,
-                        onSwitchProfile = onSwitchProfile
+                        onSwitchProfile = onSwitchProfile,
+                        clockText = clockText
                     )
                 }
             }
@@ -2221,7 +2240,7 @@ private fun ModernSidebarScaffold(
                 selectedDrawerRoute != Screen.Search.route
             ) {
                 CollapsedSidebarPill(
-                    label = selectedDrawerItem.label,
+                    label = clockText,
                     iconRes = selectedDrawerItem.iconRes,
                     icon = selectedDrawerItem.icon,
                     iconOnly = isFloatingPillIconOnly && !keepFloatingPillExpanded,
@@ -2253,6 +2272,9 @@ private fun ModernSidebarScaffold(
         }
     }
 }
+
+/** Nuvio Launcher: the sidebar panel's width, as in the 0.23 launcher. */
+internal val LauncherSidebarWidth = 175.dp
 
 @Composable
 private fun CollapsedSidebarPill(
