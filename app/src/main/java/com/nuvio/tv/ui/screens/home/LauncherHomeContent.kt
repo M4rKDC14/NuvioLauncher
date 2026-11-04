@@ -169,11 +169,14 @@ internal fun LauncherHomeContent(
     // Each row remembers the tile that last had focus; Up/Down returns to it (instead of the tile physically
     // above/below, which landed on the wrong tile and needed every tile's position on every frame).
     val lastIndex = remember { mutableMapOf<Int, Int>() }
+    // true after Left/Right, false after Up/Down: a sideways press never scrolls the page vertically.
+    val sideways = remember { booleanArrayOf(false) }
 
     // Up/Down: go to the target row's remembered tile (first tile if never visited). If that row isn't on screen
     // yet, scroll to it first and then focus the tile — otherwise Android picked the physically nearest tile,
     // often one to the right. Always consumes the press so Android never chooses on its own.
     fun focusRow(target: Int): Boolean {
+        sideways[0] = false
         if (target < 0) { runCatching { playFocus.requestFocus() }; return true }
         if (target > rows.lastIndex) return true
         fun tryFocus(): Boolean {
@@ -257,12 +260,12 @@ internal fun LauncherHomeContent(
             object : BringIntoViewSpec {
                 override val scrollAnimationSpec = defaultSpec.scrollAnimationSpec
                 override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                    if (heroFocused) -100_000f else {
-                        // A sideways press keeps the same row in place: tiny re-centring nudges (which made the row
-                        // bounce on every Left/Right) are ignored; only a real row change (Up/Down) scrolls the page.
-                        val d = (offset + size / 2f) - containerSize / 2f
-                        if (kotlin.math.abs(d) < containerSize * 0.08f) 0f else d
-                    }
+                    if (heroFocused) -100_000f
+                    // Left/Right inside a row never moves the page up or down. (The old 8% dead zone stopped the
+                    // Up/Down centring short, so the first sideways press then nudged the page.)
+                    else if (sideways[0]) 0f
+                    // Up/Down: centre the row exactly.
+                    else (offset + size / 2f) - containerSize / 2f
             }
         }
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {
@@ -296,6 +299,7 @@ internal fun LauncherHomeContent(
                             look = look,
                             tiles = tiles,
                             lastIndex = lastIndex,
+                            sideways = sideways,
                             onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
                             onVertical = { fromRow, _, down -> focusRow(if (down) fromRow + 1 else fromRow - 1) },
                             onNavigateToDetail = onNavigateToDetail,
@@ -414,6 +418,7 @@ private fun RowBlock(
     look: TileLook,
     tiles: MutableMap<Int, MutableMap<Int, Pair<FocusRequester, Float>>>,
     lastIndex: MutableMap<Int, Int>,
+    sideways: BooleanArray,
     onRowFocused: (String?) -> Unit,
     onVertical: (Int, Float, Boolean) -> Boolean,
     onNavigateToDetail: (String, String, String) -> Unit,
@@ -486,7 +491,8 @@ private fun RowBlock(
                             .onPreviewKeyEvent { e ->
                                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 when (e.key) {
-                                    Key.DirectionRight -> i == items.lastIndex   // the end of a row stops focus
+                                    Key.DirectionLeft -> { sideways[0] = true; false }
+                                    Key.DirectionRight -> { sideways[0] = true; i == items.lastIndex }   // the end of a row stops focus
                                     Key.DirectionDown -> onVertical(rowIndex, rowTiles[i]?.second ?: 0f, true)
                                     Key.DirectionUp -> onVertical(rowIndex, rowTiles[i]?.second ?: 0f, false)
                                     else -> false
