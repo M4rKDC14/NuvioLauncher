@@ -224,6 +224,7 @@ internal fun LauncherHomeContent(
             else (1f - listState.firstVisibleItemScrollOffset / heroFadePx).coerceIn(0f, 1f)
         }
     }
+    val heroShown by remember { androidx.compose.runtime.derivedStateOf { heroAlpha > 0f } }
     val defaultSpec = LocalBringIntoViewSpec.current
 
     BoxWithConstraints(
@@ -236,7 +237,12 @@ internal fun LauncherHomeContent(
         // Under the carousel picture: the focused tile's picture, blurred. It shows as the carousel scrolls away.
         RowsBackdrop { rowBackdrop.value ?: current?.background ?: current?.poster }
         // Backdrop of the current carousel title, bright, with only a light shade on the left.
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = heroAlpha }) {
+        // Fades out as the page scrolls. ModulateAlpha applies the fade to each draw directly (no offscreen buffer),
+        // and once fully faded it is not drawn at all.
+        if (heroShown) Box(Modifier.fillMaxSize().graphicsLayer {
+            alpha = heroAlpha
+            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+        }) {
             Crossfade(targetState = current?.background ?: current?.poster, animationSpec = tween(600), label = "backdrop") { url ->
                 if (url != null) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }

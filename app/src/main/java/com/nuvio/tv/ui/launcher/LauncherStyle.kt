@@ -17,9 +17,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -87,13 +89,25 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
         .transformations(com.nuvio.tv.ui.util.BlurTransformation(radius = 6))
         .memoryCacheKey("launcher_blur_" + u)
         .build()
-    Box(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(LauncherStyle.GreyTop, LauncherStyle.GreyBottom)))) {
+    // Performance (GPU): the grey base and both washes are painted by this one Box (base behind, washes on top)
+    // instead of three stacked full-screen boxes, and no picture uses an offscreen alpha layer.
+    val base0 = remember { Brush.verticalGradient(listOf(LauncherStyle.GreyTop, LauncherStyle.GreyBottom)) }
+    val washX = remember { Brush.horizontalGradient(0f to Color(0x8C141518), 0.6f to Color(0x26141518)) }
+    val washY = remember { Brush.verticalGradient(0f to Color(0x1A141518), 1f to Color(0x73141518)) }
+    Box(modifier.fillMaxSize().drawWithContent {
+        drawRect(base0)
+        drawContent()
+        // dark wash on the left and bottom so text stays readable
+        drawRect(washX)
+        drawRect(washY)
+    }) {
         base?.let { u ->
             AsyncImage(
                 model = remember(u) { request(u) },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha }
+                alpha = alpha,   // opacity applied to the picture itself: no offscreen layer
+                modifier = Modifier.fillMaxSize()
             )
         }
         incoming?.let { u ->
@@ -107,12 +121,13 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
                         if (incoming == u) { base = u; incoming = null; fade.snapTo(0f) }
                     }
                 },
-                modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha * fade.value }
+                // ModulateAlpha: the fade is applied to the picture's own draw, without an offscreen buffer
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    this.alpha = alpha * fade.value
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                }
             )
         }
-        // dark wash on the left and bottom so text stays readable
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x8C141518), 0.6f to Color(0x26141518))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x1A141518), 1f to Color(0x73141518))))
     }
 }
 
