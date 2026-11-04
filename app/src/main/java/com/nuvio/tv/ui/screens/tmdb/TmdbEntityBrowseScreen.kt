@@ -136,6 +136,9 @@ private fun fallbackBackdrop(data: TmdbEntityBrowseData, sourceType: String): St
     return first?.let { it.background ?: entityTileImage(it) }
 }
 
+/** Nuvio's watched tick on tiles (kept as in Nuvio): which titles are watched, provided by the screen. */
+private val LocalEntityWatched = androidx.compose.runtime.staticCompositionLocalOf<(MetaPreview) -> Boolean> { { false } }
+
 @Composable
 fun TmdbEntityBrowseScreen(
     viewModel: TmdbEntityBrowseViewModel = hiltViewModel(),
@@ -181,6 +184,12 @@ fun TmdbEntityBrowseScreen(
 
                 else -> {
                     val successState = uiState as? TmdbEntityBrowseUiState.Success ?: return@Crossfade
+                    val watchedMovies by viewModel.watchedMovieIds.collectAsStateWithLifecycle()
+                    val watchedSeries by viewModel.watchedSeriesIds.collectAsStateWithLifecycle()
+                    androidx.compose.runtime.CompositionLocalProvider(LocalEntityWatched provides { m: MetaPreview ->
+                        val series = m.apiType.equals("series", true) || m.apiType.equals("tv", true)
+                        if (series) m.id in watchedSeries else m.id in watchedMovies
+                    }) {
                     TmdbEntityBrowseContent(
                         data = successState.data,
                         sourceType = viewModel.sourceType,
@@ -192,6 +201,7 @@ fun TmdbEntityBrowseScreen(
                             viewModel.loadMoreRail(mediaType = mediaType, railType = railType)
                         }
                     )
+                    }
                 }
             }
         }
@@ -527,6 +537,7 @@ private fun EntityTile(
                 colors = CardDefaults.colors(containerColor = Color(0xFF2A2C33), focusedContainerColor = Color(0xFF2A2C33))
             ) {
                 Box(Modifier.fillMaxSize()) {
+                    val watched = LocalEntityWatched.current(item)
                     if (image != null) {
                         AsyncImage(model = image, contentDescription = item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     } else {
@@ -534,6 +545,10 @@ private fun EntityTile(
                             item.name, color = LauncherStyle.Soft, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 3,
                             modifier = Modifier.align(Alignment.Center).padding(8.dp)
                         )
+                    }
+                    if (watched) {
+                        // Nuvio's own watched tick, kept as in Nuvio
+                        com.nuvio.tv.ui.components.WatchedMarker(modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp))
                     }
                 }
             }
