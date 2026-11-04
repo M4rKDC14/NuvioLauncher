@@ -27,6 +27,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -63,6 +64,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.nuvio.tv.LauncherChrome
+import com.nuvio.tv.data.local.LauncherSettingsHolder
 import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
@@ -79,11 +81,19 @@ import com.nuvio.tv.ui.util.localizedContentType
  *  - Rows: one per catalog in the folder (whatever the folder's view mode), titled at 16 (white on the
  *    focused row), tiles 120x180 / 224x126 / 126x126, 29 apart, every tile titled, 111% zoom with a soft
  *    shadow, the focused row kept in the middle of the rows area, straight Up/Down, Right stops at the end.
+ *    Tile size, spacing and zoom follow Settings → Launcher (Catalog tiles), as on Home; the figures are the defaults.
  */
 
 private val RowsTop = 176.dp
-private val TileTopInRow = 53.dp       // row title (12 + 21) + spacer 8 + row top padding 12 
+private val TileTopAboveRowPad = 41.dp  // row title (12 + 21) + spacer 8; the tiles' top is this plus the row's top padding (12 by default)
 private const val LoadMoreAhead = 6     // ask for the next page this many tiles before the end
+
+/** Tile size (1 = 120x180 / 224x126 / 126x126), spacing and focus zoom, from Settings → Launcher. */
+private data class TileLook(val scale: Float, val gap: androidx.compose.ui.unit.Dp, val zoom: Float) {
+    /** Room above the tiles: 12, plus however much more a zoomed poster grows than at the default size and zoom. */
+    val rowTopPad: androidx.compose.ui.unit.Dp
+        get() = 12.dp + maxOf(0.dp, (180.dp * scale * (zoom - 1f) - 180.dp * 0.11f) / 2f)
+}
 
 private class FolderRow(val key: String, val title: String, val tab: FolderTab)
 
@@ -115,6 +125,8 @@ internal fun LauncherFolderContent(
     onItemLongPress: (MetaPreview, String) -> Unit
 ) {
     val context = LocalContext.current
+    val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
+    val look = TileLook(launcherSettings.catalogScale, launcherSettings.catalogTileSpacingDp.dp, launcherSettings.catalogZoom)
     val rows = remember(uiState.tabs, uiState.catalogTypeSuffixEnabled) {
         uiState.tabs.mapIndexedNotNull { i, tab ->
             if (tab.isAllTab) return@mapIndexedNotNull null
@@ -147,8 +159,9 @@ internal fun LauncherFolderContent(
     val initialRow = if (focusPlaced) -1 else (savedRow ?: firstLoadedRow)
 
     val defaultSpec = LocalBringIntoViewSpec.current
-    // Every focused row sits exactly where the first row sits: its tiles' top at TileTopInRow from the top of the rows area.
-    val tileTopPx = with(androidx.compose.ui.platform.LocalDensity.current) { TileTopInRow.toPx() }
+    // Every focused row sits exactly where the first row sits: its tiles' top at tileTopInRow from the top of the rows area.
+    val tileTopInRow = TileTopAboveRowPad + look.rowTopPad   // 53 at the default size and zoom
+    val tileTopPx = with(androidx.compose.ui.platform.LocalDensity.current) { tileTopInRow.toPx() }
     val centeringSpec = remember(defaultSpec, tileTopPx) {
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         object : BringIntoViewSpec {
@@ -182,6 +195,7 @@ internal fun LauncherFolderContent(
                             rowIndex = ri,
                             row = row,
                             focused = focusedRowKey == row.key,
+                            look = look,
                             tiles = tiles,
                             initialFocusIndex = if (ri == initialRow) (if (ri == savedRow) focusedItemIndex else 0) else null,
                             onInitialFocusPlaced = { focusPlaced = true },
@@ -225,6 +239,7 @@ private fun FolderRowBlock(
     rowIndex: Int,
     row: FolderRow,
     focused: Boolean,
+    look: TileLook,
     tiles: MutableMap<Int, MutableMap<Int, Pair<FocusRequester, Float>>>,
     initialFocusIndex: Int?,
     onInitialFocusPlaced: () -> Unit,
@@ -254,10 +269,10 @@ private fun FolderRowBlock(
             items.isEmpty() -> {
                 // Not loaded yet: quiet placeholders where the posters will appear.
                 Row(
-                    Modifier.padding(start = LauncherStyle.Start, top = 12.dp, bottom = 44.dp),
-                    horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
+                    Modifier.padding(start = LauncherStyle.Start, top = look.rowTopPad, bottom = 44.dp),
+                    horizontalArrangement = Arrangement.spacedBy(look.gap)
                 ) {
-                    repeat(6) { Box(Modifier.size(120.dp, 180.dp).clip(LauncherStyle.Corner).background(LauncherStyle.CardIdle)) }
+                    repeat(6) { Box(Modifier.size(120.dp * look.scale, 180.dp * look.scale).clip(LauncherStyle.Corner).background(LauncherStyle.CardIdle)) }
                 }
             }
             else -> {
@@ -266,8 +281,8 @@ private fun FolderRowBlock(
                 val rowState = rememberLazyListState(initialFirstVisibleItemIndex = (initialFocusIndex ?: 0).coerceIn(0, items.lastIndex))
                 LazyRow(
                     state = rowState,
-                    contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
+                    contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = look.rowTopPad, bottom = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(look.gap)
                 ) {
                     itemsIndexed(items, key = { i, m -> "${m.id}_$i" }) { i, m ->
                         val req = remember { FocusRequester() }
@@ -282,6 +297,7 @@ private fun FolderRowBlock(
                         }
                         FolderTile(
                             item = m,
+                            look = look,
                             modifier = Modifier
                                 .focusRequester(req)
                                 .onGloballyPositioned { rowTiles[i] = req to it.positionInRoot().x }
@@ -308,6 +324,7 @@ private fun FolderRowBlock(
 @Composable
 private fun FolderTile(
     item: MetaPreview,
+    look: TileLook,
     modifier: Modifier,
     onFocused: () -> Unit,
     onClick: () -> Unit,
@@ -316,10 +333,13 @@ private fun FolderTile(
     var focused by remember { mutableStateOf(false) }
     val landscape = item.posterShape == PosterShape.LANDSCAPE
     val square = item.posterShape == PosterShape.SQUARE
-    val w = if (landscape) 224.dp else if (square) 126.dp else 120.dp
-    val h = if (landscape || square) 126.dp else 180.dp
+    val w = (if (landscape) 224.dp else if (square) 126.dp else 120.dp) * look.scale
+    val baseH = if (landscape || square) 126.dp else 180.dp
+    val h = baseH * look.scale
+    // How far the focused title moves down: 10 at the default size and zoom, plus whatever more the zoomed tile grows.
+    val titleLift = maxOf(4.dp, 10.dp + (h * (look.zoom - 1f) - baseH * 0.11f) / 2f)
     val image = tileImage(item)
-    val scale by animateFloatAsState(if (focused) LauncherStyle.Zoom else 1f, tween(160), label = "zoom")
+    val scale by animateFloatAsState(if (focused) look.zoom else 1f, tween(160), label = "zoom")
     Column(Modifier.width(w)) {
         Box(
             Modifier
@@ -351,7 +371,7 @@ private fun FolderTile(
             item.name, color = if (focused) Color.White else LauncherStyle.Soft, fontSize = 12.sp, lineHeight = 16.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             // Same layout height whether focused or not; the focused title only moves down visually, clear of the zoom.
-            modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) 10.dp.toPx() else 0f }
+            modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) titleLift.toPx() else 0f }
         )
     }
 }

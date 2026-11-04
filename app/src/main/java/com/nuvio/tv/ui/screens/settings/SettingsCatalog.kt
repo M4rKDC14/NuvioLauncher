@@ -12,6 +12,7 @@ internal enum class SettingsCategory(val group: SettingsRailGroup) {
     ACCOUNT(SettingsRailGroup.YOU),
     PROFILES(SettingsRailGroup.YOU),
     WATCH_PARTY(SettingsRailGroup.YOU),
+    LAUNCHER(SettingsRailGroup.LOOK),   // Nuvio Launcher's own options
     APPEARANCE(SettingsRailGroup.LOOK),
     LAYOUT(SettingsRailGroup.LOOK),
     CONTENT_DISCOVERY(SettingsRailGroup.WATCH),

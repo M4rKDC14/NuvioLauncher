@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -72,6 +73,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import com.nuvio.tv.LauncherChrome
+import com.nuvio.tv.data.local.LauncherSettingsHolder
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
@@ -86,14 +88,16 @@ import kotlinx.coroutines.delay
  *  - Rows: titles at 16 (white only on the focused row), tiles 224x126 or 120x180, 29 apart, every tile titled,
  *    111% zoom with a soft shadow, the focused row kept in the middle of the screen, straight Up/Down,
  *    Right stops at the end of a row, Back returns to the carousel.
+ *  - Settings → Launcher sets the carousel's speed (or turns rotation off) and title count, and the tiles'
+ *    size, spacing and focus zoom; the figures above are the defaults.
  */
 
 private val Soft = Color(0xB8FFFFFF)          // the synopsis's soft white (72%)
 private val Corner = RoundedCornerShape(7.dp)
-private const val Zoom = 1.11f
-private val Gap = 29.dp
 private val Start = 56.dp
-private const val RotateMs = 9_000L
+
+/** Tile size (1 = 224x126 / 126x126 / 120x180), spacing and focus zoom, from Settings → Launcher. */
+private data class TileLook(val scale: Float, val gap: androidx.compose.ui.unit.Dp, val zoom: Float)
 
 private sealed class LRow(val key: String, val title: String) {
     class Continue(val items: List<ContinueWatchingItem>) : LRow("cw", "Continue Watching")
@@ -139,10 +143,14 @@ internal fun LauncherHomeContent(
     onToggleLibrary: (MetaPreview) -> Unit,
     onRequestLazyCatalogLoad: (String) -> Unit
 ) {
+    val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
+    val heroCount = launcherSettings.heroCount
+    val rotateMs = launcherSettings.rotationMs
+    val look = TileLook(launcherSettings.catalogScale, launcherSettings.catalogTileSpacingDp.dp, launcherSettings.catalogZoom)
     val rows = remember(uiState.continueWatchingItems, uiState.homeRows, uiState.catalogRows) { rowsOf(uiState) }
-    val hero = remember(uiState.heroItems, uiState.catalogRows) {
+    val hero = remember(uiState.heroItems, uiState.catalogRows, heroCount) {
         (uiState.heroItems.ifEmpty { uiState.catalogRows.firstOrNull { it.items.isNotEmpty() }?.items.orEmpty() })
-            .filter { !it.background.isNullOrBlank() || !it.poster.isNullOrBlank() }.take(8)
+            .filter { !it.background.isNullOrBlank() || !it.poster.isNullOrBlank() }.take(heroCount)
     }
     var heroIndex by remember { mutableIntStateOf(0) }
     var heroFocused by remember { mutableStateOf(true) }
@@ -161,11 +169,11 @@ internal fun LauncherHomeContent(
     LaunchedEffect(heroFocused) { LauncherChrome.pillVisible.value = heroFocused }
     DisposableEffect(Unit) { onDispose { LauncherChrome.pillVisible.value = true } }
 
-    // Carousel: next title every 9 s while nothing is pressed.
-    LaunchedEffect(hero.size) {
-        while (hero.size > 1) {
+    // Carousel: next title every 9 s (Settings → Launcher) while nothing is pressed; Off = it stays put.
+    LaunchedEffect(hero.size, rotateMs) {
+        while (hero.size > 1 && rotateMs > 0L) {
             delay(1_000)
-            if (System.currentTimeMillis() - lastKeyAt >= RotateMs) { heroIndex = (heroIndex + 1) % hero.size; lastKeyAt = System.currentTimeMillis() }
+            if (System.currentTimeMillis() - lastKeyAt >= rotateMs) { heroIndex = (heroIndex + 1) % hero.size; lastKeyAt = System.currentTimeMillis() }
         }
     }
     LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
@@ -244,6 +252,7 @@ internal fun LauncherHomeContent(
                             row = row,
                             focused = focusedRow == ri,
                             first = ri == 0,
+                            look = look,
                             tiles = tiles,
                             onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
                             onVertical = { fromRow, x, down ->
@@ -368,6 +377,7 @@ private fun RowBlock(
     row: LRow,
     focused: Boolean,
     first: Boolean,
+    look: TileLook,
     tiles: MutableMap<Int, MutableMap<Int, Pair<FocusRequester, Float>>>,
     onRowFocused: (String?) -> Unit,
     onVertical: (Int, Float, Boolean) -> Boolean,
@@ -419,21 +429,23 @@ private fun RowBlock(
         Spacer(Modifier.height(if (first) 12.dp else 22.dp))
         if (items.isEmpty()) {
             // Not loaded yet: quiet placeholders where the posters will appear.
-            Row(Modifier.padding(start = Start), horizontalArrangement = Arrangement.spacedBy(Gap)) {
-                repeat(6) { Box(Modifier.size(120.dp, 180.dp).clip(Corner).background(Color(0x14FFFFFF))) }
+            Row(Modifier.padding(start = Start), horizontalArrangement = Arrangement.spacedBy(look.gap)) {
+                repeat(6) { Box(Modifier.size(120.dp * look.scale, 180.dp * look.scale).clip(Corner).background(Color(0x14FFFFFF))) }
             }
         } else {
             val rowTiles = remember(rowIndex) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
             DisposableEffect(rowIndex) { tiles[rowIndex] = rowTiles; onDispose { tiles.remove(rowIndex) } }
             LazyRow(
-                contentPadding = PaddingValues(start = Start, end = Start, top = 6.dp, bottom = 26.dp),
-                horizontalArrangement = Arrangement.spacedBy(Gap)
+                // 6 above the tiles, plus however much more a zoomed poster grows than at the default size and zoom
+                contentPadding = PaddingValues(start = Start, end = Start, top = 6.dp + maxOf(0.dp, (180.dp * look.scale * (look.zoom - 1f) - 180.dp * 0.11f) / 2f), bottom = 26.dp),
+                horizontalArrangement = Arrangement.spacedBy(look.gap)
             ) {
                 itemsIndexed(items, key = { _, t -> t.key }) { i, t ->
                     val req = remember { FocusRequester() }
                     DisposableEffect(i) { onDispose { rowTiles.remove(i) } }
                     TileView(
                         tile = t,
+                        look = look,
                         modifier = Modifier
                             .focusRequester(req)
                             .onGloballyPositioned { rowTiles[i] = req to it.positionInRoot().x }
@@ -455,11 +467,14 @@ private fun RowBlock(
 }
 
 @Composable
-private fun TileView(tile: Tile, modifier: Modifier, onFocused: () -> Unit) {
+private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val w = if (tile.landscape) 224.dp else if (tile.square) 126.dp else 120.dp
-    val h = if (tile.landscape || tile.square) 126.dp else 180.dp
-    val scale by animateFloatAsState(if (focused) Zoom else 1f, tween(160), label = "zoom")
+    val w = (if (tile.landscape) 224.dp else if (tile.square) 126.dp else 120.dp) * look.scale
+    val baseH = if (tile.landscape || tile.square) 126.dp else 180.dp
+    val h = baseH * look.scale
+    // How far the focused title moves down: 10 at the default size and zoom, plus whatever more the zoomed tile grows.
+    val titleLift = maxOf(4.dp, 10.dp + (h * (look.zoom - 1f) - baseH * 0.11f) / 2f)
+    val scale by animateFloatAsState(if (focused) look.zoom else 1f, tween(160), label = "zoom")
     Column(Modifier.width(w)) {
         Box(
             Modifier
@@ -496,7 +511,7 @@ private fun TileView(tile: Tile, modifier: Modifier, onFocused: () -> Unit) {
                 tile.title, color = if (focused) Color.White else Soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 // Same layout height whether focused or not (a changing row height made the page jitter);
                 // the focused title only moves down visually, clear of the zoomed tile.
-                modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) 10.dp.toPx() else 0f }
+                modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) titleLift.toPx() else 0f }
             )
         }
     }

@@ -44,15 +44,12 @@ class SettingsStructureTest {
 
     @Test
     fun `layout sections follow the documented order`() {
+        // Nuvio Launcher hides the sections that only shape Nuvio's own Home layouts.
         assertEquals(
             listOf(
-                LayoutSection.HOME_LAYOUT,
                 LayoutSection.HOME_CONTENT,
                 LayoutSection.SIDEBAR,
                 LayoutSection.CONTINUE_WATCHING,
-                LayoutSection.FOCUSED_POSTER,
-                LayoutSection.POSTER_CARD,
-                LayoutSection.CARD_DEPTH,
                 LayoutSection.CUSTOM_POSTERS,
                 LayoutSection.DETAIL_PAGE,
                 LayoutSection.STREAMS
@@ -62,9 +59,9 @@ class SettingsStructureTest {
     }
 
     @Test
-    fun `essential layout only offers the home layout`() {
+    fun `essential layout only offers the home content`() {
         assertEquals(
-            listOf(LayoutSection.HOME_LAYOUT),
+            listOf(LayoutSection.HOME_CONTENT),
             visibleLayoutSections(essentialMode = true, focusedPosterHasOptions = true)
         )
     }

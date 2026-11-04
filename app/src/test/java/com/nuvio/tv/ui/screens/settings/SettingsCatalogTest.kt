@@ -19,6 +19,7 @@ class SettingsCatalogTest {
             listOf(
                 SettingsCategory.ACCOUNT,
                 SettingsCategory.PROFILES,
+                SettingsCategory.LAUNCHER,
                 SettingsCategory.APPEARANCE,
                 SettingsCategory.LAYOUT,
                 SettingsCategory.CONTENT_DISCOVERY,
@@ -43,7 +44,7 @@ class SettingsCatalogTest {
 
         assertFalse(SettingsCategory.ACCOUNT in categories)
         assertFalse(SettingsCategory.PROFILES in categories)
-        assertEquals(SettingsCategory.APPEARANCE, categories.first())
+        assertEquals(SettingsCategory.LAUNCHER, categories.first())
     }
 
     @Test
@@ -89,7 +90,7 @@ class SettingsCatalogTest {
 
         assertEquals(
             listOf(
-                SettingsCategory.APPEARANCE,
+                SettingsCategory.LAUNCHER,
                 SettingsCategory.CONTENT_DISCOVERY,
                 SettingsCategory.INTEGRATION,
                 SettingsCategory.ADVANCED

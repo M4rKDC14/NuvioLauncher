@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +47,7 @@ import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Text
 import com.nuvio.tv.LocalContentFocusRequester
+import com.nuvio.tv.data.local.LauncherSettingsHolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -55,15 +57,21 @@ import java.util.Locale
 /*
  * Nuvio Launcher: the TV's installed apps, one sideways row per category, as in the 0.23 launcher.
  * Tiles are the apps' TV banners at 224 x 126, zoom to 120% with a soft shadow, and show the
- * app's name under the focused tile.
+ * app's name under the focused tile. Size, spacing and zoom come from Settings → Launcher, and the
+ * apps hidden there are left out.
  */
 
 private val TileWidth = 224.dp
 private val TileHeight = 126.dp
+/** Pictures are drawn for the largest tile size Settings → Launcher allows, so they stay sharp. */
+private const val ArtScale = 1.3f
 private val Pad = 56.dp
 private val TileShape = RoundedCornerShape(7.dp)
 
-private class LauncherApp(val label: String, val pkg: String, val art: ImageBitmap?, val isBanner: Boolean, val group: Int)
+/** An installed app that can be opened from the TV's home screen. Also listed by Settings → Launcher → Hide apps. */
+internal class LauncherApp(val label: String, val pkg: String, val art: ImageBitmap?, val isBanner: Boolean, val group: Int) {
+    val groupName: String get() = GROUPS[group]
+}
 
 private val GROUPS = listOf("Streaming", "Music & Media", "Games", "Tools", "TV & System", "Other")
 
@@ -92,9 +100,10 @@ private fun groupOf(label: String, pkg: String, info: ApplicationInfo): Int {
 private fun art(d: Drawable?, w: Int, h: Int): ImageBitmap? =
     runCatching { d?.toBitmap(w, h)?.asImageBitmap() }.getOrNull()
 
-private fun loadApps(context: Context): List<Pair<String, List<LauncherApp>>> {
+/** Every launchable app (Leanback launcher first, then ordinary launcher apps), in category order, then by name. */
+internal fun loadLauncherApps(context: Context): List<LauncherApp> {
     val pm = context.packageManager
-    val density = context.resources.displayMetrics.density
+    val density = context.resources.displayMetrics.density * ArtScale
     val bw = (224 * density).toInt(); val bh = (126 * density).toInt(); val iw = (72 * density).toInt()
     val seen = HashSet<String>()
     val apps = ArrayList<LauncherApp>()
@@ -110,12 +119,18 @@ private fun loadApps(context: Context): List<Pair<String, List<LauncherApp>>> {
             apps += LauncherApp(label, pkg, bitmap, banner != null, groupOf(label, pkg, ai.applicationInfo))
         }
     }
-    return GROUPS.indices.mapNotNull { g ->
+    return apps.sortedWith(
+        compareBy<LauncherApp> { it.group }
+            .thenBy { !it.label.lowercase().contains("nuvio") }
+            .thenBy { it.label.lowercase() }
+    )
+}
+
+private fun groupApps(apps: List<LauncherApp>): List<Pair<String, List<LauncherApp>>> =
+    GROUPS.indices.mapNotNull { g ->
         val inGroup = apps.filter { it.group == g }
-            .sortedWith(compareBy<LauncherApp> { !it.label.lowercase().contains("nuvio") }.thenBy { it.label.lowercase() })
         if (inGroup.isEmpty()) null else GROUPS[g] to inGroup
     }
-}
 
 private fun launch(context: Context, pkg: String) {
     val pm = context.packageManager
@@ -131,10 +146,19 @@ private fun greeting(): String {
 @Composable
 fun AppsScreen() {
     val context = LocalContext.current
-    var groups by remember { mutableStateOf<List<Pair<String, List<LauncherApp>>>>(emptyList()) }
-    LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { loadApps(context) } }
+    var allApps by remember { mutableStateOf<List<LauncherApp>>(emptyList()) }
+    LaunchedEffect(Unit) { allApps = withContext(Dispatchers.IO) { loadLauncherApps(context) } }
+    val settings by LauncherSettingsHolder.settings.collectAsState()
+    val hidden = settings.hiddenPackages
+    val groups = remember(allApps, hidden) { groupApps(allApps.filterNot { it.pkg in hidden }) }
+    val tileScale = settings.appsScale
+    val tileGap = settings.appsTileSpacingDp.dp
+    val tileZoom = settings.appsZoom
     val firstTile = LocalContentFocusRequester.current
 
+    // 1.4: the blurred picture of the last focused title behind the apps, like Settings, Search and Library
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+    com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(url = com.nuvio.tv.LauncherChrome.lastBackdrop.value)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = 76.dp, bottom = 280.dp)
@@ -157,31 +181,34 @@ fun AppsScreen() {
                     )
                     LazyRow(
                         contentPadding = PaddingValues(start = Pad, end = Pad, top = 18.dp, bottom = 26.dp),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
+                        horizontalArrangement = Arrangement.spacedBy(tileGap)
                     ) {
                         items(apps, key = { it.pkg }) { app ->
                             val isFirst = gi == 0 && app === apps.first()
-                            AppTile(app, if (isFirst) Modifier.focusRequester(firstTile) else Modifier) { launch(context, app.pkg) }
+                            AppTile(app, tileScale, tileZoom, if (isFirst) Modifier.focusRequester(firstTile) else Modifier) { launch(context, app.pkg) }
                         }
                     }
                 }
             }
         }
     }
+    }
 }
 
 @Composable
-private fun AppTile(app: LauncherApp, modifier: Modifier, onClick: () -> Unit) {
+private fun AppTile(app: LauncherApp, sizeScale: Float, zoom: Float, modifier: Modifier, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.width(TileWidth)) {
+    val tileWidth = TileWidth * sizeScale
+    val tileHeight = TileHeight * sizeScale
+    Column(modifier = Modifier.width(tileWidth)) {
         Card(
             onClick = onClick,
             modifier = modifier
-                .size(TileWidth, TileHeight)
+                .size(tileWidth, tileHeight)
                 .shadow(elevation = if (focused) 17.dp else 7.dp, shape = TileShape, ambientColor = Color.Black, spotColor = Color.Black)
                 .onFocusChanged { focused = it.hasFocus },
             shape = CardDefaults.shape(TileShape),
-            scale = CardDefaults.scale(focusedScale = 1.2f),
+            scale = CardDefaults.scale(focusedScale = zoom),
             border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
             colors = CardDefaults.colors(containerColor = Color(0xFF2E3036), focusedContainerColor = Color(0xFF2E3036))
         ) {
@@ -191,7 +218,7 @@ private fun AppTile(app: LauncherApp, modifier: Modifier, onClick: () -> Unit) {
                     Image(
                         bitmap = bmp, contentDescription = app.label,
                         contentScale = if (app.isBanner) ContentScale.Crop else ContentScale.Fit,
-                        modifier = if (app.isBanner) Modifier.fillMaxSize() else Modifier.size(72.dp)
+                        modifier = if (app.isBanner) Modifier.fillMaxSize() else Modifier.size(72.dp * sizeScale)
                     )
                 } else {
                     Text(text = app.label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
@@ -201,7 +228,8 @@ private fun AppTile(app: LauncherApp, modifier: Modifier, onClick: () -> Unit) {
         Text(
             text = if (focused) app.label else "",
             color = Color.White, fontSize = 13.sp, maxLines = 1,
-            modifier = Modifier.padding(top = 24.dp).height(18.dp)
+            // clear of the zoomed tile whatever its size and zoom (24 at the default 100% / 120%)
+            modifier = Modifier.padding(top = maxOf(24.dp, tileHeight * ((zoom - 1f) / 2f) + 11.dp)).height(18.dp)
         )
     }
 }

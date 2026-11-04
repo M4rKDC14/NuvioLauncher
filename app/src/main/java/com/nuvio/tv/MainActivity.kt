@@ -155,6 +155,8 @@ import com.nuvio.tv.data.local.AppOnboardingDataStore
 import com.nuvio.tv.data.local.AuthSessionNoticeDataStore
 import com.nuvio.tv.data.local.ExperienceModeDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.local.LauncherSettingsDataStore
+import com.nuvio.tv.data.local.LauncherSettingsHolder
 import com.nuvio.tv.data.local.StartupAuthNotice
 import com.nuvio.tv.data.local.ThemeDataStore
 import com.nuvio.tv.data.repository.MemberAccessRepository
@@ -328,6 +330,10 @@ open class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var partyRepository: PartyRepository
+
+    /** Nuvio Launcher: created with the activity so Settings → Launcher's values reach LauncherSettingsHolder at once. */
+    @Inject
+    lateinit var launcherSettingsDataStore: LauncherSettingsDataStore
 
     private val pendingDeepLinkUrl = MutableStateFlow<String?>(null)
     private val pendingLaunchIntent = MutableStateFlow<Intent?>(null)
@@ -1868,11 +1874,16 @@ private fun ModernSidebarScaffold(
     var pillExpandRequestCount by remember { mutableIntStateOf(0) }
     val keepFloatingPillExpanded = true   // Nuvio Launcher: the pill always shows the time
     val launcherContext = androidx.compose.ui.platform.LocalContext.current
+    // Nuvio Launcher: Settings → Launcher can hide the pill and pick 12- or 24-hour time; unset, the TV's own setting.
+    val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
+    val clockUses24Hour = launcherSettings.clock24Hour
+        ?: android.text.format.DateFormat.is24HourFormat(launcherContext)
     val clockText by androidx.compose.runtime.produceState(
-        initialValue = android.text.format.DateFormat.getTimeFormat(launcherContext).format(java.util.Date())
+        initialValue = launcherClockText(clockUses24Hour),
+        clockUses24Hour
     ) {
         while (true) {
-            value = android.text.format.DateFormat.getTimeFormat(launcherContext).format(java.util.Date())
+            value = launcherClockText(clockUses24Hour)
             delay(15_000L)
         }
     }
@@ -2238,6 +2249,7 @@ private fun ModernSidebarScaffold(
                 !sidebarCollapsed &&
                 sidebarShowCollapsedPill &&
                 LauncherChrome.pillVisible.value &&   // Nuvio Launcher: Catalog hides it while its rows have focus
+                launcherSettings.showTimePill &&      // Nuvio Launcher: Settings → Launcher → Show time pill
                 selectedDrawerRoute != Screen.Search.route
             ) {
                 CollapsedSidebarPill(
@@ -2277,6 +2289,10 @@ private fun ModernSidebarScaffold(
 /** Nuvio Launcher: the sidebar panel's width, as in the 0.23 launcher. */
 internal val LauncherSidebarWidth = 175.dp
 
+/** Nuvio Launcher: the pill's time, "12:45PM" or "12:45". */
+private fun launcherClockText(use24Hour: Boolean): String =
+    java.text.SimpleDateFormat(if (use24Hour) "HH:mm" else "h:mma", java.util.Locale.getDefault()).format(java.util.Date())
+
 @Composable
 private fun CollapsedSidebarPill(
     label: String,
@@ -2288,7 +2304,8 @@ private fun CollapsedSidebarPill(
     modifier: Modifier = Modifier,
     onExpand: () -> Unit
 ) {
-    // Nuvio Launcher: the sidebar's glass, 124dp wide, page icon on the left and the time on the right.
+    // Nuvio Launcher: the sidebar's glass, 95dp wide, page icon on the left and the time flush right,
+    // with the same 5dp from the edge on both sides.
     val pillShape = RoundedCornerShape(NuvioRadii.tokens.full)
     Row(
         modifier = modifier
@@ -2298,7 +2315,7 @@ private fun CollapsedSidebarPill(
                 role = Role.Button
                 contentDescription = label
             }
-            .width(124.dp)
+            .width(95.dp)
             .clip(pillShape)
             .then(
                 if (blurEnabled && hazeState != null) {
@@ -2313,12 +2330,12 @@ private fun CollapsedSidebarPill(
             )
             .background(brush = if (blurEnabled) launcherGlassBrush() else Brush.verticalGradient(listOf(Color(0xF21C1C1E), Color(0xF21C1C1E))), shape = pillShape)
             .border(width = 1.dp, color = LauncherGlassEdge, shape = pillShape)
-            .padding(start = 7.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = 5.dp, end = 5.dp, top = 5.dp, bottom = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(22.dp)
+                .size(18.dp)
                 .clip(androidx.compose.foundation.shape.CircleShape)
                 .background(Color.White.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center
@@ -2327,7 +2344,7 @@ private fun CollapsedSidebarPill(
                 iconRes = iconRes,
                 icon = icon,
                 tint = Color.White,
-                modifier = Modifier.size(11.dp)
+                modifier = Modifier.size(9.dp)
             )
         }
         Spacer(modifier = Modifier.weight(1f))
