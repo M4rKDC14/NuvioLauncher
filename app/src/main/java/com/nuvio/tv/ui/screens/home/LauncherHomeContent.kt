@@ -482,7 +482,9 @@ private fun TileView(tile: Tile, modifier: Modifier, onFocused: () -> Unit) {
         if (tile.title.isNotEmpty()) {
             Text(
                 tile.title, color = if (focused) Color.White else Soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = if (focused) 18.dp else 8.dp)
+                // Same layout height whether focused or not (a changing row height made the page jitter);
+                // the focused title only moves down visually, clear of the zoomed tile.
+                modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) 10.dp.toPx() else 0f }
             )
         }
     }
