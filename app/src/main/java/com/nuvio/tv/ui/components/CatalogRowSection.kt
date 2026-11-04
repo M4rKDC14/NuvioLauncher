@@ -79,6 +79,12 @@ import com.nuvio.tv.ui.util.formatAddonTypeLabel
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.contentTextDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.collectAsState
+import com.nuvio.tv.data.local.LauncherSettingsHolder
+import com.nuvio.tv.ui.launcher.LauncherStyle
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -120,6 +126,10 @@ fun CatalogRowSection(
      *  Wide elements above (CW, collections) can point their D-pad down here. */
     entryFocusRequester: FocusRequester? = null,
     upFocusRequester: FocusRequester? = null,
+    /** Nuvio Launcher: draw the row like the launcher's Catalog page (16sp titles, the Catalog tile size,
+     *  spacing and focus zoom from Settings → Launcher, titled tiles without a focus ring). Only the look
+     *  changes; focus handling is the same. */
+    launcherTiles: Boolean = false,
     listState: LazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialScrollIndex)
 ) {
     val catalogRowKey = remember(catalogRow) { catalogRow.stableKey() }
@@ -278,6 +288,13 @@ fun CatalogRowSection(
         else if (showCatalogTypeSuffix && typeLabel.isNotEmpty()) "$formattedName - $typeLabel" else formattedName
     }
 
+    val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
+    val launcherScale = launcherSettings.catalogScale
+    val launcherGap = launcherSettings.catalogTileSpacingDp.dp
+    val launcherZoom = launcherSettings.catalogZoom
+    val rowStart = if (launcherTiles) LauncherStyle.Start else NuvioTheme.spacing.xxxl
+    val launcherTileShape = LauncherStyle.Corner
+
     Column(modifier = modifier.fillMaxWidth().then(
         if (blockingFocusExit.value) {
             Modifier.focusProperties {
@@ -286,7 +303,28 @@ fun CatalogRowSection(
             }
         } else Modifier
     )) {
-        Row(
+        if (launcherTiles) {
+            val launcherTitle = listOfNotNull(
+                catalogRow.addonName.takeIf { showAddonName && it.isNotBlank() && catalogTitle.isNotBlank() },
+                catalogTitle.takeIf { it.isNotBlank() }
+            ).joinToString(" · ")
+            Text(
+                text = launcherTitle.ifBlank { " " },
+                color = when {
+                    launcherTitle.isBlank() -> Color.Transparent
+                    rowHasFocusRef.value -> Color.White
+                    else -> LauncherStyle.Soft
+                },
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    textDirection = launcherTitle.contentTextDirection()
+                ),
+                modifier = Modifier.padding(start = 60.dp, end = rowStart, bottom = 10.dp)
+            )
+        } else Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.md),
@@ -320,8 +358,8 @@ fun CatalogRowSection(
         val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
         val layoutDirection = LocalLayoutDirection.current
         val isRtl = layoutDirection == LayoutDirection.Rtl
-        val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, isRtl) {
-            val startPx = with(density) { NuvioTheme.spacing.xxxl.roundToPx() }
+        val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, isRtl, rowStart) {
+            val startPx = with(density) { rowStart.roundToPx() }
             @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             object : BringIntoViewSpec {
                 override val scrollAnimationSpec: AnimationSpec<Float> =
@@ -386,8 +424,19 @@ fun CatalogRowSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(start = NuvioTheme.spacing.xxxl, end = 200.dp),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
+            contentPadding = if (launcherTiles) {
+                // As on the Catalog page: 6 above the tiles, plus however much more a zoomed poster grows than
+                // at the default size and zoom; room below for the focused title moving down.
+                PaddingValues(
+                    start = rowStart,
+                    end = 200.dp,
+                    top = 6.dp + maxOf(0.dp, (180.dp * launcherScale * (launcherZoom - 1f) - 180.dp * 0.11f) / 2f),
+                    bottom = 22.dp
+                )
+            } else {
+                PaddingValues(start = NuvioTheme.spacing.xxxl, end = 200.dp)
+            },
+            horizontalArrangement = Arrangement.spacedBy(if (launcherTiles) launcherGap else NuvioTheme.spacing.lg)
         ) {
             itemsIndexed(
                 items = catalogRow.items,
@@ -444,6 +493,9 @@ fun CatalogRowSection(
                     onBackdropExpandedChanged = null,
                     onClick = onItemClickStable,
                     onLongPress = onItemLongPressStable,
+                    launcherTiles = launcherTiles,
+                    launcherTileScale = launcherScale,
+                    launcherTileZoom = launcherZoom,
                     modifier = Modifier
                         .then(directionalFocusModifier)
                         .then(
@@ -461,8 +513,17 @@ fun CatalogRowSection(
                 item(key = "${catalogRow.type}_${catalogRow.catalogId}_loading") {
                     val cardDepthStyle = LocalCardDepthStyle.current
                     val globalLandscape = LocalLandscapePosterMode.current
-                    val loadingCardWidth = if (globalLandscape) posterCardStyle.height else posterCardStyle.width
-                    val loadingCardHeight = if (globalLandscape) posterCardStyle.height / PosterShape.LANDSCAPE.aspectRatio() else posterCardStyle.height
+                    val loadingCardWidth = when {
+                        launcherTiles -> 120.dp * launcherScale
+                        globalLandscape -> posterCardStyle.height
+                        else -> posterCardStyle.width
+                    }
+                    val loadingCardHeight = when {
+                        launcherTiles -> 180.dp * launcherScale
+                        globalLandscape -> posterCardStyle.height / PosterShape.LANDSCAPE.aspectRatio()
+                        else -> posterCardStyle.height
+                    }
+                    val loadingShape = if (launcherTiles) launcherTileShape else seeAllCardShape
                     Card(
                         onClick = {},
                         modifier = Modifier
@@ -470,7 +531,7 @@ fun CatalogRowSection(
                             .height(loadingCardHeight)
                               .clearAndSetSemantics {}
                               .focusProperties { canFocus = false },
-                        shape = CardDefaults.shape(shape = seeAllCardShape),
+                        shape = CardDefaults.shape(shape = loadingShape),
                         colors = CardDefaults.colors(
                             containerColor = NuvioTheme.colors.BackgroundCard,
                             focusedContainerColor = NuvioTheme.colors.BackgroundCard
@@ -479,11 +540,14 @@ fun CatalogRowSection(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(seeAllCardShape)
-                                .nuvioCardDepth(
-                                    shape = seeAllCardShape,
-                                    surface = CardDepthSurface.POSTERS,
-                                    style = cardDepthStyle
+                                .clip(loadingShape)
+                                .then(
+                                    if (launcherTiles) Modifier
+                                    else Modifier.nuvioCardDepth(
+                                        shape = seeAllCardShape,
+                                        surface = CardDepthSurface.POSTERS,
+                                        style = cardDepthStyle
+                                    )
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
@@ -496,35 +560,66 @@ fun CatalogRowSection(
                 item(key = "${catalogRow.type}_${catalogRow.catalogId}_see_all") {
                     val cardDepthStyle = LocalCardDepthStyle.current
                     val globalLandscape = LocalLandscapePosterMode.current
-                    val seeAllCardWidth = if (globalLandscape) posterCardStyle.height else posterCardStyle.width
-                    val seeAllCardHeight = if (globalLandscape) posterCardStyle.height / PosterShape.LANDSCAPE.aspectRatio() else posterCardStyle.height
+                    val seeAllCardWidth = when {
+                        launcherTiles -> 120.dp * launcherScale
+                        globalLandscape -> posterCardStyle.height
+                        else -> posterCardStyle.width
+                    }
+                    val seeAllCardHeight = when {
+                        launcherTiles -> 180.dp * launcherScale
+                        globalLandscape -> posterCardStyle.height / PosterShape.LANDSCAPE.aspectRatio()
+                        else -> posterCardStyle.height
+                    }
+                    val seeAllShape = if (launcherTiles) launcherTileShape else seeAllCardShape
+                    var seeAllFocused by remember { mutableStateOf(false) }
                     Card(
                         onClick = onSeeAll,
                         modifier = Modifier
+                            .then(
+                                if (launcherTiles) {
+                                    Modifier
+                                        .shadow(
+                                            elevation = if (seeAllFocused) 17.dp else 7.dp,
+                                            shape = seeAllShape,
+                                            ambientColor = Color.Black,
+                                            spotColor = Color.Black
+                                        )
+                                        .onFocusChanged { seeAllFocused = it.isFocused }
+                                } else Modifier
+                            )
                             .width(seeAllCardWidth)
                             .height(seeAllCardHeight)
                             .then(directionalFocusModifier),
-                        shape = CardDefaults.shape(shape = seeAllCardShape),
+                        shape = CardDefaults.shape(shape = seeAllShape),
                         colors = CardDefaults.colors(
-                            containerColor = NuvioTheme.colors.BackgroundCard,
-                            focusedContainerColor = NuvioTheme.colors.BackgroundCard
+                            containerColor = if (launcherTiles) Color(0xFF2A2C33) else NuvioTheme.colors.BackgroundCard,
+                            focusedContainerColor = if (launcherTiles) Color(0xFF2A2C33) else NuvioTheme.colors.BackgroundCard
                         ),
-                        border = CardDefaults.border(
-                            focusedBorder = Border(
-                                border = NuvioTheme.focusRing.border(posterCardStyle.focusedBorderWidth),
-                                shape = seeAllCardShape
+                        border = if (launcherTiles) {
+                            CardDefaults.border(border = Border.None, focusedBorder = Border.None)
+                        } else {
+                            CardDefaults.border(
+                                focusedBorder = Border(
+                                    border = NuvioTheme.focusRing.border(posterCardStyle.focusedBorderWidth),
+                                    shape = seeAllCardShape
+                                )
                             )
-                        ),
-                        scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale)
+                        },
+                        scale = CardDefaults.scale(
+                            focusedScale = if (launcherTiles) launcherZoom else posterCardStyle.focusedScale
+                        )
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .clip(seeAllCardShape)
-                                .nuvioCardDepth(
-                                    shape = seeAllCardShape,
-                                    surface = CardDepthSurface.POSTERS,
-                                    style = cardDepthStyle
+                                .clip(seeAllShape)
+                                .then(
+                                    if (launcherTiles) Modifier
+                                    else Modifier.nuvioCardDepth(
+                                        shape = seeAllCardShape,
+                                        surface = CardDepthSurface.POSTERS,
+                                        style = cardDepthStyle
+                                    )
                                 ),
                             contentAlignment = Alignment.Center
                         ) {

@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -61,7 +62,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.nuvio.tv.ui.util.contentTextDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.R
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -85,6 +88,7 @@ import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
 import kotlinx.coroutines.delay
 
 private const val BACKDROP_ASPECT_RATIO = 16f / 9f
+private val LAUNCHER_TILE_COLOR = Color(0xFF2A2C33)
 private const val TRAILER_PREVIEW_REQUEST_FOCUS_DEBOUNCE_MS = 140L
 private val YEAR_REGEX = Regex("""\b(19|20)\d{2}\b""")
 private val YEAR_RANGE_REGEX = Regex("""^((19|20)\d{2})\s*[-–]\s*((19|20)\d{2})?$""")
@@ -112,25 +116,41 @@ fun ContentCard(
     expandedDownFocusRequester: FocusRequester? = null,
     expandedUpFocusRequester: FocusRequester? = null,
     onLongPress: (() -> Unit)? = null,
+    /** Nuvio Launcher: draw the card as the launcher's Catalog tile (120x180 / 224x126 / 126x126 scaled by
+     *  [launcherTileScale], 7 corners, a soft shadow, [launcherTileZoom] on focus, no focus ring, and a single
+     *  12sp title underneath). Off by default; only the look changes, not focus or click handling. */
+    launcherTiles: Boolean = false,
+    launcherTileScale: Float = 1f,
+    launcherTileZoom: Float = LauncherStyle.Zoom,
     onClick: () -> Unit = {}
 ) {
-    val cardShape = remember(posterCardStyle.cornerRadius) { RoundedCornerShape(posterCardStyle.cornerRadius) }
+    val cardShape = remember(posterCardStyle.cornerRadius, launcherTiles) {
+        if (launcherTiles) LauncherStyle.Corner else RoundedCornerShape(posterCardStyle.cornerRadius)
+    }
     val cardDepthStyle = LocalCardDepthStyle.current
-    val globalLandscape = LocalLandscapePosterMode.current
+    // The launcher tiles follow each item's own shape, like the Catalog page.
+    val globalLandscape = if (launcherTiles) false else LocalLandscapePosterMode.current
     val effectivePosterShape = if (globalLandscape) PosterShape.LANDSCAPE else item.posterShape
-    val baseCardWidth = when (effectivePosterShape) {
+    val baseCardWidth = if (launcherTiles) {
+        when (effectivePosterShape) {
+            PosterShape.POSTER -> 120.dp
+            PosterShape.LANDSCAPE -> 224.dp
+            PosterShape.SQUARE -> 126.dp
+        } * launcherTileScale
+    } else when (effectivePosterShape) {
         PosterShape.POSTER -> posterCardStyle.width
         PosterShape.LANDSCAPE -> posterCardStyle.height
         PosterShape.SQUARE -> 170.dp
     }
-    val baseCardHeight = when (effectivePosterShape) {
+    val launcherBaseHeight = if (effectivePosterShape == PosterShape.POSTER) 180.dp else 126.dp
+    val baseCardHeight = if (launcherTiles) launcherBaseHeight * launcherTileScale else when (effectivePosterShape) {
         PosterShape.POSTER -> posterCardStyle.height
         PosterShape.LANDSCAPE -> posterCardStyle.height / PosterShape.LANDSCAPE.aspectRatio()
         PosterShape.SQUARE -> 170.dp
     }
     // Landscape cards are already 16:9 — expanded width equals base width (no size change).
     val expandedCardWidth = if (globalLandscape) baseCardWidth else baseCardHeight * BACKDROP_ASPECT_RATIO
-    val effectiveExpandEnabled = focusedPosterBackdropExpandEnabled
+    val effectiveExpandEnabled = focusedPosterBackdropExpandEnabled && !launcherTiles
 
     var isFocused by remember { mutableStateOf(false) }
     var longPressTriggered by remember { mutableStateOf(false) }
@@ -257,7 +277,13 @@ fun ContentCard(
             !alwaysBackdropWithLogo &&
             !item.landscapePoster.isNullOrBlank()
 
-        val imageUrl = if (globalLandscape) {
+        val imageUrl = if (launcherTiles) {
+            if (effectivePosterShape == PosterShape.LANDSCAPE) {
+                item.landscapePoster ?: item.background ?: item.poster
+            } else {
+                item.poster ?: item.background
+            }
+        } else if (globalLandscape) {
             effectiveLandscapePoster ?: item.background ?: item.poster
         } else if (useLandscapeAsExpanded) {
             item.landscapePoster
@@ -300,7 +326,16 @@ fun ContentCard(
         var logoLoadFailed by remember(item.logo) { mutableStateOf(false) }
         val showExpandedLogo = !item.logo.isNullOrBlank() && !logoLoadFailed
 
-        val bgCardColor = NuvioTheme.colors.BackgroundCard
+        val bgCardColor = if (launcherTiles) LAUNCHER_TILE_COLOR else NuvioTheme.colors.BackgroundCard
+        // Launcher tiles zoom as a whole (picture and shadow together), as on the Catalog page.
+        val launcherZoom = if (launcherTiles) {
+            val z by animateFloatAsState(
+                targetValue = if (isFocused) launcherTileZoom else 1f,
+                animationSpec = tween(160),
+                label = "launcherTileZoom"
+            )
+            z
+        } else 1f
         val backgroundPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }
 
         Card(
@@ -312,6 +347,18 @@ fun ContentCard(
                 }
             },
             modifier = Modifier
+                .then(
+                    if (launcherTiles) {
+                        Modifier
+                            .graphicsLayer { scaleX = launcherZoom; scaleY = launcherZoom }
+                            .shadow(
+                                elevation = if (isFocused) 17.dp else 7.dp,
+                                shape = cardShape,
+                                ambientColor = Color.Black,
+                                spotColor = Color.Black
+                            )
+                    } else Modifier
+                )
                 .fillMaxWidth()
                 .onFocusChanged { state ->
                     val focusedNow = state.isFocused
@@ -378,27 +425,41 @@ fun ContentCard(
                     if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
                 ),
             shape = CardDefaults.shape(shape = cardShape),
-            colors = CardDefaults.colors(
-                containerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent
-            ),
-            border = CardDefaults.border(
-                focusedBorder = Border(
-                    border = NuvioTheme.focusRing.border(posterCardStyle.focusedBorderWidth),
-                    shape = cardShape
+            colors = if (launcherTiles) {
+                CardDefaults.colors(
+                    containerColor = LAUNCHER_TILE_COLOR,
+                    focusedContainerColor = LAUNCHER_TILE_COLOR
                 )
-            ),
-            scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale)
+            } else {
+                CardDefaults.colors(
+                    containerColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent
+                )
+            },
+            border = if (launcherTiles) {
+                CardDefaults.border(border = Border.None, focusedBorder = Border.None)
+            } else {
+                CardDefaults.border(
+                    focusedBorder = Border(
+                        border = NuvioTheme.focusRing.border(posterCardStyle.focusedBorderWidth),
+                        shape = cardShape
+                    )
+                )
+            },
+            scale = CardDefaults.scale(focusedScale = if (launcherTiles) 1f else posterCardStyle.focusedScale)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(baseCardHeight)
                     .clip(cardShape)
-                    .nuvioCardDepth(
-                        shape = cardShape,
-                        surface = CardDepthSurface.POSTERS,
-                        style = cardDepthStyle
+                    .then(
+                        if (launcherTiles) Modifier
+                        else Modifier.nuvioCardDepth(
+                            shape = cardShape,
+                            surface = CardDepthSurface.POSTERS,
+                            style = cardDepthStyle
+                        )
                     )
             ) {
                 val isPlaceholderItem = imageUrl == PLACEHOLDER_IMAGE_URL
@@ -413,7 +474,7 @@ fun ContentCard(
                             .semantics { this.contentDescription = item.name }
                             .placeholderCardShimmer(
                                 shimmerOffsetState = effectivePlaceholderShimmerOffsetState,
-                                backgroundColor = NuvioTheme.colors.BackgroundCard
+                                backgroundColor = bgCardColor
                             )
                     )
                 } else if (!imageUrl.isNullOrBlank()) {
@@ -628,7 +689,27 @@ fun ContentCard(
         // When backdrop expand is enabled, both the labels state and the
         // expanded state share a single Column with a fixed minimum height
         // so the row never shifts vertically during the expand transition.
-        if (showLabels) {
+        if (launcherTiles) {
+            // The Catalog page's tile title: soft white, white on focus, where it moves down (visually only, so
+            // the row's height never changes) clear of the zoomed tile.
+            val titleLift = maxOf(
+                4.dp,
+                10.dp + (baseCardHeight * (launcherTileZoom - 1f) - launcherBaseHeight * 0.11f) / 2f
+            )
+            Text(
+                text = item.name,
+                color = if (isFocused) Color.White else LauncherStyle.Soft,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    textDirection = item.name.contentTextDirection()
+                ),
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .graphicsLayer { translationY = if (isFocused) titleLift.toPx() else 0f }
+            )
+        } else if (showLabels) {
             Box(modifier = Modifier.fillMaxWidth().clipToBounds().graphicsLayer {}) {
             Column(
                 modifier = Modifier

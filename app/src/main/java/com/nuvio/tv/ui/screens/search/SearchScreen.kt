@@ -44,6 +44,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.Icons
@@ -134,7 +139,11 @@ private val NAVIGATION_KEYS = setOf(
     KeyEvent.KEYCODE_NUMPAD_ENTER
 )
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+/** Nuvio Launcher: extra room between the field and the first results row, so with the field scrolled out of
+ *  view the first row's title sits clear of the time pill (16 row gap + 36 = 52 from the top). */
+private val FIRST_RESULT_ROW_TOP_GAP = 36.dp
+
+@OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
@@ -617,6 +626,43 @@ fun SearchScreen(
             searchRowStates.values.toList().forEach { it.scrollToItem(0) }
         }
 
+        // Nuvio Launcher: while a result has focus its row is kept in the middle of the screen, as on the
+        // Catalog page, and the search field is kept scrolled fully out of view above the rows.
+        val showsResultRows = !isDiscoverMode && visibleCatalogRows.isNotEmpty()
+        val resultRowsMode by rememberUpdatedState(
+            showsResultRows && !inputRowHasFocus && !isRecentSearchSectionFocused
+        )
+        val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
+        val density = LocalDensity.current
+        val rowGapPx = with(density) { NuvioTheme.spacing.lg.toPx() }
+        val resultsBringIntoViewSpec = remember(defaultBringIntoViewSpec, listState, rowGapPx) {
+            @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+            object : BringIntoViewSpec {
+                override val scrollAnimationSpec = defaultBringIntoViewSpec.scrollAnimationSpec
+                override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+                    if (!resultRowsMode) {
+                        return defaultBringIntoViewSpec.calculateScrollDistance(offset, size, containerSize)
+                    }
+                    val centre = (offset + size / 2f) - containerSize / 2f
+                    // The first results row (item 1, right after the field): scroll at least until the field's
+                    // bottom, one row gap above it, is at the top edge.
+                    val layoutInfo = listState.layoutInfo
+                    val firstRow = layoutInfo.visibleItemsInfo.firstOrNull { it.index == 1 }
+                        ?: return centre
+                    val fieldBottom = (firstRow.offset - layoutInfo.viewportStartOffset) - rowGapPx
+                    return maxOf(centre, fieldBottom)
+                }
+            }
+        }
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+        // Back on the field from the rows: show it with its margin, not glued to the top edge.
+        LaunchedEffect(inputRowHasFocus) {
+            if (inputRowHasFocus && listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset > 0) {
+                runCatching { listState.animateScrollToItem(0) }
+            }
+        }
+
+        CompositionLocalProvider(LocalBringIntoViewSpec provides resultsBringIntoViewSpec) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -625,7 +671,8 @@ fun SearchScreen(
             state = listState,
             contentPadding = PaddingValues(
                 top = if (isDiscoverMode) 10.dp else NuvioTheme.spacing.lg,
-                bottom = NuvioTheme.spacing.lg
+                // Room for the last rows to come up to the middle of the screen.
+                bottom = if (showsResultRows) screenHeight / 2 else NuvioTheme.spacing.lg
             ),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
         ) {
@@ -769,7 +816,11 @@ fun SearchScreen(
                                 onItemClick = { _, _, _ -> },
                                 posterCardStyle = posterCardStyle,
                                 showAddonName = uiState.catalogAddonNameEnabled,
-                                modifier = Modifier.padding(bottom = 24.dp)
+                                launcherTiles = true,
+                                modifier = Modifier.padding(
+                                    top = if (index == 0) FIRST_RESULT_ROW_TOP_GAP else 0.dp,
+                                    bottom = 24.dp
+                                )
                             )
                         }
                     }
@@ -819,6 +870,8 @@ fun SearchScreen(
                             CatalogRowSection(
                                 catalogRow = catalogRow,
                                 posterCardStyle = posterCardStyle,
+                                launcherTiles = true,
+                                modifier = if (index == 0) Modifier.padding(top = FIRST_RESULT_ROW_TOP_GAP) else Modifier,
                                 showSeeAll = hasEnoughForSeeAll,
                                 showPosterLabels = uiState.posterLabelsEnabled,
                                 showAddonName = uiState.catalogAddonNameEnabled,
@@ -929,6 +982,7 @@ fun SearchScreen(
                                     onItemClick = { _, _, _ -> },
                                     posterCardStyle = posterCardStyle,
                                     showAddonName = uiState.catalogAddonNameEnabled,
+                                    launcherTiles = true,
                                     modifier = Modifier.padding(bottom = 24.dp)
                                 )
                             }
@@ -937,6 +991,7 @@ fun SearchScreen(
                 }
             }
         }
+        } // CompositionLocalProvider
     }
 
     val posterOptionsState by viewModel.posterOptions.state.collectAsState()
