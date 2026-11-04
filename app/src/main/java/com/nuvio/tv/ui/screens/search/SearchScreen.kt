@@ -649,8 +649,13 @@ fun SearchScreen(
                     val layoutInfo = listState.layoutInfo
                     val firstRow = layoutInfo.visibleItemsInfo.firstOrNull { it.index == 1 }
                         ?: return centre
-                    val fieldBottom = (firstRow.offset - layoutInfo.viewportStartOffset) - rowGapPx
-                    return maxOf(centre, fieldBottom)
+                    val rowTop = (firstRow.offset - layoutInfo.viewportStartOffset).toFloat()
+                    // Only when the tile being brought into view is IN the first results row. Applying it to other
+                    // rows while row 1 was still visible over-scrolled, then switched rule once row 1 left the screen
+                    // mid-scroll, and the page bounced back (seen on the TV at 8.3 s in the search clip).
+                    val inFirstRow = offset >= rowTop - 1f && offset < rowTop + firstRow.size
+                    if (!inFirstRow) return centre
+                    return maxOf(centre, rowTop - rowGapPx)
                 }
             }
         }
