@@ -225,7 +225,12 @@ internal fun LauncherHomeContent(
             object : BringIntoViewSpec {
                 override val scrollAnimationSpec = defaultSpec.scrollAnimationSpec
                 override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                    if (heroFocused) -100_000f else (offset + size / 2f) - containerSize / 2f
+                    if (heroFocused) -100_000f else {
+                        // A sideways press keeps the same row in place: tiny re-centring nudges (which made the row
+                        // bounce on every Left/Right) are ignored; only a real row change (Up/Down) scrolls the page.
+                        val d = (offset + size / 2f) - containerSize / 2f
+                        if (kotlin.math.abs(d) < containerSize * 0.08f) 0f else d
+                    }
             }
         }
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {

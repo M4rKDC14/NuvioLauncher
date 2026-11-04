@@ -174,7 +174,7 @@ internal fun LauncherFolderContent(
         object : BringIntoViewSpec {
             override val scrollAnimationSpec = defaultSpec.scrollAnimationSpec
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                offset - tileTopPx
+                (offset - tileTopPx).let { d -> if (kotlin.math.abs(d) < tileTopPx) 0f else d }   // no bounce on Left/Right
         }
     }
 
