@@ -5,6 +5,7 @@ import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.debrid.DebridProviders
 import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.core.tmdb.TmdbKey
 import com.nuvio.tv.data.local.AnimeSkipSettingsDataStore
 import com.nuvio.tv.data.local.DebridSettingsDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
@@ -55,7 +56,8 @@ class ProviderCredentialSyncService @Inject constructor(
     private val debridSettingsDataStore: DebridSettingsDataStore,
     private val mdbListSettingsDataStore: MDBListSettingsDataStore,
     private val animeSkipSettingsDataStore: AnimeSkipSettingsDataStore,
-    private val syncClientIdentity: SyncClientIdentity
+    private val syncClientIdentity: SyncClientIdentity,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val syncMutex = Mutex()
@@ -220,6 +222,13 @@ class ProviderCredentialSyncService @Inject constructor(
                         value = animeSkipClientId
                     )
                 )
+                add(
+                    ProviderCredentialValue(
+                        provider = ProviderCredentialIds.TMDB,
+                        field = API_KEY_FIELD,
+                        value = TmdbKey.userKeyFlow.value
+                    )
+                )
             }
         )
     }
@@ -237,6 +246,9 @@ class ProviderCredentialSyncService @Inject constructor(
                 }
                 credential.provider == ProviderCredentialIds.ANIMESKIP -> {
                     animeSkipSettingsDataStore.setClientId(credential.value)
+                }
+                credential.provider == ProviderCredentialIds.TMDB -> {
+                    if (credential.value != TmdbKey.userKeyFlow.value) TmdbKey.save(appContext, credential.value)
                 }
             }
         }
@@ -262,8 +274,9 @@ class ProviderCredentialSyncService @Inject constructor(
                     combine(
                         debridSettingsDataStore.settings,
                         mdbListSettingsDataStore.settings,
-                        animeSkipSettingsDataStore.clientId
-                    ) { debrid, mdbList, animeSkipClientId ->
+                        animeSkipSettingsDataStore.clientId,
+                        TmdbKey.userKeyFlow
+                    ) { debrid, mdbList, animeSkipClientId, tmdbKey ->
                         ProviderCredentialSnapshot(
                             profileId = profileId,
                             values = buildList {
@@ -288,6 +301,13 @@ class ProviderCredentialSyncService @Inject constructor(
                                         provider = ProviderCredentialIds.ANIMESKIP,
                                         field = CLIENT_ID_FIELD,
                                         value = animeSkipClientId
+                                    )
+                                )
+                                add(
+                                    ProviderCredentialValue(
+                                        provider = ProviderCredentialIds.TMDB,
+                                        field = API_KEY_FIELD,
+                                        value = tmdbKey
                                     )
                                 )
                             }

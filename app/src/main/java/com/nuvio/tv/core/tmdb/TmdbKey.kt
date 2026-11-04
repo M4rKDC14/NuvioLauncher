@@ -3,6 +3,8 @@ package com.nuvio.tv.core.tmdb
 import android.content.Context
 import com.nuvio.tv.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
@@ -21,8 +23,14 @@ object TmdbKey {
     var value: String = BuildConfig.TMDB_API_KEY
         private set
 
+    private val _userKeyFlow = MutableStateFlow("")
+    /** The owner's own key ("" when none); synced with the Nuvio account like the phone app's personal TMDB key. */
+    val userKeyFlow: StateFlow<String> = _userKeyFlow
+
     fun init(context: Context) {
-        userKey(context).takeIf { it.isNotBlank() }?.let { value = it }
+        val k = userKey(context)
+        _userKeyFlow.value = k
+        k.takeIf { it.isNotBlank() }?.let { value = it }
     }
 
     fun userKey(context: Context): String =
@@ -32,6 +40,7 @@ object TmdbKey {
         val k = key.trim()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, k).apply()
         value = k.ifBlank { BuildConfig.TMDB_API_KEY }
+        _userKeyFlow.value = k
     }
 
     fun isBearer(key: String): Boolean = key.startsWith("eyJ")

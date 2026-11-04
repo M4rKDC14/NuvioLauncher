@@ -9,6 +9,7 @@ import kotlinx.serialization.json.put
 internal object ProviderCredentialIds {
     const val MDBLIST = "mdblist"
     const val ANIMESKIP = "animeskip"
+    const val TMDB = "tmdb"   // Nuvio Launcher: same id the Nuvio phone app syncs its personal TMDB key under
 
     fun debrid(providerId: String): String = "debrid:$providerId"
 }

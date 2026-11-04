@@ -81,7 +81,8 @@ fun TmdbSettingsContent(
     var showLanguageDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var showKeyDialog by remember { mutableStateOf(false) }
-    var savedKey by remember { mutableStateOf(TmdbKey.userKey(context)) }
+    // follows the account: a personal key set in the Nuvio phone app arrives here too
+    val savedKey by TmdbKey.userKeyFlow.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -126,7 +127,7 @@ fun TmdbSettingsContent(
                 item(key = "tmdb_api_key") {
                     SettingsActionRow(
                         title = "TMDB API key",
-                        subtitle = "Your own key from themoviedb.org (API key or Read Access Token). Needed for cast, reviews, companies, episodes and more like this.",
+                        subtitle = "Your own key from themoviedb.org (API key or Read Access Token). Syncs with the personal TMDB key in the Nuvio phone app. Needed for cast, reviews, companies, episodes and more like this.",
                         value = maskTmdbKey(savedKey),
                         onClick = { showKeyDialog = true }
                     )
@@ -298,7 +299,7 @@ fun TmdbSettingsContent(
         TmdbApiKeyDialog(
             currentValue = savedKey,
             onSaved = { k ->
-                TmdbKey.save(context, k); savedKey = k.trim(); showKeyDialog = false
+                TmdbKey.save(context, k); showKeyDialog = false
                 // a working key turns TMDB on, so the details appear without a second step
                 if (k.isNotBlank() && !uiState.enabled) viewModel.onEvent(TmdbSettingsEvent.ToggleEnabled(true))
             },
