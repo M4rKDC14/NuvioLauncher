@@ -112,9 +112,6 @@ fun FolderDetailScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val rowsFocusState by viewModel.rowsFocusState.collectAsStateWithLifecycle()
-    val followLayoutFocusState by viewModel.followLayoutFocusState.collectAsStateWithLifecycle()
-    val tabFocusStates by viewModel.tabFocusStates.collectAsStateWithLifecycle()
     val folder = uiState.folder
 
     if (uiState.isLoading) {
@@ -131,92 +128,21 @@ fun FolderDetailScreen(
         return
     }
 
-    val isItemWatched: (MetaPreview) -> Boolean = remember(uiState.movieWatchedStatus) {
-        { item -> uiState.movieWatchedStatus[com.nuvio.tv.ui.screens.home.homeItemStatusKey(item.id, item.apiType)] == true }
-    }
-
-    // Kept as State down to ModernHomeContent, like ModernHomeRoute: reading the values here would
-    // recompose the whole folder screen on every enrichment update.
-    val enrichingItemId = viewModel.enrichingItemId.collectAsStateWithLifecycle()
+    // Kept as State so enrichment updates recompose only the details block, not the whole screen.
     val enrichedPreviews = viewModel.enrichedPreviews.collectAsStateWithLifecycle()
-    val failedEnrichmentIds = viewModel.failedEnrichmentIds.collectAsStateWithLifecycle()
-    val trailerPreviewUrls by viewModel.trailerPreviewUrls.collectAsStateWithLifecycle()
-    val trailerPreviewAudioUrls by viewModel.trailerPreviewAudioUrls.collectAsStateWithLifecycle()
-    val scrollToTopTrigger by viewModel.scrollToTopTrigger.collectAsStateWithLifecycle()
 
-    if (uiState.viewMode == FolderViewMode.FOLLOW_LAYOUT) {
-        FollowLayoutContent(
-            uiState = uiState,
-            focusState = followLayoutFocusState,
-            enrichingItemId = enrichingItemId,
-            enrichedPreviews = enrichedPreviews,
-            failedEnrichmentIds = failedEnrichmentIds,
-            onNavigateToDetail = onNavigateToDetail,
-            onLoadMoreCatalog = viewModel::loadMoreForCatalog,
-            onSelectTab = viewModel::selectTab,
-            onLoadMoreForSelectedTab = { viewModel.loadMoreItems(viewModel.uiState.value.selectedTabIndex) },
-            onSaveFocusState = { vi, vo, rk, ikm, m, ma, ri, ii ->
-                viewModel.saveFollowLayoutFocusState(vi, vo, rk, ikm, m, ma, ri, ii)
-            },
-            onItemFocus = viewModel::onItemFocused,
-            onPreloadAdjacentItem = viewModel::preloadAdjacentItem,
-            onCatalogItemLongPress = { item, addonBaseUrl ->
-                viewModel.posterOptions.show(item, addonBaseUrl)
-            },
-            trailerPreviewUrls = trailerPreviewUrls,
-            trailerPreviewAudioUrls = trailerPreviewAudioUrls,
-            onRequestTrailerPreview = viewModel::requestTrailerPreview,
-            onFocusedRowKeyChanged = viewModel::onFocusedRowChanged,
-            scrollToTopTrigger = scrollToTopTrigger
-        )
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = NuvioTheme.spacing.xl)
-        ) {
-            when (uiState.viewMode) {
-                FolderViewMode.TABBED_GRID -> TabbedGridContent(
-                    uiState = uiState,
-                    folder = folder,
-                    tabFocusState = tabFocusStates[uiState.selectedTabIndex] ?: FolderDetailGridFocusState(),
-                    onSelectTab = viewModel::selectTab,
-                    onNavigateToDetail = onNavigateToDetail,
-                    isItemWatched = isItemWatched,
-                    onLoadMore = { viewModel.loadMoreItems(uiState.selectedTabIndex) },
-                    onSaveFocusState = { verticalIndex, verticalOffset, focusedItemKey ->
-                        viewModel.saveTabFocusState(
-                            tabIndex = uiState.selectedTabIndex,
-                            verticalScrollIndex = verticalIndex,
-                            verticalScrollOffset = verticalOffset,
-                            focusedItemKey = focusedItemKey
-                        )
-                    },
-                    onItemLongPress = { item, addonBaseUrl ->
-                        viewModel.posterOptions.show(item, addonBaseUrl)
-                    }
-                )
-                FolderViewMode.ROWS -> {
-                    FolderHeader(folder = folder)
-                    RowsContent(
-                        uiState = uiState,
-                        focusState = rowsFocusState,
-                        onNavigateToDetail = onNavigateToDetail,
-                        isItemWatched = isItemWatched,
-                        onLoadMoreCatalog = viewModel::loadMoreForCatalog,
-                        onSaveFocusState = { vi, vo, rk, ikm, m, ma, ri, ii ->
-                            viewModel.saveRowsFocusState(vi, vo, rk, ikm, m, ma, ri, ii)
-                        },
-                        onItemFocus = viewModel::onItemFocused,
-                        onItemLongPress = { item, addonBaseUrl ->
-                            viewModel.posterOptions.show(item, addonBaseUrl)
-                        }
-                    )
-                }
-                FolderViewMode.FOLLOW_LAYOUT -> {} // handled above
-            }
+    // Nuvio Launcher: every folder shows as the launcher's rows, whatever its view mode.
+    LauncherFolderContent(
+        uiState = uiState,
+        folder = folder,
+        enrichedPreviews = enrichedPreviews,
+        onNavigateToDetail = onNavigateToDetail,
+        onLoadMoreCatalog = viewModel::loadMoreForCatalog,
+        onItemFocus = viewModel::onItemFocused,
+        onItemLongPress = { item, addonBaseUrl ->
+            viewModel.posterOptions.show(item, addonBaseUrl)
         }
-    }
+    )
 
     val posterOptionsState by viewModel.posterOptions.state.collectAsStateWithLifecycle()
     com.nuvio.tv.ui.components.posteroptions.PosterOptionsHost(
