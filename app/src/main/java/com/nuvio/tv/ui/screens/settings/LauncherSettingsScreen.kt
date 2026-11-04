@@ -314,8 +314,16 @@ private fun LauncherSettingsMainPage(
     }
 }
 
-private fun catalogChipLabel(catalog: CatalogInfo): String =
-    if (catalog.addonName.isBlank()) catalog.name else "${catalog.addonName} · ${catalog.name}"
+private fun catalogChipLabel(catalog: CatalogInfo): String {
+    // The type is added because addons often have two catalogs with the same name ("Popular" for movies and series).
+    val type = when (catalog.type.lowercase()) {
+        "movie" -> "Movies"
+        "series", "tv" -> "Series"
+        "" -> ""
+        else -> catalog.type.replaceFirstChar { it.uppercase() }
+    }
+    return listOf(catalog.addonName, catalog.name, type).filter { it.isNotBlank() }.joinToString(" · ")
+}
 
 /** A title and description on their own, above a row of chips. */
 @Composable

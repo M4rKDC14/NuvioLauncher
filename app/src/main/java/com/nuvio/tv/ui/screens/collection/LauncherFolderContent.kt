@@ -148,13 +148,20 @@ internal fun LauncherFolderContent(
 
     // Tiles report where they are, so Up/Down can pick the tile directly above or below.
     val tiles = remember { mutableStateMapOf<Int, MutableMap<Int, Pair<FocusRequester, Float>>>() }
+    // Each row remembers the tile that last had focus; Up/Down returns to it (instead of the tile physically
+    // above/below, which landed on the wrong tile and needed every tile's position on every frame).
+    val lastIndex = remember { mutableMapOf<Int, Int>() }
 
     // The time pill would sit on the folder's name.
     LaunchedEffect(Unit) { LauncherChrome.pillVisible.value = false }
     DisposableEffect(Unit) { onDispose { LauncherChrome.pillVisible.value = true } }
 
     // Which tile takes focus when the page opens: the one focused before, else the first loaded tile.
-    val firstLoadedRow = rows.indexOfFirst { r -> !r.tab.isLoading && r.tab.catalogRow?.items?.isNotEmpty() == true }
+    // Opening the folder always aims at its FIRST row. The first row that merely finished loading first could be
+    // the second row (addons answer in any order), which scrolled the page down to row 2. A row is skipped only
+    // when it came back empty or failed; while it is still loading, focus waits for it.
+    val firstRow = rows.indexOfFirst { r -> r.tab.isLoading || r.tab.catalogRow?.items?.isNotEmpty() == true }
+    val firstLoadedRow = firstRow.takeIf { it >= 0 && rows[it].tab.catalogRow?.items?.isNotEmpty() == true && !rows[it].tab.isLoading } ?: -1
     val savedRow = focusedRowKey?.let { k -> rows.indexOfFirst { it.key == k } }?.takeIf { it >= 0 }
     val initialRow = if (focusPlaced) -1 else (savedRow ?: firstLoadedRow)
 
@@ -200,6 +207,7 @@ internal fun LauncherFolderContent(
                             initialFocusIndex = if (ri == initialRow) (if (ri == savedRow) focusedItemIndex else 0) else null,
                             onInitialFocusPlaced = { focusPlaced = true },
                             onTileFocused = { i, item ->
+                                lastIndex[ri] = i
                                 focusPlaced = true
                                 focusedRowKey = row.key
                                 focusedItemIndex = i
@@ -214,11 +222,12 @@ internal fun LauncherFolderContent(
                             },
                             onVertical = { fromRow, x, down ->
                                 val target = if (down) fromRow + 1 else fromRow - 1
-                                val cand = tiles[target]?.values?.toList().orEmpty()
+                                val cand = tiles[target].orEmpty()
                                 if (cand.isEmpty()) false
                                 else {
-                                    val under = cand.filter { it.second <= x + 8f }.maxByOrNull { it.second } ?: cand.minByOrNull { it.second }
-                                    under?.first?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
+                                    val want = lastIndex[target] ?: 0
+                                    val req = cand[want]?.first ?: cand.entries.minByOrNull { it.key }?.value?.first
+                                    req?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
                                 }
                             },
                             onClick = { item ->
@@ -286,7 +295,7 @@ private fun FolderRowBlock(
                 ) {
                     itemsIndexed(items, key = { i, m -> "${m.id}_$i" }) { i, m ->
                         val req = remember { FocusRequester() }
-                        DisposableEffect(i) { onDispose { rowTiles.remove(i) } }
+                        DisposableEffect(i) { rowTiles[i] = req to 0f; onDispose { rowTiles.remove(i) } }
                         if (initialFocusIndex != null && i == initialFocusIndex.coerceIn(0, items.lastIndex)) {
                             LaunchedEffect(Unit) {
                                 repeat(6) {
@@ -300,7 +309,6 @@ private fun FolderRowBlock(
                             look = look,
                             modifier = Modifier
                                 .focusRequester(req)
-                                .onGloballyPositioned { rowTiles[i] = req to it.positionInRoot().x }
                                 .onPreviewKeyEvent { e ->
                                     if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                     when (e.key) {

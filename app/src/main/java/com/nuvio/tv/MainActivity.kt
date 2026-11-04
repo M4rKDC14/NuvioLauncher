@@ -2251,6 +2251,7 @@ private fun ModernSidebarScaffold(
                 !sidebarCollapsed &&
                 sidebarShowCollapsedPill &&
                 LauncherChrome.pillVisible.value &&   // Nuvio Launcher: Catalog hides it while its rows have focus
+                !LauncherChrome.pillHiddenBySettings.value &&   // and Settings hides it (it covered the menu)
                 launcherSettings.showTimePill &&      // Nuvio Launcher: Settings → Launcher → Show time pill
                 selectedDrawerRoute != Screen.Search.route
             ) {

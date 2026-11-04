@@ -164,6 +164,9 @@ internal fun LauncherHomeContent(
 
     // Tiles report where they are, so Up/Down can pick the tile directly above or below.
     val tiles = remember { mutableStateMapOf<Int, MutableMap<Int, Pair<FocusRequester, Float>>>() }
+    // Each row remembers the tile that last had focus; Up/Down returns to it (instead of the tile physically
+    // above/below, which landed on the wrong tile and needed every tile's position on every frame).
+    val lastIndex = remember { mutableMapOf<Int, Int>() }
 
     // The pill shows only while the carousel has focus.
     LaunchedEffect(heroFocused) { LauncherChrome.pillVisible.value = heroFocused }
@@ -254,16 +257,18 @@ internal fun LauncherHomeContent(
                             first = ri == 0,
                             look = look,
                             tiles = tiles,
+                            lastIndex = lastIndex,
                             onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
                             onVertical = { fromRow, x, down ->
                                 val target = if (down) fromRow + 1 else fromRow - 1
                                 if (target < 0) { runCatching { playFocus.requestFocus() }; true }
                                 else {
-                                    val cand = tiles[target]?.values?.toList().orEmpty()
+                                    val cand = tiles[target].orEmpty()
                                     if (cand.isEmpty()) false
                                     else {
-                                        val under = cand.filter { it.second <= x + 8f }.maxByOrNull { it.second } ?: cand.minByOrNull { it.second }
-                                        under?.first?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
+                                        val want = lastIndex[target] ?: 0
+                                        val req = cand[want]?.first ?: cand.entries.minByOrNull { it.key }?.value?.first
+                                        req?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
                                     }
                                 }
                             },
@@ -379,6 +384,7 @@ private fun RowBlock(
     first: Boolean,
     look: TileLook,
     tiles: MutableMap<Int, MutableMap<Int, Pair<FocusRequester, Float>>>,
+    lastIndex: MutableMap<Int, Int>,
     onRowFocused: (String?) -> Unit,
     onVertical: (Int, Float, Boolean) -> Boolean,
     onNavigateToDetail: (String, String, String) -> Unit,
@@ -442,13 +448,12 @@ private fun RowBlock(
             ) {
                 itemsIndexed(items, key = { _, t -> t.key }) { i, t ->
                     val req = remember { FocusRequester() }
-                    DisposableEffect(i) { onDispose { rowTiles.remove(i) } }
+                    DisposableEffect(i) { rowTiles[i] = req to 0f; onDispose { rowTiles.remove(i) } }
                     TileView(
                         tile = t,
                         look = look,
                         modifier = Modifier
                             .focusRequester(req)
-                            .onGloballyPositioned { rowTiles[i] = req to it.positionInRoot().x }
                             .onPreviewKeyEvent { e ->
                                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 when (e.key) {
@@ -458,7 +463,7 @@ private fun RowBlock(
                                     else -> false
                                 }
                             },
-                        onFocused = { onRowFocused(t.backdrop ?: t.image) }
+                        onFocused = { lastIndex[rowIndex] = i; onRowFocused(t.backdrop ?: t.image) }
                     )
                 }
             }

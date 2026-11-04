@@ -407,6 +407,11 @@ fun SettingsScreen(
         pendingContentFocusCategory = null
     }
 
+    // Nuvio Launcher: the time pill would sit on top of the Settings menu, so it is hidden while Settings is open.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.nuvio.tv.LauncherChrome.pillHiddenBySettings.value = true
+        onDispose { com.nuvio.tv.LauncherChrome.pillHiddenBySettings.value = false }
+    }
     // Nuvio Launcher: Settings draws over the blurred picture of the last focused title, and the
     // settings components switch to the launcher's glass look (LocalSettingsGlass) only in here.
     // 1.4.2 performance: no live blur behind the settings glass; the backdrop is already blurred.

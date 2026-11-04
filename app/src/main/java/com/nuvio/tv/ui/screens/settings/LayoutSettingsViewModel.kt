@@ -98,7 +98,8 @@ data class LayoutSettingsUiState(
 data class CatalogInfo(
     val key: String,
     val name: String,
-    val addonName: String
+    val addonName: String,
+    val type: String = ""   // Nuvio Launcher: "movie" / "series", so two catalogs both named "Popular" can be told apart
 )
 
 sealed class LayoutSettingsEvent {
@@ -1011,7 +1012,8 @@ class LayoutSettingsViewModel @Inject constructor(
                             CatalogInfo(
                                 key = catalogRowLegacyKey(addon.id, catalog.apiType, catalog.id),
                                 name = catalog.name,
-                                addonName = addon.displayName
+                                addonName = addon.displayName,
+                                type = catalog.apiType
                             )
                         }
                 }
