@@ -906,7 +906,7 @@ private fun RightStreamSection(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp, vertical = 14.dp)
+                    .padding(14.dp)   // same inner padding on all four sides
             ) {
                 resumeText?.let { text ->
                     Box(
