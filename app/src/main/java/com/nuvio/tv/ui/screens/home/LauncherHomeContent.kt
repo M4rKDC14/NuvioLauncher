@@ -233,7 +233,8 @@ internal fun LauncherHomeContent(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF2A2B30), Color(0xFF1E1F23))))
+            // (no background here: the backdrop below is an opaque picture covering the whole screen, and
+            // paints the same grey itself until the picture has loaded)
             .onPreviewKeyEvent { if (it.type == KeyEventType.KeyDown) lastKeyAt = System.currentTimeMillis(); false }
     ) {
         val screenH = maxHeight

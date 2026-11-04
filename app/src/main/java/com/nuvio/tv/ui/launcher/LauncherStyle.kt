@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -88,27 +89,22 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
     fun request(u: String) = ImageRequest.Builder(context)
         .data(u)
         .size(160, 90)
-        .transformations(com.nuvio.tv.ui.util.BlurTransformation(radius = 6))
-        .memoryCacheKey("launcher_blur_" + u)
+        .transformations(LauncherBackdropTransformation(alpha = alpha, blurRadius = 6))
+        .memoryCacheKey("launcher_backdrop_v1_" + alpha + "_" + u)
         .build()
-    // Performance (GPU): the grey base and both washes are painted by this one Box (base behind, washes on top)
-    // instead of three stacked full-screen boxes, and no picture uses an offscreen alpha layer.
+    // Performance (GPU): the grey base, the picture at [alpha] and both washes are baked into one small opaque
+    // picture (LauncherBackdropTransformation), so the screen gets ONE image draw instead of five layers.
+    // The grey base is painted only until the first picture has loaded.
     val base0 = remember { Brush.verticalGradient(listOf(LauncherStyle.GreyTop, LauncherStyle.GreyBottom)) }
-    val washX = remember { Brush.horizontalGradient(0f to Color(0x8C141518), 0.6f to Color(0x26141518)) }
-    val washY = remember { Brush.verticalGradient(0f to Color(0x1A141518), 1f to Color(0x73141518)) }
-    Box(modifier.fillMaxSize().drawWithContent {
-        drawRect(base0)
-        drawContent()
-        // dark wash on the left and bottom so text stays readable
-        drawRect(washX)
-        drawRect(washY)
-    }) {
+    var baseLoaded by remember { mutableStateOf(false) }
+    Box(modifier.fillMaxSize().drawBehind { if (!baseLoaded) drawRect(base0) }) {
         base?.let { u ->
             AsyncImage(
                 model = remember(u) { request(u) },
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                alpha = alpha,   // opacity applied to the picture itself: no offscreen layer
+                contentScale = ContentScale.FillBounds,
+                onSuccess = { baseLoaded = true },
+                onError = { baseLoaded = false },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -116,7 +112,7 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
             AsyncImage(
                 model = remember(u) { request(u) },
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.FillBounds,
                 onSuccess = {
                     scope.launch {
                         fade.animateTo(1f, tween(450))
@@ -125,7 +121,7 @@ fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: 
                 },
                 // ModulateAlpha: the fade is applied to the picture's own draw, without an offscreen buffer
                 modifier = Modifier.fillMaxSize().graphicsLayer {
-                    this.alpha = alpha * fade.value
+                    this.alpha = fade.value   // the picture is already at [alpha] inside the baked image
                     compositingStrategy = CompositingStrategy.ModulateAlpha
                 }
             )

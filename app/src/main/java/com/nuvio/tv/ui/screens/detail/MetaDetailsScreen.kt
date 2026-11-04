@@ -123,6 +123,7 @@ import coil3.imageLoader
 import coil3.memory.MemoryCache
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.request.allowHardware
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
@@ -2170,6 +2171,23 @@ private fun MetaDetailsContent(
     val hasHeroBackdrop = !heroBackdropUrl.isNullOrBlank()
     val seedBackdropUrl = heroBackdropUrl?.takeIf { it.isNotBlank() }
     val backdropDataUrl = meta.backdropUrl ?: meta.poster
+    // Nuvio Launcher: the left and bottom shade take the title's own colour (its strongest hue, kept dark so
+    // white text stays readable) instead of always the launcher grey. Worked out once per title from a 24x14
+    // copy of the backdrop; grey while it loads or when the picture has no real colour.
+    var shadeColor by remember(backdropDataUrl) { mutableStateOf(backgroundColor) }
+    LaunchedEffect(backdropDataUrl) {
+        val u = backdropDataUrl ?: return@LaunchedEffect
+        val result = runCatching {
+            localContext.imageLoader.execute(
+                ImageRequest.Builder(localContext).data(u).size(24, 14)
+                    .allowHardware(false)   // the pixels are read, so a software bitmap
+                    .memoryCacheKey("launcher_shade_" + u)
+                    .build()
+            )
+        }.getOrNull()
+        val bmp = (result as? coil3.request.SuccessResult)?.image?.let { (it as? coil3.BitmapImage)?.bitmap }
+        if (bmp != null) launcherDominantShade(bmp)?.let { shadeColor = it }
+    }
     val shouldReuseSeedBackdrop = seedBackdropUrl != null && seedBackdropUrl == backdropDataUrl
     val shouldShowSeedBackdropUnderlay = seedBackdropUrl != null && !shouldReuseSeedBackdrop
     val heroBackdropRequest = remember(
@@ -2206,10 +2224,10 @@ private fun MetaDetailsContent(
         }
     }
 
-    val leftGradientBitmap = remember(backgroundColor, backdropWidthPx, backdropHeightPx, isRtl) {
+    val leftGradientBitmap = remember(shadeColor, backdropWidthPx, backdropHeightPx, isRtl) {
         val w = backdropWidthPx.coerceAtLeast(1)
         val h = backdropHeightPx.coerceAtLeast(1)
-        val transparent = backgroundColor.copy(alpha = 0f).toArgb()
+        val transparent = shadeColor.copy(alpha = 0f * LeftShadeOpacity).toArgb()
         val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
         val fadeWidth = w * 0.62f
@@ -2217,14 +2235,14 @@ private fun MetaDetailsContent(
             android.graphics.LinearGradient(
                 w.toFloat(), 0f, w - fadeWidth, 0f,
                 intArrayOf(
-                    backgroundColor.copy(alpha = 1f).toArgb(),
-                    backgroundColor.copy(alpha = 1f).toArgb(),
-                    backgroundColor.copy(alpha = 0.92f).toArgb(),
-                    backgroundColor.copy(alpha = 0.72f).toArgb(),
-                    backgroundColor.copy(alpha = 0.52f).toArgb(),
-                    backgroundColor.copy(alpha = 0.32f).toArgb(),
-                    backgroundColor.copy(alpha = 0.16f).toArgb(),
-                    backgroundColor.copy(alpha = 0.06f).toArgb(),
+                    shadeColor.copy(alpha = 1f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 1f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.92f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.72f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.52f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.32f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.16f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.06f * LeftShadeOpacity).toArgb(),
                     transparent
                 ),
                 floatArrayOf(0f, 0.36f, 0.46f, 0.56f, 0.66f, 0.76f, 0.85f, 0.93f, 1f),
@@ -2234,14 +2252,14 @@ private fun MetaDetailsContent(
             android.graphics.LinearGradient(
                 0f, 0f, fadeWidth, 0f,
                 intArrayOf(
-                    backgroundColor.copy(alpha = 1f).toArgb(),
-                    backgroundColor.copy(alpha = 1f).toArgb(),
-                    backgroundColor.copy(alpha = 0.92f).toArgb(),
-                    backgroundColor.copy(alpha = 0.72f).toArgb(),
-                    backgroundColor.copy(alpha = 0.52f).toArgb(),
-                    backgroundColor.copy(alpha = 0.32f).toArgb(),
-                    backgroundColor.copy(alpha = 0.16f).toArgb(),
-                    backgroundColor.copy(alpha = 0.06f).toArgb(),
+                    shadeColor.copy(alpha = 1f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 1f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.92f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.72f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.52f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.32f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.16f * LeftShadeOpacity).toArgb(),
+                    shadeColor.copy(alpha = 0.06f * LeftShadeOpacity).toArgb(),
                     transparent
                 ),
                 floatArrayOf(0f, 0.36f, 0.46f, 0.56f, 0.66f, 0.76f, 0.85f, 0.93f, 1f),
@@ -2253,10 +2271,10 @@ private fun MetaDetailsContent(
         })
         bmp.asImageBitmap()
     }
-    val bottomGradientBitmap = remember(backgroundColor, backdropWidthPx, backdropHeightPx) {
+    val bottomGradientBitmap = remember(shadeColor, backdropWidthPx, backdropHeightPx) {
         val w = backdropWidthPx.coerceAtLeast(1)
         val h = backdropHeightPx.coerceAtLeast(1)
-        val transparent = backgroundColor.copy(alpha = 0f).toArgb()
+        val transparent = shadeColor.copy(alpha = 0f).toArgb()
         val bmp = android.graphics.Bitmap.createBitmap(2, h, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
         val startY = h * 0.38f
@@ -2264,14 +2282,14 @@ private fun MetaDetailsContent(
             0f, startY, 0f, h.toFloat(),
             intArrayOf(
                 transparent,
-                backgroundColor.copy(alpha = 0.05f).toArgb(),
-                backgroundColor.copy(alpha = 0.18f).toArgb(),
-                backgroundColor.copy(alpha = 0.38f).toArgb(),
-                backgroundColor.copy(alpha = 0.60f).toArgb(),
-                backgroundColor.copy(alpha = 0.78f).toArgb(),
-                backgroundColor.copy(alpha = 0.91f).toArgb(),
-                backgroundColor.copy(alpha = 0.97f).toArgb(),
-                backgroundColor.copy(alpha = 1f).toArgb()
+                shadeColor.copy(alpha = 0.05f).toArgb(),
+                shadeColor.copy(alpha = 0.18f).toArgb(),
+                shadeColor.copy(alpha = 0.38f).toArgb(),
+                shadeColor.copy(alpha = 0.60f).toArgb(),
+                shadeColor.copy(alpha = 0.78f).toArgb(),
+                shadeColor.copy(alpha = 0.91f).toArgb(),
+                shadeColor.copy(alpha = 0.97f).toArgb(),
+                shadeColor.copy(alpha = 1f).toArgb()
             ),
             floatArrayOf(0f, 0.10f, 0.22f, 0.36f, 0.52f, 0.66f, 0.78f, 0.90f, 1f),
             android.graphics.Shader.TileMode.CLAMP
@@ -3314,4 +3332,31 @@ private fun LibraryListPickerDialog(
             }
         }
     }
+}
+
+/** Nuvio Launcher: the left shade is 30% see-through (its strongest point 70% opaque instead of 100%). */
+private const val LeftShadeOpacity = 0.7f
+
+/**
+ * Nuvio Launcher: the title's shade colour. The tiny backdrop's hues, weighted by how colourful and bright each
+ * pixel is (near-black and near-grey pixels ignored); the strongest hue at saturation .35 and brightness .22
+ * (30% lighter than the first proposal's .17). Null when the picture has no real colour.
+ */
+internal fun launcherDominantShade(bitmap: android.graphics.Bitmap): Color? {
+    val w = bitmap.width
+    val h = bitmap.height
+    if (w <= 0 || h <= 0) return null
+    val px = IntArray(w * h)
+    runCatching { bitmap.getPixels(px, 0, w, 0, 0, w, h) }.getOrElse { return null }
+    val bins = FloatArray(36)
+    val hsv = FloatArray(3)
+    for (c in px) {
+        android.graphics.Color.colorToHSV(c, hsv)
+        if (hsv[2] < 0.12f || hsv[1] < 0.15f) continue
+        bins[((hsv[0] / 10f).toInt()).coerceIn(0, 35)] += hsv[1] * hsv[2]
+    }
+    var best = 0
+    for (i in 1 until 36) if (bins[i] > bins[best]) best = i
+    if (bins[best] <= 0f) return null
+    return Color.hsv(best * 10f + 5f, 0.35f, 0.22f)
 }
