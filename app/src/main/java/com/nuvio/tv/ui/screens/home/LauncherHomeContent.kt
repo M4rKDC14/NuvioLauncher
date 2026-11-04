@@ -78,6 +78,7 @@ import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /*
  * Nuvio Launcher: the Catalog page, in the launcher's Apple TV style, drawing Nuvio's own Home data
@@ -161,12 +162,37 @@ internal fun LauncherHomeContent(
     var lastKeyAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
+    val navScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Tiles report where they are, so Up/Down can pick the tile directly above or below.
     val tiles = remember { mutableStateMapOf<Int, MutableMap<Int, Pair<FocusRequester, Float>>>() }
     // Each row remembers the tile that last had focus; Up/Down returns to it (instead of the tile physically
     // above/below, which landed on the wrong tile and needed every tile's position on every frame).
     val lastIndex = remember { mutableMapOf<Int, Int>() }
+
+    // Up/Down: go to the target row's remembered tile (first tile if never visited). If that row isn't on screen
+    // yet, scroll to it first and then focus the tile — otherwise Android picked the physically nearest tile,
+    // often one to the right. Always consumes the press so Android never chooses on its own.
+    fun focusRow(target: Int): Boolean {
+        if (target < 0) { runCatching { playFocus.requestFocus() }; return true }
+        if (target > rows.lastIndex) return true
+        fun tryFocus(): Boolean {
+            val cand = tiles[target].orEmpty()
+            if (cand.isEmpty()) return false
+            val want = lastIndex[target] ?: 0
+            val req = cand[want]?.first ?: cand.entries.minByOrNull { it.key }?.value?.first
+            return req?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
+        }
+        if (tryFocus()) return true
+        navScope.launch {
+            listState.animateScrollToItem(target + 1)   // item 0 is the carousel
+            repeat(12) {
+                androidx.compose.runtime.withFrameNanos { }
+                if (tryFocus()) return@launch
+            }
+        }
+        return true
+    }
 
     // The pill shows only while the carousel has focus.
     LaunchedEffect(heroFocused) { LauncherChrome.pillVisible.value = heroFocused }
@@ -250,7 +276,8 @@ internal fun LauncherHomeContent(
                         onPlay = { current?.let(onPlayItem) },
                         onAdd = { current?.let(onToggleLibrary) },
                         onInfo = { current?.let { onNavigateToDetail(it.id, it.apiTypeOrRaw(), it.sourceAddonBaseUrl ?: "") } },
-                        onNext = { if (hero.isNotEmpty()) { heroIndex = (heroIndex + 1) % hero.size } }
+                        onNext = { if (hero.isNotEmpty()) { heroIndex = (heroIndex + 1) % hero.size } },
+                        onDown = { focusRow(0) }
                     )
                 }
                 itemsIndexed(rows, key = { _, r -> r.key }) { ri, row ->
@@ -264,19 +291,7 @@ internal fun LauncherHomeContent(
                             tiles = tiles,
                             lastIndex = lastIndex,
                             onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
-                            onVertical = { fromRow, x, down ->
-                                val target = if (down) fromRow + 1 else fromRow - 1
-                                if (target < 0) { runCatching { playFocus.requestFocus() }; true }
-                                else {
-                                    val cand = tiles[target].orEmpty()
-                                    if (cand.isEmpty()) false
-                                    else {
-                                        val want = lastIndex[target] ?: 0
-                                        val req = cand[want]?.first ?: cand.entries.minByOrNull { it.key }?.value?.first
-                                        req?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
-                                    }
-                                }
-                            },
+                            onVertical = { fromRow, _, down -> focusRow(if (down) fromRow + 1 else fromRow - 1) },
                             onNavigateToDetail = onNavigateToDetail,
                             onContinueWatchingClick = onContinueWatchingClick,
                             onNavigateToFolderDetail = onNavigateToFolderDetail,
@@ -305,7 +320,8 @@ private fun Hero(
     onPlay: () -> Unit,
     onAdd: () -> Unit,
     onInfo: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onDown: () -> Boolean = { false }
 ) {
     Box(Modifier.fillMaxWidth().height(height)) {
         if (item != null) {
@@ -325,7 +341,9 @@ private fun Hero(
                 )
             }
         }
-        Row(Modifier.padding(start = 57.dp, top = 377.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 57.dp, top = 377.dp).onPreviewKeyEvent { e ->
+                if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown) onDown() else false
+            }, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             HeroButton(width = 106.dp, primary = true, modifier = Modifier.focusRequester(playFocus), onFocused = onFocused, onClick = onPlay) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp), tint = it)

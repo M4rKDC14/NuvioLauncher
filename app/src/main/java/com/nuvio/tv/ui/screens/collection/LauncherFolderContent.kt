@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.collection
 
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -151,6 +152,30 @@ internal fun LauncherFolderContent(
     // Each row remembers the tile that last had focus; Up/Down returns to it (instead of the tile physically
     // above/below, which landed on the wrong tile and needed every tile's position on every frame).
     val lastIndex = remember { mutableMapOf<Int, Int>() }
+    val rowsListState = rememberLazyListState()
+    val navScope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // Up/Down: the target row's remembered tile (first tile if never visited). If that row isn't on screen yet,
+    // scroll to it first, then focus — otherwise Android picked the physically nearest tile, often one to the right.
+    fun focusRow(target: Int): Boolean {
+        if (target < 0 || target > rows.lastIndex) return true
+        fun tryFocus(): Boolean {
+            val cand = tiles[target].orEmpty()
+            if (cand.isEmpty()) return false
+            val want = lastIndex[target] ?: 0
+            val req = cand[want]?.first ?: cand.entries.minByOrNull { it.key }?.value?.first
+            return req?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
+        }
+        if (tryFocus()) return true
+        navScope.launch {
+            rowsListState.animateScrollToItem(target)
+            repeat(12) {
+                androidx.compose.runtime.withFrameNanos { }
+                if (tryFocus()) return@launch
+            }
+        }
+        return true
+    }
 
     // The time pill would sit on the folder's name.
     LaunchedEffect(Unit) { LauncherChrome.pillVisible.value = false }
@@ -192,7 +217,7 @@ internal fun LauncherFolderContent(
         // Focus in the rows keeps the focused row in the middle of the rows area.
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {
             LazyColumn(
-                state = rememberLazyListState(),
+                state = rowsListState,
                 modifier = Modifier.fillMaxSize().padding(top = RowsTop),
                 contentPadding = PaddingValues(bottom = 400.dp)   // room for the last row to scroll up to the first row's place
             ) {
@@ -220,16 +245,7 @@ internal fun LauncherFolderContent(
                                     onLoadMoreCatalog(cr.catalogId, cr.addonId, cr.apiType)
                                 }
                             },
-                            onVertical = { fromRow, x, down ->
-                                val target = if (down) fromRow + 1 else fromRow - 1
-                                val cand = tiles[target].orEmpty()
-                                if (cand.isEmpty()) false
-                                else {
-                                    val want = lastIndex[target] ?: 0
-                                    val req = cand[want]?.first ?: cand.entries.minByOrNull { it.key }?.value?.first
-                                    req?.let { runCatching { it.requestFocus() }.isSuccess } ?: false
-                                }
-                            },
+                            onVertical = { fromRow, _, down -> focusRow(if (down) fromRow + 1 else fromRow - 1) },
                             onClick = { item ->
                                 HeroBackdropState.update(item.backdropUrl)
                                 onNavigateToDetail(item.id, item.apiType, row.tab.catalogRow?.addonBaseUrl ?: "")
