@@ -1,6 +1,6 @@
 package com.nuvio.tv.ui.launcher
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -31,6 +32,7 @@ import coil3.request.ImageRequest
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Nuvio Launcher's shared look, used by Home, folders, sources, details, person pages and reviews:
@@ -66,25 +68,44 @@ object LauncherStyle {
  */
 @Composable
 fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: Float = 0.6f, debounceMs: Long = 250) {
-    var shown by remember { mutableStateOf(url) }
+    // base: the picture fully shown. incoming: the next one, drawn over it and faded in only once it has loaded,
+    // so a change never dips to black first.
+    var base by remember { mutableStateOf<String?>(null) }
+    var incoming by remember { mutableStateOf<String?>(null) }
+    val fade = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(url) {
-        if (shown != null) delay(debounceMs)
-        shown = url
+        if (base == null) { base = url; return@LaunchedEffect }
+        delay(debounceMs)
+        if (url == base) { incoming = null; fade.snapTo(0f) } else { fade.snapTo(0f); incoming = url }
     }
     val context = LocalContext.current
+    val layer = Modifier
+        .fillMaxSize()
+        .graphicsLayer { scaleX = 1.12f; scaleY = 1.12f }
+        .blur(30.dp, BlurredEdgeTreatment.Rectangle)
     Box(modifier.fillMaxSize().background(Brush.verticalGradient(listOf(LauncherStyle.GreyTop, LauncherStyle.GreyBottom)))) {
-        Crossfade(targetState = shown, animationSpec = tween(500), label = "blurBackdrop") { u ->
-            if (u != null) {
-                AsyncImage(
-                    model = remember(u) { ImageRequest.Builder(context).data(u).size(320, 180).build() },
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { scaleX = 1.12f; scaleY = 1.12f; this.alpha = alpha }
-                        .blur(30.dp, BlurredEdgeTreatment.Rectangle)
-                )
-            }
+        base?.let { u ->
+            AsyncImage(
+                model = remember(u) { ImageRequest.Builder(context).data(u).size(320, 180).build() },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = layer.graphicsLayer { this.alpha = alpha }
+            )
+        }
+        incoming?.let { u ->
+            AsyncImage(
+                model = remember(u) { ImageRequest.Builder(context).data(u).size(320, 180).build() },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                onSuccess = {
+                    scope.launch {
+                        fade.animateTo(1f, tween(450))
+                        if (incoming == u) { base = u; incoming = null; fade.snapTo(0f) }
+                    }
+                },
+                modifier = layer.graphicsLayer { this.alpha = alpha * fade.value }
+            )
         }
         // dark wash on the left and bottom so text stays readable
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x8C141518), 0.6f to Color(0x26141518))))

@@ -5,6 +5,31 @@ package com.nuvio.tv.ui.screens.settings
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
+import android.view.KeyEvent
+import android.widget.Toast
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.tv.material3.Border
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import com.nuvio.tv.core.tmdb.TmdbKey
+import com.nuvio.tv.ui.components.NuvioDialog
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,6 +79,9 @@ fun TmdbSettingsContent(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showLanguageDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var showKeyDialog by remember { mutableStateOf(false) }
+    var savedKey by remember { mutableStateOf(TmdbKey.userKey(context)) }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -91,6 +119,16 @@ fun TmdbSettingsContent(
                                 } else {
                                     Modifier
                                 })
+                    )
+                }
+
+                // Nuvio Launcher: this build has no built-in TMDB key, so the owner adds theirs here.
+                item(key = "tmdb_api_key") {
+                    SettingsActionRow(
+                        title = "TMDB API key",
+                        subtitle = "Your own key from themoviedb.org (API key or Read Access Token). Needed for cast, reviews, companies, episodes and more like this.",
+                        value = maskTmdbKey(savedKey),
+                        onClick = { showKeyDialog = true }
                     )
                 }
 
@@ -256,6 +294,18 @@ fun TmdbSettingsContent(
         }
     }
 
+    if (showKeyDialog) {
+        TmdbApiKeyDialog(
+            currentValue = savedKey,
+            onSaved = { k ->
+                TmdbKey.save(context, k); savedKey = k.trim(); showKeyDialog = false
+                // a working key turns TMDB on, so the details appear without a second step
+                if (k.isNotBlank() && !uiState.enabled) viewModel.onEvent(TmdbSettingsEvent.ToggleEnabled(true))
+            },
+            onDismiss = { showKeyDialog = false }
+        )
+    }
+
     if (showLanguageDialog) {
         LanguageSelectionDialog(
             title = stringResource(R.string.tmdb_language_dialog_title),
@@ -267,5 +317,118 @@ fun TmdbSettingsContent(
             },
             onDismiss = { showLanguageDialog = false }
         )
+    }
+}
+
+private fun maskTmdbKey(key: String): String {
+    val k = key.trim()
+    if (k.isBlank()) return "Not set"
+    return if (k.length <= 4) "••••" else "••••••${k.takeLast(4)}"
+}
+
+@Composable
+private fun TmdbApiKeyDialog(
+    currentValue: String,
+    onSaved: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var value by remember(currentValue) { mutableStateOf(currentValue) }
+    var isInputFocused by remember { mutableStateOf(false) }
+    var checking by remember { mutableStateOf(false) }
+    val inputFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    NuvioDialog(
+        onDismiss = onDismiss,
+        title = "TMDB API key",
+        subtitle = "Kept on this TV only and sent only to api.themoviedb.org.",
+        width = 700.dp
+    ) {
+        Card(
+            onClick = { inputFocusRequester.requestFocus() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { isInputFocused = it.isFocused || it.hasFocus },
+            colors = CardDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundElevated,
+                focusedContainerColor = NuvioTheme.colors.BackgroundElevated
+            ),
+            border = CardDefaults.border(
+                border = Border(
+                    border = androidx.compose.foundation.BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                ),
+                focusedBorder = Border(
+                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                )
+            ),
+            shape = CardDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+            scale = CardDefaults.scale(focusedScale = 1f)
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.md)) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(inputFocusRequester)
+                        .onKeyEvent { event ->
+                            event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_CENTER &&
+                                event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
+                        },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary),
+                    cursorBrush = SolidColor(
+                        if (isInputFocused) NuvioTheme.colors.Primary else androidx.compose.ui.graphics.Color.Transparent
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (value.isBlank()) {
+                            Text(
+                                text = "Paste or type your TMDB key",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.colors.TextTertiary
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.BackgroundElevated, contentColor = NuvioTheme.colors.TextPrimary)
+            ) { Text(stringResource(R.string.action_cancel)) }
+            Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
+            Button(
+                onClick = { onSaved("") },
+                colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.BackgroundElevated, contentColor = NuvioTheme.colors.TextPrimary)
+            ) { Text(stringResource(R.string.action_clear)) }
+            Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
+            Button(
+                onClick = {
+                    if (!checking) {
+                        checking = true
+                        scope.launch {
+                            val problem = TmdbKey.check(value)
+                            checking = false
+                            if (problem == null) {
+                                Toast.makeText(context, "TMDB key saved. Reopen a title to see its details.", Toast.LENGTH_LONG).show()
+                                onSaved(value)
+                            } else {
+                                Toast.makeText(context, problem, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                },
+                colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.BackgroundCard, contentColor = NuvioTheme.colors.TextPrimary)
+            ) { Text(if (checking) "Checking…" else stringResource(R.string.action_save)) }
+        }
     }
 }

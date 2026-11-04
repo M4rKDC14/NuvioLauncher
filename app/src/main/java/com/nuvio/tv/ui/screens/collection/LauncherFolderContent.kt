@@ -81,7 +81,8 @@ import com.nuvio.tv.ui.util.localizedContentType
  *    shadow, the focused row kept in the middle of the rows area, straight Up/Down, Right stops at the end.
  */
 
-private val RowsTop = 176.dp            // where the rows area starts, under the details block
+private val RowsTop = 176.dp
+private val TileTopInRow = 53.dp       // row title (12 + 21) + spacer 8 + row top padding 12 
 private const val LoadMoreAhead = 6     // ask for the next page this many tiles before the end
 
 private class FolderRow(val key: String, val title: String, val tab: FolderTab)
@@ -129,8 +130,9 @@ internal fun LauncherFolderContent(
     var focusedRowKey by rememberSaveable { mutableStateOf<String?>(null) }
     var focusedItemIndex by rememberSaveable { mutableIntStateOf(0) }
     var focusPlaced by remember { mutableStateOf(false) }
-    var focusedItem by remember { mutableStateOf<MetaPreview?>(null) }
-    var backdrop by remember { mutableStateOf<String?>(null) }
+    // Read only by the backdrop and the details block, so a Left/Right press redraws those alone, not every row.
+    val focusedItem = remember { mutableStateOf<MetaPreview?>(null) }
+    val backdrop = remember { mutableStateOf<String?>(null) }
 
     // Tiles report where they are, so Up/Down can pick the tile directly above or below.
     val tiles = remember { mutableStateMapOf<Int, MutableMap<Int, Pair<FocusRequester, Float>>>() }
@@ -145,17 +147,19 @@ internal fun LauncherFolderContent(
     val initialRow = if (focusPlaced) -1 else (savedRow ?: firstLoadedRow)
 
     val defaultSpec = LocalBringIntoViewSpec.current
-    val centeringSpec = remember(defaultSpec) {
+    // Every focused row sits exactly where the first row sits: its tiles' top at TileTopInRow from the top of the rows area.
+    val tileTopPx = with(androidx.compose.ui.platform.LocalDensity.current) { TileTopInRow.toPx() }
+    val centeringSpec = remember(defaultSpec, tileTopPx) {
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         object : BringIntoViewSpec {
             override val scrollAnimationSpec = defaultSpec.scrollAnimationSpec
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                (offset + size / 2f) - containerSize / 2f
+                offset - tileTopPx
         }
     }
 
     Box(Modifier.fillMaxSize()) {
-        LauncherBlurredBackdrop(url = backdrop ?: folder.heroBackdropUrl ?: folder.coverImageUrl)
+        FolderBackdrop { backdrop.value ?: folder.heroBackdropUrl ?: folder.coverImageUrl }
 
         Text(
             folder.title, color = Color.White, fontSize = 26.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
@@ -163,31 +167,14 @@ internal fun LauncherFolderContent(
             modifier = Modifier.padding(start = LauncherStyle.Start, top = 34.dp, end = LauncherStyle.Start)
         )
 
-        val shown = focusedItem?.let { enrichedPreviews.value[it.id] ?: it }
-        if (shown != null) {
-            val typeLabel = remember(shown.apiType) { localizedContentType(context, shown.apiType) }
-            Column(Modifier.padding(start = LauncherStyle.Start, top = 86.dp, end = LauncherStyle.Start)) {
-                Text(shown.name, color = Color.White, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val meta = folderMetaLine(shown, typeLabel)
-                if (meta.isNotEmpty()) {
-                    Text(meta, color = Color.White, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
-                }
-                val desc = shown.description?.trim().orEmpty()
-                if (desc.isNotEmpty()) {
-                    Text(
-                        desc, color = LauncherStyle.Soft, fontSize = 10.5.sp, lineHeight = 14.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 6.dp).widthIn(max = 480.dp)
-                    )
-                }
-            }
-        }
+        FolderFocusedDetails(item = { focusedItem.value }, enrichedPreviews = enrichedPreviews)
 
         // Focus in the rows keeps the focused row in the middle of the rows area.
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {
             LazyColumn(
                 state = rememberLazyListState(),
                 modifier = Modifier.fillMaxSize().padding(top = RowsTop),
-                contentPadding = PaddingValues(bottom = 180.dp)
+                contentPadding = PaddingValues(bottom = 400.dp)   // room for the last row to scroll up to the first row's place
             ) {
                 itemsIndexed(rows, key = { _, r -> r.key }) { ri, row ->
                     CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
@@ -202,8 +189,8 @@ internal fun LauncherFolderContent(
                                 focusPlaced = true
                                 focusedRowKey = row.key
                                 focusedItemIndex = i
-                                focusedItem = item
-                                backdrop = tileImage(item)
+                                focusedItem.value = item
+                                backdrop.value = item.background ?: tileImage(item)
                                 onItemFocus(item)
                                 val cr = row.tab.catalogRow
                                 if (cr != null && cr.hasMore && !cr.isLoading && i >= cr.items.size - LoadMoreAhead) {
@@ -365,5 +352,33 @@ private fun FolderTile(
             // Same layout height whether focused or not; the focused title only moves down visually, clear of the zoom.
             modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) 10.dp.toPx() else 0f }
         )
+    }
+}
+
+@Composable
+private fun FolderBackdrop(url: () -> String?) {
+    LauncherBlurredBackdrop(url = url())
+}
+
+@Composable
+private fun FolderFocusedDetails(item: () -> MetaPreview?, enrichedPreviews: State<Map<String, MetaPreview>>) {
+    val context = LocalContext.current
+    val shown = item()?.let { enrichedPreviews.value[it.id] ?: it }
+    if (shown != null) {
+        val typeLabel = remember(shown.apiType) { localizedContentType(context, shown.apiType) }
+        Column(Modifier.padding(start = LauncherStyle.Start, top = 86.dp, end = LauncherStyle.Start)) {
+            Text(shown.name, color = Color.White, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val meta = folderMetaLine(shown, typeLabel)
+            if (meta.isNotEmpty()) {
+                Text(meta, color = Color.White, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.padding(top = 6.dp))
+            }
+            val desc = shown.description?.trim().orEmpty()
+            if (desc.isNotEmpty()) {
+                Text(
+                    desc, color = LauncherStyle.Soft, fontSize = 10.5.sp, lineHeight = 14.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp).widthIn(max = 480.dp)
+                )
+            }
+        }
     }
 }

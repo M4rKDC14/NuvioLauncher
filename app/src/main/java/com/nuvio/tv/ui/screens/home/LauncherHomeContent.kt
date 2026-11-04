@@ -147,7 +147,9 @@ internal fun LauncherHomeContent(
     var heroIndex by remember { mutableIntStateOf(0) }
     var heroFocused by remember { mutableStateOf(true) }
     var focusedRow by remember { mutableIntStateOf(-1) }
-    var rowBackdrop by remember { mutableStateOf<String?>(null) }   // the focused tile's picture, blurred behind the rows
+    // The focused tile's picture, blurred behind the rows. Held in a state object and read only by the backdrop,
+    // so a Left/Right press redraws the backdrop alone, not every row and tile (that redraw made the rows stutter).
+    val rowBackdrop = remember { mutableStateOf<String?>(null) }
     var lastKeyAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val listState = rememberLazyListState()
     val playFocus = remember { FocusRequester() }
@@ -193,7 +195,7 @@ internal fun LauncherHomeContent(
     ) {
         val screenH = maxHeight
         // Under the carousel picture: the focused tile's picture, blurred. It shows as the carousel scrolls away.
-        com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(url = rowBackdrop ?: current?.background ?: current?.poster)
+        RowsBackdrop { rowBackdrop.value ?: current?.background ?: current?.poster }
         // Backdrop of the current carousel title, bright, with only a light shade on the left.
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = heroAlpha }) {
             Crossfade(targetState = current?.background ?: current?.poster, animationSpec = tween(600), label = "backdrop") { url ->
@@ -241,7 +243,7 @@ internal fun LauncherHomeContent(
                             focused = focusedRow == ri,
                             first = ri == 0,
                             tiles = tiles,
-                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) rowBackdrop = b },
+                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) rowBackdrop.value = b },
                             onVertical = { fromRow, x, down ->
                                 val target = if (down) fromRow + 1 else fromRow - 1
                                 if (target < 0) { runCatching { playFocus.requestFocus() }; true }
@@ -264,6 +266,11 @@ internal fun LauncherHomeContent(
             }
         }
     }
+}
+
+@Composable
+private fun RowsBackdrop(url: () -> String?) {
+    com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(url = url())
 }
 
 @Composable

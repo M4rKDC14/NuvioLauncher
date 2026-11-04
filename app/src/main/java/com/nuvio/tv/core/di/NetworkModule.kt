@@ -318,7 +318,19 @@ object NetworkModule {
     fun provideTmdbRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit =
         Retrofit.Builder()
             .baseUrl("https://api.themoviedb.org/3/")
-            .client(okHttpClient)
+            // Nuvio Launcher: a v4 Read Access Token can't go in the query; move it into the Authorization header.
+            .client(okHttpClient.newBuilder().addInterceptor { chain ->
+                val req = chain.request()
+                val key = req.url.queryParameter("api_key")
+                if (key != null && com.nuvio.tv.core.tmdb.TmdbKey.isBearer(key)) {
+                    chain.proceed(
+                        req.newBuilder()
+                            .url(req.url.newBuilder().removeAllQueryParameters("api_key").build())
+                            .header("Authorization", "Bearer $key")
+                            .build()
+                    )
+                } else chain.proceed(req)
+            }.build())
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
 

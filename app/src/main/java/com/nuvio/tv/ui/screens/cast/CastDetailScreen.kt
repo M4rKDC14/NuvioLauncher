@@ -217,14 +217,12 @@ private fun CastDetailContent(
 
     val firstPosterFocusRequester = remember { FocusRequester() }
     // Nuvio Launcher: the blurred backdrop of the focused title is the page's background.
-    var focusedCredit by remember(person.tmdbId) { mutableStateOf<MetaPreview?>(null) }
+    // read only by the backdrop, so moving along the posters doesn't redraw the whole page
+    val focusedCredit = remember(person.tmdbId) { mutableStateOf<MetaPreview?>(null) }
     var filmographyHasFocus by remember { mutableStateOf(false) }
     val fallbackBackdrop = remember(allCredits) {
         allCredits.firstOrNull { !it.background.isNullOrBlank() }?.background
     }
-    val blurredBackdropUrl = focusedCredit?.let { it.background ?: it.poster }
-        ?: fallbackBackdrop
-        ?: person.profilePhoto
     var isBiographyTruncated by rememberSaveable(person.tmdbId) { mutableStateOf(false) }
 
     // Focus restoration state for filmography row
@@ -245,7 +243,7 @@ private fun CastDetailContent(
     }
 
         Box(modifier = Modifier.fillMaxSize().background(LauncherStyle.GreyBottom)) {
-        LauncherBlurredBackdrop(url = blurredBackdropUrl)
+        CastBackdrop { focusedCredit.value?.let { it.background ?: it.poster } ?: fallbackBackdrop ?: person.profilePhoto }
 
         // Main content
         AnimatedVisibility(
@@ -284,7 +282,7 @@ private fun CastDetailContent(
                         FilmographyRow(
                             credits = allCredits,
                             modifier = Modifier.onFocusChanged { filmographyHasFocus = it.hasFocus },
-                            onItemFocused = { focusedCredit = it },
+                            onItemFocused = { focusedCredit.value = it },
                             landscape = globalLandscape,
                             posterCardStyle = filmographyPosterStyle,
                             firstItemFocusRequester = firstPosterFocusRequester,
@@ -876,4 +874,9 @@ private fun formatDateForDisplay(date: String?): String? {
     } catch (_: Exception) {
         null
     }
+}
+
+@Composable
+private fun CastBackdrop(url: () -> String?) {
+    LauncherBlurredBackdrop(url = url())
 }
