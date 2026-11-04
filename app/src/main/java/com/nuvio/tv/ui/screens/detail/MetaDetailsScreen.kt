@@ -85,6 +85,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -1446,22 +1447,63 @@ private fun MetaDetailsContent(
                 containerSize: Float
             ): Float {
                 if (detailFastScrollingState.value) return 0f
+                // Nuvio Launcher: a request exactly one viewport tall is the episodes block's anchor
+                // window (see episodesBlockAnchorRect); align its top with the top of the screen
+                // instead of centring it.
+                if (containerSize > 0f && kotlin.math.abs(size - containerSize) < 1f) return offset
                 return defaultBringIntoViewSpec.calculateScrollDistance(offset, size, containerSize)
             }
         }
     }
-    val detailRowBringIntoViewResponder = remember(suppressDetailRowRelocation) {
+    var lastDetailDpadKey by rememberSaveable(meta.id) { mutableIntStateOf(0) }
+    val tapScroll = remember { DetailTapScroll() }
+    // Nuvio Launcher: when the episodes block (Episodes title, season pills, episode tiles) takes
+    // focus, the page scrolls so the "Episodes" title sits EpisodesTitleScreenTop from the top of
+    // the screen (rather than centring the focused row). Without season tabs the tiles land where
+    // they would sit under the pills.
+    val hasSeasonTabsItem = isSeries && seasons.isNotEmpty() &&
+        !(seasons.size == 1 && meta.apiType.equals("other", ignoreCase = true))
+    val episodesAnchorDensity = LocalDensity.current
+    val seasonTabsAnchorPx = with(episodesAnchorDensity) { (EpisodesTitleScreenTop - SeasonTabsTitleTopInset).toPx() }
+    val episodesOnlyAnchorPx = with(episodesAnchorDensity) { EpisodesRowScreenTopWithoutTabs.toPx() }
+    var seasonTabsHeightPx by remember { mutableIntStateOf(0) }
+    // Scroll offset (for LazyListState.scrollToItem on list index 1) that puts the episodes block
+    // at its anchored position: negative, i.e. item 1 starts below the top of the screen.
+    fun episodesBlockScrollOffsetPx(): Int =
+        -(if (hasSeasonTabsItem) seasonTabsAnchorPx else episodesOnlyAnchorPx).roundToInt()
+    // A viewport-tall rect, in the coordinates of an item of the episodes block, whose top is the
+    // point that must end up at the top of the screen. detailPageBringIntoViewSpec aligns such a
+    // rect's top with the top of the viewport.
+    fun episodesBlockAnchorRect(localRect: Rect, isSeasonTabsItem: Boolean): Rect {
+        val viewportHeight = listState.layoutInfo.viewportSize.height.toFloat()
+        if (viewportHeight <= 0f) return localRect
+        val top = when {
+            isSeasonTabsItem -> -seasonTabsAnchorPx
+            hasSeasonTabsItem -> -(seasonTabsHeightPx.toFloat() + seasonTabsAnchorPx)
+            else -> -episodesOnlyAnchorPx
+        }
+        return Rect(localRect.left, top, localRect.right, top + viewportHeight)
+    }
+    val seasonTabsAnchorResponder = remember(suppressDetailRowRelocation, hasSeasonTabsItem, seasonTabsAnchorPx) {
         object : BringIntoViewResponder {
             override fun calculateRectForParent(localRect: Rect): Rect {
-                return if (suppressDetailRowRelocation) Rect.Zero else localRect
+                return if (suppressDetailRowRelocation) {
+                    Rect.Zero
+                } else {
+                    episodesBlockAnchorRect(localRect, isSeasonTabsItem = true)
+                }
             }
 
             override suspend fun bringChildIntoView(localRect: () -> Rect?) { }
         }
     }
-    var lastDetailDpadKey by rememberSaveable(meta.id) { mutableIntStateOf(0) }
-    val tapScroll = remember { DetailTapScroll() }
-    val episodeRowStayVerticalResponder = remember(lastDetailDpadKey, pendingRestoreType) {
+    val episodeRowStayVerticalResponder = remember(
+        lastDetailDpadKey,
+        pendingRestoreType,
+        hasSeasonTabsItem,
+        seasonTabsAnchorPx,
+        episodesOnlyAnchorPx
+    ) {
         object : BringIntoViewResponder {
             override fun calculateRectForParent(localRect: Rect): Rect {
                 val stayVertical = pendingRestoreType == RestoreTarget.EPISODE ||
@@ -1470,7 +1512,7 @@ private fun MetaDetailsContent(
                 return if (stayVertical) {
                     Rect(localRect.left, 0f, localRect.right, 0f)
                 } else {
-                    localRect
+                    episodesBlockAnchorRect(localRect, isSeasonTabsItem = false)
                 }
             }
 
@@ -1791,8 +1833,9 @@ private fun MetaDetailsContent(
                     markEpisodeRestore(step.episodeId, restoreOnResume = false)
                     restoreFocusToken += 1
                     if (seasons.isNotEmpty()) {
-                        // Ensure the episodes row is composed before requesting focus on a card.
-                        listState.scrollToItem(1)
+                        // Ensure the episodes row is composed before requesting focus on a card,
+                        // with the episodes block at its anchored position.
+                        listState.scrollToItem(1, episodesBlockScrollOffsetPx())
                     }
                 }
                 ReturnFocusStep.Idle -> Unit
@@ -2572,7 +2615,11 @@ private fun MetaDetailsContent(
             val showEpisodesRow = isSeries && seasons.isNotEmpty()
             if (showSeasonTabs) {
                 item(key = "season_tabs", contentType = "season_tabs") {
-                    Box(modifier = Modifier.bringIntoViewResponder(detailRowBringIntoViewResponder)) {
+                    Box(
+                        modifier = Modifier
+                            .bringIntoViewResponder(seasonTabsAnchorResponder)
+                            .onSizeChanged { seasonTabsHeightPx = it.height }
+                    ) {
                         SeasonTabs(
                             seasons = seasons,
                             selectedSeason = selectedSeason,
@@ -2651,7 +2698,7 @@ private fun MetaDetailsContent(
                                         .firstOrNull { it.index == episodeListItemIndex }
                                     if (episodeItem == null || episodeItem.offset < 0) {
                                         coroutineScope.launch {
-                                            listState.animateScrollToItem(episodeListItemIndex)
+                                            listState.animateScrollToItem(1, episodesBlockScrollOffsetPx())
                                         }
                                     }
                                 }
@@ -3242,6 +3289,11 @@ private fun PlaybackHandoffBackdrop(backdropUrl: String?) {
  * taller than the hero (lower-density TV boxes) the next row would otherwise sit over
  * the trailer.
  */
+// Nuvio Launcher: where the "Episodes" title sits on screen while the episodes block has focus,
+// and where the episode row's top goes when a series has no season tabs.
+private val EpisodesTitleScreenTop = 63.dp
+private val EpisodesRowScreenTopWithoutTabs = 120.dp
+
 private fun Modifier.fadeBelowHero(
     listState: LazyListState,
     alpha: State<Float>

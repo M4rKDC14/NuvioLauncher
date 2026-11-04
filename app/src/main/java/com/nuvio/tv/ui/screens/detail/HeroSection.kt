@@ -87,8 +87,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.painter.Painter
@@ -102,6 +100,8 @@ import java.util.Locale
 
 private const val MAX_VISIBLE_HERO_GENRES = 6
 private val HeroPillIdle = Color(0x2EFFFFFF)   // white .18
+// Distance from the bottom of the full-height hero to the bottom of the button row (and of the credits).
+private val HeroButtonsBottomInset = 77.dp
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -204,14 +204,17 @@ fun HeroContentSection(
     // During a trailer the hero fills the screen so the logo sits at the bottom
     // on screens taller than the hero (lower-density TV boxes).
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-    // Nuvio Launcher: the hero leaves the first row's title peeking at the bottom of the screen.
+    // Nuvio Launcher: the hero fills the whole screen; the rows (Episodes first) only come into
+    // view after pressing Down.
     val heroHeight by animateDpAsState(
-        targetValue = if (isTrailerPlaying) maxOf(540.dp, screenHeight) else 495.dp,
+        targetValue = maxOf(540.dp, screenHeight),
         animationSpec = tween(600),
         label = "heroHeight"
     )
+    // The text block is bottom-anchored: the buttons' bottom edge sits 77dp above the screen's
+    // bottom (463 of 540), which puts the top of the title at ~288. The credits share this inset.
     val heroBottomPadding by animateDpAsState(
-        targetValue = if (isTrailerPlaying) NuvioTheme.spacing.lg else 70.dp,
+        targetValue = if (isTrailerPlaying) NuvioTheme.spacing.lg else HeroButtonsBottomInset,
         animationSpec = tween(600),
         label = "heroBottomPadding"
     )
@@ -371,23 +374,10 @@ fun HeroContentSection(
                         )
 
                         if (meta.apiType == "movie") {
-                            ActionIconButton(
-                                icon = if (isMovieWatched) {
-                                    Icons.Default.Visibility
-                                } else {
-                                    Icons.Default.VisibilityOff
-                                },
-                                contentDescription = if (isMovieWatched) {
-                                    stringResource(R.string.hero_mark_unwatched)
-                                } else {
-                                    stringResource(R.string.hero_mark_watched)
-                                },
+                            MarkWatchedPillButton(
+                                isWatched = isMovieWatched,
                                 onClick = onToggleMovieWatched,
                                 enabled = !isMovieWatchedPending,
-                                selected = isMovieWatched,
-                                toggleable = true,
-                                selectedContainerColor = LauncherStyle.PillSelected,
-                                selectedContentColor = Color.White,
                                 onFocused = onHeroActionFocused,
                                 upFocusRequester = buttonsUpFocusRequester
                             )
@@ -421,7 +411,8 @@ fun HeroContentSection(
         }
     }
 
-    // Starring / Created by, bottom right.
+    // Starring / Created by, bottom right. Anchored by its bottom edge to the bottom of the button
+    // row (same bottom inset), so a longer cast list grows upward and the last line stays level.
     AnimatedVisibility(
         visible = !isTrailerPlaying && creditLines.isNotEmpty(),
         enter = fadeIn(tween(NuvioMotion.tokens.durations.overlay)),
@@ -571,6 +562,69 @@ internal fun PlayButton(
                     maxLines = 1
                 )
             }
+        }
+    }
+}
+
+/**
+ * Nuvio Launcher: the labelled "Mark as Watched" pill (just "Watched" once watched), in the Play
+ * pill's style: 30 tall, 15 corners, white .18 idle, near-white with dark text and 106% when focused.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun MarkWatchedPillButton(
+    isWatched: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    onFocused: () -> Unit = {},
+    upFocusRequester: FocusRequester = FocusRequester.Cancel
+) {
+    val accessibilityLabel = if (isWatched) {
+        stringResource(R.string.hero_mark_unwatched)
+    } else {
+        stringResource(R.string.hero_mark_watched)
+    }
+    Button(
+        enabled = enabled,
+        onClick = onClick,
+        modifier = Modifier
+            .height(30.dp)
+            .onFocusChanged { state ->
+                if (state.isFocused) onFocused()
+            }
+            .focusProperties { up = upFocusRequester }
+            .semantics {
+                role = Role.Checkbox
+                toggleableState = if (isWatched) ToggleableState.On else ToggleableState.Off
+                this.contentDescription = accessibilityLabel
+            },
+        colors = ButtonDefaults.colors(
+            containerColor = HeroPillIdle,
+            focusedContainerColor = LauncherStyle.FocusWhite,
+            contentColor = Color.White,
+            focusedContentColor = LauncherStyle.FocusText
+        ),
+        shape = ButtonDefaults.shape(
+            shape = RoundedCornerShape(15.dp)
+        ),
+        border = ButtonDefaults.border(border = Border.None, focusedBorder = Border.None),
+        scale = ButtonDefaults.scale(focusedScale = 1.06f),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = if (isWatched) "Watched" else "Mark as Watched",
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+                maxLines = 1
+            )
         }
     }
 }

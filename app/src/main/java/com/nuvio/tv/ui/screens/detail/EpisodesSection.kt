@@ -121,6 +121,12 @@ private const val EPISODE_RESTORE_FOCUS_ATTEMPTS = 24
 private const val EPISODE_OVERLAY_PREFETCH_DELAY_MS = 120L
 private const val SEASON_EDGE_PIN_COUNT = 4
 
+// Nuvio Launcher: the "Episodes" title's top inset inside SeasonTabs (MetaDetailsScreen uses it to
+// scroll the title to a fixed spot on screen) and the episode row's vertical padding.
+internal val SeasonTabsTitleTopInset = 14.dp
+private val EpisodesRowTopPadding = 8.dp
+private val EpisodesRowBottomPadding = 12.dp
+
 @OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun SeasonTabs(
@@ -146,7 +152,7 @@ fun SeasonTabs(
     val tabBorder = CardDefaults.border(border = Border.None, focusedBorder = Border.None)
     val tabScale = CardDefaults.scale(focusedScale = 1.0f)
     val typography = MaterialTheme.typography
-    val tabTextStyle = remember(typography) { typography.titleMedium.copy(fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold) }
+    val tabTextStyle = remember(typography) { typography.titleMedium.copy(fontSize = 11.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold) }
     val textSecondary = LauncherStyle.Soft
     var anyTabFocused by remember { mutableStateOf(false) }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -267,9 +273,10 @@ fun SeasonTabs(
         text = stringResource(R.string.tmdb_episodes_title),
         color = if (titleHighlighted || anyTabFocused) Color.White else LauncherStyle.Soft,
         fontSize = 16.sp,
+        lineHeight = 20.sp,
         fontWeight = FontWeight.Bold,
         maxLines = 1,
-        modifier = Modifier.padding(start = LauncherStyle.Start, top = 14.dp)
+        modifier = Modifier.padding(start = LauncherStyle.Start, top = SeasonTabsTitleTopInset)
     )
     LazyRow(
         modifier = Modifier
@@ -283,7 +290,8 @@ fun SeasonTabs(
             }
             .focusGroup(),
         state = lazyListState,
-        contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 14.dp, bottom = 8.dp),
+        // Pills 28dp below the title's top (63 -> 91 on screen), tiles 37dp below the pills (-> 128).
+        contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 8.dp, bottom = 3.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(sortedSeasons, key = { it }) { season ->
@@ -556,9 +564,14 @@ fun EpisodesRow(
                 false
             },
         state = lazyListState,
+        // Launcher look: 8 above the tiles (room for the zoom), and below them the focus shift of the
+        // title/summary (10) plus 2, so with the next section's 26dp title inset there is a fixed
+        // ~28dp gap between the focused episode's summary and the next row title.
         contentPadding = PaddingValues(
-            horizontal = cardMetrics.rowHorizontalPadding,
-            vertical = cardMetrics.rowVerticalPadding
+            start = cardMetrics.rowHorizontalPadding,
+            end = cardMetrics.rowHorizontalPadding,
+            top = EpisodesRowTopPadding,
+            bottom = EpisodesRowBottomPadding
         ),
         horizontalArrangement = Arrangement.spacedBy(cardMetrics.itemSpacing)
     ) {
