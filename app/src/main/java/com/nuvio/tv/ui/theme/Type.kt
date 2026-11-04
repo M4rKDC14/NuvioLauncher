@@ -11,25 +11,32 @@ import androidx.tv.material3.Typography
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.AppFont
 
+// The bundled fonts are variable fonts: without explicit variation settings every weight drew as Regular.
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+private fun vFont(res: Int, weight: FontWeight) = Font(
+    res, weight,
+    variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(weight, androidx.compose.ui.text.font.FontStyle.Normal)
+)
+
 val DMSansFamily = FontFamily(
-    Font(R.font.dm_sans_variable, FontWeight.Normal),
-    Font(R.font.dm_sans_variable, FontWeight.Medium),
-    Font(R.font.dm_sans_variable, FontWeight.SemiBold),
-    Font(R.font.dm_sans_variable, FontWeight.Bold)
+    vFont(R.font.dm_sans_variable, FontWeight.Normal),
+    vFont(R.font.dm_sans_variable, FontWeight.Medium),
+    vFont(R.font.dm_sans_variable, FontWeight.SemiBold),
+    vFont(R.font.dm_sans_variable, FontWeight.Bold)
 )
 
 val InterFamily = FontFamily(
-    Font(R.font.inter_variable, FontWeight.Normal),
-    Font(R.font.inter_variable, FontWeight.Medium),
-    Font(R.font.inter_variable, FontWeight.SemiBold),
-    Font(R.font.inter_variable, FontWeight.Bold)
+    vFont(R.font.inter_variable, FontWeight.Normal),
+    vFont(R.font.inter_variable, FontWeight.Medium),
+    vFont(R.font.inter_variable, FontWeight.SemiBold),
+    vFont(R.font.inter_variable, FontWeight.Bold)
 )
 
 val OpenSansFamily = FontFamily(
-    Font(R.font.opensans_variable, FontWeight.Normal),
-    Font(R.font.opensans_variable, FontWeight.Medium),
-    Font(R.font.opensans_variable, FontWeight.SemiBold),
-    Font(R.font.opensans_variable, FontWeight.Bold)
+    vFont(R.font.opensans_variable, FontWeight.Normal),
+    vFont(R.font.opensans_variable, FontWeight.Medium),
+    vFont(R.font.opensans_variable, FontWeight.SemiBold),
+    vFont(R.font.opensans_variable, FontWeight.Bold)
 )
 
 fun getFontFamily(appFont: AppFont): FontFamily = when (appFont) {

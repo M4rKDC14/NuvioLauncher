@@ -220,6 +220,7 @@ private val LocalSettingsInGlassCard = staticCompositionLocalOf { false }
 internal object SettingsGlassColors {
     val RowIdle = Color(0x12FFFFFF)              // white .07
     val RailSelected = Color(0x2EFFFFFF)         // white .18
+    val RailFocused = Color(0x47FFFFFF)          // white .28
     val TextIdleSecondary = Color(0x99FFFFFF)    // white .6
     val TextIdleTertiary = Color(0x80FFFFFF)     // white .5
     val Divider = Color(0x1FFFFFFF)              // white .12
@@ -229,10 +230,10 @@ internal object SettingsGlassColors {
     val KnobOff = Color(0xFF8B8D94)             // grey knob of an off switch
     val GroupShape = RoundedCornerShape(16.dp)
     val RowShape = RoundedCornerShape(12.dp)
-    val RailShape = RoundedCornerShape(10.dp)
+    val RailShape = RoundedCornerShape(8.dp)
 
     // Sizes of the approved launcher Settings mockup (960x540 dp screen).
-    val RailItemHeight = 52.dp
+    val RailItemHeight = 30.dp   // 30 high, 34 apart (2 above and below)
     val RowMinHeight = 50.dp
     val RowPaddingH = 16.dp
     val RowPaddingV = 8.dp
@@ -280,7 +281,7 @@ internal object SettingsGlassType {
     val DialogButton: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(12.sp, FontWeight.SemiBold)
     @Composable
     @androidx.compose.runtime.ReadOnlyComposable
-    fun rail(selected: Boolean): TextStyle = settingsGlassText(13.sp, if (selected) FontWeight.SemiBold else FontWeight.Medium)
+    fun rail(selected: Boolean): TextStyle = settingsGlassText(11.7.sp, if (selected) FontWeight.SemiBold else FontWeight.Medium)
 }
 
 @Composable
@@ -521,8 +522,7 @@ internal fun SettingsRailButton(
     }
     val showSelected = isSelected && !suppressSelectedVisual
     val railContentColor = when {
-        glass && isFocused -> LauncherStyle.FocusText
-        glass && isSelected -> Color.White
+        glass && (isFocused || isSelected) -> Color.White
         glass -> LauncherStyle.Soft
         isSelected || isFocused -> NuvioTheme.colors.TextPrimary
         else -> NuvioTheme.colors.TextSecondary
@@ -555,8 +555,10 @@ internal fun SettingsRailButton(
             CardDefaults.colors(
                 containerColor = if (showSelected) SettingsGlassColors.RailSelected else Color.Transparent,
                 contentColor = Color.White,
-                focusedContainerColor = LauncherStyle.FocusWhite,
-                focusedContentColor = LauncherStyle.FocusText
+                // Mockup: the rail item is a see-through white pill with white text, never solid white.
+                // Focused is a little brighter than selected so the moving focus stays visible.
+                focusedContainerColor = SettingsGlassColors.RailFocused,
+                focusedContentColor = Color.White
             )
         } else CardDefaults.colors(
             containerColor = when {
@@ -615,7 +617,9 @@ internal fun SettingsRailButton(
                         )
                         Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
                     }
-                    if (rawIconRes != null) {
+                    if (glass) {
+                        // approved mockup: text only, no icons
+                    } else if (rawIconRes != null) {
                         Image(
                             painter = rememberRawSvgPainter(rawIconRes),
                             contentDescription = null,
@@ -632,7 +636,7 @@ internal fun SettingsRailButton(
                         )
                     }
 
-                    if (rawIconRes != null || icon != null) {
+                    if (!glass && (rawIconRes != null || icon != null)) {
                         Spacer(modifier = Modifier.width(if (glass) 12.dp else 10.dp))
                     }
 
@@ -642,7 +646,7 @@ internal fun SettingsRailButton(
                         modifier = Modifier.clearAndSetSemantics {},
                         style = if (glass) {
                             // 13, weight 500; the current section 600.
-                            SettingsGlassType.rail(selected = isSelected)
+                            SettingsGlassType.rail(selected = isSelected || isFocused)
                         } else MaterialTheme.typography.titleMedium.copy(
                             fontWeight = if (isSelected || isFocused) FontWeight.SemiBold else FontWeight.Medium
                         ),

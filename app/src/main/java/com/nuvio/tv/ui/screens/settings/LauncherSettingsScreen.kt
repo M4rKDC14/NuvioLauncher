@@ -90,6 +90,9 @@ internal fun LauncherSettingsContent(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val layoutState by layoutViewModel.uiState.collectAsStateWithLifecycle()
     var showHideApps by rememberSaveable { mutableStateOf(false) }
+    var showCatalogPicker by rememberSaveable { mutableStateOf(false) }
+    var returnToCatalogRow by remember { mutableStateOf(false) }
+    val catalogRowFocus = remember { FocusRequester() }
     var returnToHideAppsRow by remember { mutableStateOf(false) }
     val hideAppsRowFocus = remember { FocusRequester() }
 
@@ -103,6 +106,25 @@ internal fun LauncherSettingsContent(
             }
         )
         return
+    }
+
+    if (showCatalogPicker) {
+        CarouselCatalogsPage(
+            catalogs = layoutState.availableCatalogs,
+            selectedKeys = layoutState.heroCatalogKeys,
+            onToggle = { key -> layoutViewModel.onEvent(LayoutSettingsEvent.ToggleHeroCatalog(key)) },
+            onBack = {
+                showCatalogPicker = false
+                returnToCatalogRow = true
+            }
+        )
+        return
+    }
+    LaunchedEffect(returnToCatalogRow) {
+        if (returnToCatalogRow) {
+            catalogRowFocus.requestFocusSoon()
+            returnToCatalogRow = false
+        }
     }
 
     LaunchedEffect(returnToHideAppsRow) {
@@ -119,7 +141,9 @@ internal fun LauncherSettingsContent(
         viewModel = viewModel,
         initialFocusRequester = initialFocusRequester,
         hideAppsRowFocus = hideAppsRowFocus,
-        onOpenHideApps = { showHideApps = true }
+        onOpenHideApps = { showHideApps = true },
+        catalogRowFocus = catalogRowFocus,
+        onOpenCatalogPicker = { showCatalogPicker = true }
     )
 }
 
@@ -131,7 +155,9 @@ private fun LauncherSettingsMainPage(
     viewModel: LauncherSettingsViewModel,
     initialFocusRequester: FocusRequester?,
     hideAppsRowFocus: FocusRequester,
-    onOpenHideApps: () -> Unit
+    onOpenHideApps: () -> Unit,
+    catalogRowFocus: FocusRequester,
+    onOpenCatalogPicker: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -157,41 +183,40 @@ private fun LauncherSettingsMainPage(
                 // Title, description and the catalog chips together in one row card.
                 LauncherRowCard(
                     title = "Carousel catalogs",
-                    subtitle = "Which catalogs the Home carousel takes its titles from. Same list as Nuvio's \"Hero Catalogs\". None ticked: the first Home row."
+                    subtitle = "Which catalogs the Home carousel takes its titles from."
                 ) {
-                    if (catalogs.isEmpty()) {
-                        Text(
-                            text = "No Home catalogs yet",
-                            style = SettingsGlassType.RowSubtitle,
-                            color = SettingsGlassColors.TextIdleSecondary
-                        )
-                    } else {
-                        val firstCatalogFocus = remember { FocusRequester() }
-                        FlowRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .settingsOptionRow(firstCatalogFocus),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp),
-                            verticalArrangement = Arrangement.spacedBy(7.dp)
-                        ) {
-                            catalogs.forEachIndexed { index, catalog ->
-                                key(catalog.key) {
-                                    SettingsChoiceChip(
-                                        label = catalogChipLabel(catalog),
-                                        selected = catalog.key in layoutState.heroCatalogKeys,
-                                        onClick = { onToggleHeroCatalog(catalog.key) },
-                                        multiSelect = true,
-                                        modifier = if (index == 0) {
-                                            Modifier
-                                                .focusRequester(firstCatalogFocus)
-                                                .then(initialFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
-                                }
+                    // Only the ticked catalogs are shown here, then "Choose catalogs", which opens the full
+                    // list on its own page (a lazy list: thousands of catalogs no longer freeze this page).
+                    val ticked = remember(catalogs, layoutState.heroCatalogKeys) {
+                        catalogs.filter { it.key in layoutState.heroCatalogKeys }
+                    }
+                    val firstCatalogFocus = remember { FocusRequester() }
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .settingsOptionRow(firstCatalogFocus),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        ticked.forEach { catalog ->
+                            key(catalog.key) {
+                                SettingsChoiceChip(
+                                    label = catalogChipLabel(catalog),
+                                    selected = true,
+                                    onClick = onOpenCatalogPicker,
+                                    multiSelect = true
+                                )
                             }
                         }
+                        SettingsChoiceChip(
+                            label = if (catalogs.isEmpty()) "No Home catalogs yet" else "Choose catalogs (${ticked.size} of ${catalogs.size})",
+                            selected = false,
+                            onClick = { if (catalogs.isNotEmpty()) onOpenCatalogPicker() },
+                            modifier = Modifier
+                                .focusRequester(firstCatalogFocus)
+                                .focusRequester(catalogRowFocus)
+                                .then(initialFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
+                        )
                     }
                 }
                 LauncherChoiceRow(
@@ -565,6 +590,98 @@ private fun ResetLauncherSettingsDialog(onCancel: () -> Unit, onReset: () -> Uni
     }
     // Cancel has focus first, so a stray OK changes nothing.
     LaunchedEffect(Unit) { cancelFocus.requestFocusSoon() }
+}
+
+/** Settings → Launcher → Carousel catalogs: every Home catalog, OK ticks or unticks it. Lazy, so thousands are fine. */
+@Composable
+private fun CarouselCatalogsPage(
+    catalogs: List<CatalogInfo>,
+    selectedKeys: Collection<String>,
+    onToggle: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    BackHandler(onBack = onBack)
+    val firstRowFocus = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    LaunchedEffect(Unit) { if (catalogs.isNotEmpty()) firstRowFocus.requestFocusSoon() }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        CompositionLocalProvider(LocalSettingsBreadcrumb provides "$LauncherTitle ›") {
+            SettingsDetailHeader(title = "Carousel catalogs", subtitle = LauncherSubtitle)
+        }
+        SettingsGroupCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            title = "Home catalogs · ${selectedKeys.size} ticked",
+            subtitle = "OK ticks or unticks a catalog. None ticked: the carousel uses the first Home row."
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    itemsIndexed(items = catalogs, key = { _, c -> c.key }) { index, catalog ->
+                        CatalogPickRow(
+                            label = catalogChipLabel(catalog),
+                            ticked = catalog.key in selectedKeys,
+                            onClick = { onToggle(catalog.key) },
+                            modifier = if (index == 0) Modifier.focusRequester(firstRowFocus) else Modifier
+                        )
+                    }
+                }
+                SettingsVerticalScrollIndicators(state = listState)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatalogPickRow(
+    label: String,
+    ticked: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused },
+        colors = settingsRowColors(),
+        border = settingsRowBorder(),
+        shape = CardDefaults.shape(settingsRowShape()),
+        scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 44.dp)
+                .padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = settingsGlassText(12.5.sp, FontWeight.SemiBold),
+                color = settingsTitleColor(isFocused),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = if (ticked) "✓ In carousel" else "—",
+                style = settingsGlassText(11.sp, if (ticked) FontWeight.SemiBold else FontWeight.Normal),
+                color = if (isFocused) LauncherStyle.FocusText.copy(alpha = 0.75f) else Color.White.copy(alpha = if (ticked) 0.9f else 0.4f),
+                maxLines = 1
+            )
+        }
+    }
 }
 
 /** Settings → Launcher → Hide apps: every launchable app, with its banner, its category and whether it shows. */

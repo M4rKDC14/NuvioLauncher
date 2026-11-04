@@ -177,6 +177,8 @@ internal fun SettingsNote(
 
 @Composable
 internal fun SettingsRailDivider() {
+    // Approved mockup: no dividers in the Settings menu.
+    if (isSettingsGlass()) return
     // Launcher look: inset 16 on each side.
     val inset = if (isSettingsGlass()) 16.dp else SettingsRowContentInset
     Box(

@@ -2,6 +2,12 @@
 
 package com.nuvio.tv.ui.screens.settings
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
+import androidx.tv.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.nuvio.tv.ui.screens.party.PartySettingsContent
 import com.nuvio.tv.ui.screens.party.PartyViewModel
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -44,6 +50,20 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Tv
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.filled.BugReport
@@ -162,20 +182,20 @@ private sealed interface ExperienceModeLoadState {
 
 @Composable
 private fun settingsSectionSpec(category: SettingsCategory): SettingsSectionSpec = when (category) {
-    SettingsCategory.ACCOUNT -> SettingsSectionSpec(category, stringResource(R.string.settings_account), Icons.Default.Person, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.PROFILES -> SettingsSectionSpec(category, stringResource(R.string.settings_profiles), Icons.Default.People, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.WATCH_PARTY -> SettingsSectionSpec(category, stringResource(R.string.party_title), Icons.Rounded.Groups, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.LAUNCHER -> SettingsSectionSpec(category, "Launcher", Icons.Default.Tv, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.APPEARANCE -> SettingsSectionSpec(category, stringResource(R.string.appearance_title), Icons.Default.Palette, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.LAYOUT -> SettingsSectionSpec(category, stringResource(R.string.settings_layout), Icons.Default.GridView, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.CONTENT_DISCOVERY -> SettingsSectionSpec(category, stringResource(R.string.settings_content_discovery), Icons.Default.Explore, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.PLAYBACK -> SettingsSectionSpec(category, stringResource(R.string.settings_playback), Icons.Rounded.PlayArrow, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.INTEGRATION -> SettingsSectionSpec(category, stringResource(R.string.settings_integration), Icons.Default.Link, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.TRACKING -> SettingsSectionSpec(category, stringResource(R.string.settings_tracking_title), Icons.Default.Sync, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.ADVANCED -> SettingsSectionSpec(category, stringResource(R.string.settings_advanced), Icons.Default.Build, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.ABOUT -> SettingsSectionSpec(category, stringResource(R.string.about_title), Icons.Default.Info, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.DEBUG -> SettingsSectionSpec(category, stringResource(R.string.settings_debug), Icons.Default.BugReport, destination = SettingsSectionDestination.Inline)
-    SettingsCategory.EXPERIENCE -> SettingsSectionSpec(category, stringResource(R.string.settings_experience), Icons.Default.Tune, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.ACCOUNT -> SettingsSectionSpec(category, stringResource(R.string.settings_account), Icons.Outlined.Person, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.PROFILES -> SettingsSectionSpec(category, stringResource(R.string.settings_profiles), Icons.Outlined.Group, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.WATCH_PARTY -> SettingsSectionSpec(category, stringResource(R.string.party_title), Icons.Outlined.Groups, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.LAUNCHER -> SettingsSectionSpec(category, "Launcher", Icons.Outlined.Tv, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.APPEARANCE -> SettingsSectionSpec(category, stringResource(R.string.appearance_title), Icons.Outlined.Palette, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.LAYOUT -> SettingsSectionSpec(category, stringResource(R.string.settings_layout), Icons.Outlined.GridView, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.CONTENT_DISCOVERY -> SettingsSectionSpec(category, stringResource(R.string.settings_content_discovery), Icons.Outlined.Explore, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.PLAYBACK -> SettingsSectionSpec(category, stringResource(R.string.settings_playback), Icons.Outlined.PlayArrow, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.INTEGRATION -> SettingsSectionSpec(category, stringResource(R.string.settings_integration), Icons.Outlined.Link, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.TRACKING -> SettingsSectionSpec(category, stringResource(R.string.settings_tracking_title), Icons.Outlined.Sync, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.ADVANCED -> SettingsSectionSpec(category, stringResource(R.string.settings_advanced), Icons.Outlined.Build, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.ABOUT -> SettingsSectionSpec(category, stringResource(R.string.about_title), Icons.Outlined.Info, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.DEBUG -> SettingsSectionSpec(category, stringResource(R.string.settings_debug), Icons.Outlined.BugReport, destination = SettingsSectionDestination.Inline)
+    SettingsCategory.EXPERIENCE -> SettingsSectionSpec(category, stringResource(R.string.settings_experience), Icons.Outlined.Tune, destination = SettingsSectionDestination.Inline)
 }
 
 @Composable
@@ -712,24 +732,41 @@ fun SettingsScreen(
                 object : BringIntoViewSpec {
                     override val scrollAnimationSpec: AnimationSpec<Float> =
                         defaultBringIntoViewSpec.scrollAnimationSpec
-                    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                        (offset + size / 2f) - containerSize / 2f
+                    // Approved mockup: the list stays put; it only scrolls when the focused item would be cut off.
+                    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = when {
+                        offset < 0f -> offset
+                        offset + size > containerSize -> offset + size - containerSize
+                        else -> 0f
+                    }
                 }
             }
             LaunchedEffect(Unit) {
                 val index = visibleSections.indexOfFirst { it.category == selectedCategory }
-                if (index >= 0) railListState.centreItem(index)
+                if (index >= 0) railListState.scrollToItem(maxOf(0, index - 8))
             }
             Row(
                 modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(24.dp)
+                horizontalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Box(
+                // Approved mockup styling and spacing (Settings › Integrations › TMDB): text-only items 40 apart,
+                // no icons, no dividers; the page starts 260 from the left.
+                Column(
                     modifier = Modifier
                         .padding(start = 40.dp)
-                        .width(220.dp)
+                        .width(200.dp)
                         .fillMaxHeight()
                 ) {
+                    // "Settings" heading 30 from the top, items from 70, 34 apart: all 12 end at 478 of 540, no scrolling.
+                    Text(
+                        text = "Settings",
+                        style = settingsGlassText(20.sp, FontWeight.Bold, lineHeight = 1.3f),
+                        color = Color.White,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .padding(start = 14.dp, top = 30.dp)
+                            .height(26.dp)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
                     CompositionLocalProvider(LocalBringIntoViewSpec provides centredRailSpec) {
                     LazyColumn(
                         state = railListState,
@@ -784,8 +821,8 @@ fun SettingsScreen(
                                     false
                                 }
                             },
-                        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
-                        contentPadding = PaddingValues(vertical = 20.dp)
+                        verticalArrangement = Arrangement.Top,
+                        contentPadding = PaddingValues(bottom = 20.dp)
                     ) {
                         itemsIndexed(
                             items = visibleSections,
@@ -832,9 +869,9 @@ fun SettingsScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        // Launcher look: the page starts 30 from the top, ends 40 from the right and
-                        // 30 from the bottom.
-                        .padding(top = 30.dp, end = 40.dp, bottom = 30.dp)
+                        // Launcher look: the page starts 40 from the top (mockup: title at 40-80), ends 40
+                        // from the right and 30 from the bottom.
+                        .padding(top = 40.dp, end = 40.dp, bottom = 30.dp)
                         .onKeyEvent { event ->
                             val toRailKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
                             if (event.type == KeyEventType.KeyDown && event.key == toRailKey) {
