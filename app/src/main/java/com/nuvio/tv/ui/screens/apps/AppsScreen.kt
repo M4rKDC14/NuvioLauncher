@@ -236,10 +236,11 @@ fun AppsScreen() {
                             Column(Modifier.onFocusChanged { rowFocused = it.hasFocus }) {
                                 Text(
                                     text = title,
-                                    color = LauncherStyle.TileTitleIdle,   // grey always
+                                    // row title: grey and regular, white and bold while the row has focus
+                                    color = if (rowFocused) Color.White else LauncherStyle.TileTitleIdle,
                                     fontSize = 16.sp,
                                     lineHeight = 20.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = if (rowFocused) FontWeight.Bold else FontWeight.Normal,
                                     maxLines = 1,
                                     modifier = Modifier.padding(start = Pad, end = Pad)
                                 )

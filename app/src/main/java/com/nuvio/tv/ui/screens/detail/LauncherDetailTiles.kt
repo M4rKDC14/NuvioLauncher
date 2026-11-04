@@ -81,9 +81,10 @@ internal fun LauncherRowTitle(
     ) {
         Text(
             text = text,
-            color = if (highlighted) Color.White else LauncherStyle.Soft,
+            // row title: grey and regular, white and bold while the row has focus
+            color = if (highlighted) Color.White else LauncherStyle.TileTitleIdle,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -109,7 +110,8 @@ internal fun LauncherMetaTile(
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
     subtitle: String? = null,
-    onFocused: () -> Unit = {}
+    onFocused: () -> Unit = {},
+    showCaption: Boolean = true   // false on the cast/crew profile page: no title under the tile
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -243,7 +245,7 @@ internal fun LauncherMetaTile(
                 }
             }
         }
-        LauncherTileCaption(title = item.name, subtitle = subtitle, focused = isFocused)
+        if (showCaption) LauncherTileCaption(title = item.name, subtitle = subtitle, focused = isFocused)
     }
 }
 

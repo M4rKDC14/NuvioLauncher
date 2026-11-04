@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.settings
 
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import com.nuvio.tv.domain.model.AmbientModeSettings
 
 @Composable
 internal fun AmbientModeSettingsCard(
+    firstRowFocusRequester: androidx.compose.ui.focus.FocusRequester? = null,
     viewModel: AmbientModeSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -34,7 +36,8 @@ internal fun AmbientModeSettingsCard(
             title = stringResource(R.string.ambient_mode_title),
             subtitle = stringResource(R.string.ambient_mode_enabled_subtitle),
             checked = settings.enabled,
-            onToggle = { viewModel.setEnabled(!settings.enabled) }
+            onToggle = { viewModel.setEnabled(!settings.enabled) },
+            modifier = firstRowFocusRequester?.let { androidx.compose.ui.Modifier.focusRequester(it) } ?: androidx.compose.ui.Modifier
         )
         if (settings.enabled) {
             SettingsActionRow(

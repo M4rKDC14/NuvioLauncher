@@ -646,6 +646,7 @@ private fun FilmographyRow(
                     Modifier
                 },
                 focusRequester = itemFocusRequester,
+                showCaption = false,   // no title under the tiles on the profile page (owner's request)
                 onFocused = {
                     onItemFocused(item)
                     if (isRestoreTarget && restoreFocusToken > 0) {

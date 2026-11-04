@@ -452,9 +452,9 @@ private fun CastMemberItem(
     }
     val typography = MaterialTheme.typography
     val nameStyle = remember(typography) {
-        typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold)
+        typography.labelMedium.copy(fontSize = 8.4.sp, lineHeight = 10.5.sp, fontWeight = FontWeight.SemiBold) /* 30% smaller (was 12 / 15) */
     }
-    val characterStyle = remember(typography) { typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 13.sp) }
+    val characterStyle = remember(typography) { typography.labelSmall.copy(fontSize = 7.35.sp, lineHeight = 9.1.sp) /* 30% smaller (was 10.5 / 13) */ }
     val initialsStyle = remember(typography) { typography.titleLarge }
     val photo = member.photo
     val photoModel = remember(context, photo, cardSizePx) {

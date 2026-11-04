@@ -312,10 +312,12 @@ fun CatalogRowSection(
                 text = launcherTitle.ifBlank { " " },
                 color = when {
                     launcherTitle.isBlank() -> Color.Transparent
-                    else -> LauncherStyle.TileTitleIdle   // grey always: only the focused tile's title is white
+                    // row title: grey and regular, white and bold while the row has focus
+                    rowHasFocusRef.value -> Color.White
+                    else -> LauncherStyle.TileTitleIdle
                 },
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = if (rowHasFocusRef.value) FontWeight.Bold else FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium.copy(

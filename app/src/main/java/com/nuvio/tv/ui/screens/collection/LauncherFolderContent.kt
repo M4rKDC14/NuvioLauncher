@@ -86,7 +86,7 @@ import com.nuvio.tv.ui.util.localizedContentType
  */
 
 private val RowsTop = 176.dp
-private val TileTopAboveRowPad = 41.dp  // row title (12 + 21) + spacer 8; the tiles' top is this plus the row's top padding (12 by default)
+private val TileTopAboveRowPad = 37.dp  // row title (12 + 21) + spacer 4 (halved from 8); the tiles' top is this plus the row's top padding (12 by default)
 private const val LoadMoreAhead = 6     // ask for the next page this many tiles before the end
 
 /** Tile size (1 = 120x180 / 224x126 / 126x126), spacing and focus zoom, from Settings → Launcher. */
@@ -194,12 +194,16 @@ internal fun LauncherFolderContent(
     // Every focused row sits exactly where the first row sits: its tiles' top at tileTopInRow from the top of the rows area.
     val tileTopInRow = TileTopAboveRowPad + look.rowTopPad   // 53 at the default size and zoom
     val tileTopPx = with(androidx.compose.ui.platform.LocalDensity.current) { tileTopInRow.toPx() }
+    // true after Left/Right, false after Up/Down. Left/Right never scroll the page vertically; Up/Down puts the row
+    // exactly in place. (The old "ignore anything under 53dp" rule stopped the scroll short on the way back to row 1,
+    // leaving it too high with its title cut off.)
+    val sideways = remember { booleanArrayOf(false) }
     val centeringSpec = remember(defaultSpec, tileTopPx) {
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         object : BringIntoViewSpec {
             override val scrollAnimationSpec = defaultSpec.scrollAnimationSpec
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                (offset - tileTopPx).let { d -> if (kotlin.math.abs(d) < tileTopPx) 0f else d }   // no bounce on Left/Right
+                if (sideways[0]) 0f else offset - tileTopPx
         }
     }
 
@@ -218,7 +222,14 @@ internal fun LauncherFolderContent(
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {
             LazyColumn(
                 state = rowsListState,
-                modifier = Modifier.fillMaxSize().padding(top = RowsTop),
+                modifier = Modifier.fillMaxSize().padding(top = RowsTop).onPreviewKeyEvent { e ->
+                    if (e.type == KeyEventType.KeyDown) when (e.key) {
+                        Key.DirectionLeft, Key.DirectionRight -> sideways[0] = true
+                        Key.DirectionUp, Key.DirectionDown -> sideways[0] = false
+                        else -> Unit
+                    }
+                    false
+                },
                 contentPadding = PaddingValues(bottom = 400.dp)   // room for the last row to scroll up to the first row's place
             ) {
                 itemsIndexed(rows, key = { _, r -> r.key }) { ri, row ->
@@ -279,7 +290,7 @@ private fun FolderRowBlock(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            row.title, color = LauncherStyle.TileTitleIdle, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
+            row.title, color = if (focused) Color.White else LauncherStyle.TileTitleIdle, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 60.dp, end = LauncherStyle.Start, top = 12.dp)
         )
@@ -392,7 +403,8 @@ private fun FolderTile(
                 }
             }
         }
-        Text(
+        // no title under the tiles on this page (owner's request)
+        if (false) Text(
             item.name, color = if (focused) Color.White else LauncherStyle.TileTitleIdle, fontSize = 12.sp, lineHeight = 16.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             // Same layout height whether focused or not; the focused title only moves down visually, clear of the zoom.

@@ -191,7 +191,9 @@ fun ThemeSettingsContent(
                 .weight(1f)
         ) {
 
-            SettingsGroupCard(
+            // Nuvio Launcher: "Color Theme" (the colour swatches, with AMOLED Mode and Pure Black Surfaces) is
+            // hidden at the owner's request. The saved theme stays as it is.
+            if (false) SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.appearance_color_theme),
                 subtitle = stringResource(R.string.appearance_color_theme_subtitle)
@@ -266,7 +268,9 @@ fun ThemeSettingsContent(
                 }
             }
 
-            SettingsGroupCard(
+            // Nuvio Launcher: "Settings Style" (Default / Minimal / Top Bar) is hidden at the owner's request; the
+            // launcher's Settings has one look. The saved style is left as it is.
+            if (false) SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.appearance_settings_style),
                 subtitle = stringResource(R.string.appearance_settings_style_subtitle)
@@ -295,7 +299,8 @@ fun ThemeSettingsContent(
                 }
             }
 
-            SettingsGroupCard(
+            // Nuvio Launcher: "Launcher artwork" (App icon and banner) is hidden at the owner's request.
+            if (false) SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.appearance_launcher_artwork),
                 subtitle = stringResource(R.string.appearance_launcher_artwork_subtitle)
@@ -312,7 +317,8 @@ fun ThemeSettingsContent(
                 )
             }
 
-            AmbientModeSettingsCard()
+            // Nuvio Launcher: Ambient Mode is the page's first section now, so its first row takes focus on entry.
+            AmbientModeSettingsCard(firstRowFocusRequester = initialFocusRequester)
 
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),

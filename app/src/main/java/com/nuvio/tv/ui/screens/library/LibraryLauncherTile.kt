@@ -174,7 +174,8 @@ internal fun LibraryLauncherTile(
                 }
             }
         }
-        Text(
+        // no title under the tiles in Library (owner's request)
+        if (false) Text(
             item.name,
             color = if (focused) Color.White else LauncherStyle.TileTitleIdle,
             fontSize = 12.sp,

@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -154,7 +155,12 @@ internal fun LauncherHomeContent(
             .filter { !it.background.isNullOrBlank() || !it.poster.isNullOrBlank() }.take(heroCount)
     }
     var heroIndex by remember { mutableIntStateOf(0) }
-    var heroFocused by remember { mutableStateOf(true) }
+    // The row and tile that had focus, kept while you are in a folder, a title or Settings, so coming back to Home
+    // puts focus back on that same tile (it went to the first row it could find, Spotlight, before).
+    // Kept by the row's key, not its position: Continue Watching appearing or a row loading late can shift positions.
+    var savedRowKey by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    var savedTile by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
+    var heroFocused by remember { mutableStateOf(savedRowKey == null) }
     var focusedRow by remember { mutableIntStateOf(-1) }
     // The focused tile's picture, blurred behind the rows. Held in a state object and read only by the backdrop,
     // so a Left/Right press redraws the backdrop alone, not every row and tile (that redraw made the rows stutter).
@@ -208,7 +214,20 @@ internal fun LauncherHomeContent(
             if (System.currentTimeMillis() - lastKeyAt >= rotateMs) { heroIndex = (heroIndex + 1) % hero.size; lastKeyAt = System.currentTimeMillis() }
         }
     }
-    LaunchedEffect(Unit) { runCatching { playFocus.requestFocus() } }
+    val rowsNow by androidx.compose.runtime.rememberUpdatedState(rows)
+    val focusRowNow by androidx.compose.runtime.rememberUpdatedState<(Int) -> Boolean>({ t -> focusRow(t) })
+    LaunchedEffect(Unit) {
+        val key = savedRowKey
+        if (key == null) { runCatching { playFocus.requestFocus() }; return@LaunchedEffect }
+        // Back from a folder or title: the tile you left from. Waits for that row (up to 2 s), else the carousel.
+        val row = kotlinx.coroutines.withTimeoutOrNull(2_000) {
+            androidx.compose.runtime.snapshotFlow { rowsNow.indexOfFirst { it.key == key } }.first { it >= 0 }
+        }
+        if (row == null) { runCatching { playFocus.requestFocus() }; return@LaunchedEffect }
+        lastIndex[row] = savedTile
+        androidx.compose.runtime.withFrameNanos { }
+        focusRowNow(row)
+    }
 
     BackHandler(enabled = !heroFocused) {
         focusedRow = -1
@@ -282,7 +301,7 @@ internal fun LauncherHomeContent(
                         index = heroIndex,
                         height = 458.dp,
                         playFocus = playFocus,
-                        onFocused = { heroFocused = true; focusedRow = -1 },
+                        onFocused = { heroFocused = true; focusedRow = -1; savedRowKey = null },
                         onPlay = { current?.let(onPlayItem) },
                         onAdd = { current?.let(onToggleLibrary) },
                         onInfo = { current?.let { onNavigateToDetail(it.id, it.apiTypeOrRaw(), it.sourceAddonBaseUrl ?: "") } },
@@ -301,7 +320,7 @@ internal fun LauncherHomeContent(
                             tiles = tiles,
                             lastIndex = lastIndex,
                             sideways = sideways,
-                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
+                            onRowFocused = { b -> heroFocused = false; focusedRow = ri; savedRowKey = row.key; savedTile = lastIndex[ri] ?: 0; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
                             onVertical = { fromRow, _, down -> focusRow(if (down) fromRow + 1 else fromRow - 1) },
                             onNavigateToDetail = onNavigateToDetail,
                             onContinueWatchingClick = onContinueWatchingClick,
@@ -464,7 +483,7 @@ private fun RowBlock(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            row.title, color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+            row.title, color = if (focused) Color.White else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, fontSize = 16.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
             modifier = Modifier.padding(start = 60.dp, top = if (first) 0.dp else 26.dp), maxLines = 1
         )
         // Title to tiles halved (owner's request): was 12/22 + 6 above the tiles, now 3/8 + 6.
@@ -548,7 +567,8 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: 
                 }
             }
         }
-        if (tile.title.isNotEmpty()) {
+        // Titles under tiles only on Continue Watching (owner's request); other rows show just the picture.
+        if (tile.title.isNotEmpty() && (tile.key.startsWith("cw_") || tile.key.startsWith("nu_"))) {
             Text(
                 tile.title, color = if (focused) Color.White else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 // Same layout height whether focused or not (a changing row height made the page jitter);

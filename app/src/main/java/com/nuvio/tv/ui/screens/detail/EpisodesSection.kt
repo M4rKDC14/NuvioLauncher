@@ -271,10 +271,11 @@ fun SeasonTabs(
     Column(modifier = Modifier.fillMaxWidth().onFocusChanged { anyTabFocused = it.hasFocus }) {
     Text(
         text = stringResource(R.string.tmdb_episodes_title),
-        color = if (titleHighlighted || anyTabFocused) Color.White else LauncherStyle.Soft,
+        // row title: grey and regular, white and bold while the row has focus
+        color = if (titleHighlighted || anyTabFocused) Color.White else LauncherStyle.TileTitleIdle,
         fontSize = 16.sp,
         lineHeight = 20.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = if (titleHighlighted || anyTabFocused) FontWeight.Bold else FontWeight.Normal,
         maxLines = 1,
         modifier = Modifier.padding(start = LauncherStyle.Start, top = SeasonTabsTitleTopInset)
     )

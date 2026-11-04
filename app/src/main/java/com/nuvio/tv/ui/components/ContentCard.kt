@@ -696,7 +696,8 @@ fun ContentCard(
                 4.dp,
                 10.dp + (baseCardHeight * (launcherTileZoom - 1f) - launcherBaseHeight * 0.11f) / 2f
             )
-            Text(
+            // no title under the launcher tiles (Search results; owner's request)
+            if (false) Text(
                 text = item.name,
                 color = if (isFocused) Color.White else LauncherStyle.TileTitleIdle,
                 fontSize = 12.sp,

@@ -258,12 +258,15 @@ private fun TmdbEntityBrowseContent(
     // Every focused row sits exactly where the first row sits: its tiles' top at tileTopInRow from the top of the rows area.
     val tileTopInRow = TileTopAboveRowPad + look.rowTopPad
     val tileTopPx = with(LocalDensity.current) { tileTopInRow.toPx() }
+    // true after Left/Right, false after Up/Down: Left/Right never scroll the page vertically, Up/Down puts the row
+    // exactly in place (the old "ignore under 53dp" rule left row 1 too high, title cut off, on the way back up).
+    val sideways = remember { booleanArrayOf(false) }
     val anchoringSpec = remember(defaultSpec, tileTopPx) {
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         object : BringIntoViewSpec {
             override val scrollAnimationSpec = defaultSpec.scrollAnimationSpec
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                (offset - tileTopPx).let { d -> if (kotlin.math.abs(d) < tileTopPx) 0f else d }   // no bounce on Left/Right
+                if (sideways[0]) 0f else offset - tileTopPx
         }
     }
 
@@ -282,7 +285,14 @@ private fun TmdbEntityBrowseContent(
             CompositionLocalProvider(LocalBringIntoViewSpec provides anchoringSpec) {
                 LazyColumn(
                     state = rememberLazyListState(),
-                    modifier = Modifier.fillMaxSize().padding(top = RowsTop),
+                    modifier = Modifier.fillMaxSize().padding(top = RowsTop).onPreviewKeyEvent { e ->
+                        if (e.type == KeyEventType.KeyDown) when (e.key) {
+                            Key.DirectionLeft, Key.DirectionRight -> sideways[0] = true
+                            Key.DirectionUp, Key.DirectionDown -> sideways[0] = false
+                            else -> Unit
+                        }
+                        false
+                    },
                     contentPadding = PaddingValues(bottom = 400.dp)   // room for the last row to scroll up to the first row's place
                 ) {
                     itemsIndexed(rows, key = { _, r -> r.key }) { ri, row ->
@@ -458,7 +468,7 @@ private fun EntityRowBlock(
 
     Column(Modifier.fillMaxWidth()) {
         Text(
-            title, color = LauncherStyle.TileTitleIdle, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold,
+            title, color = if (focused) Color.White else LauncherStyle.TileTitleIdle, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 60.dp, end = LauncherStyle.Start, top = 12.dp)
         )
@@ -553,7 +563,8 @@ private fun EntityTile(
                 }
             }
         }
-        Text(
+        // no title under the tiles on this page (owner's request)
+        if (false) Text(
             item.name, color = if (focused) Color.White else LauncherStyle.TileTitleIdle, fontSize = 12.sp, lineHeight = 16.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             // Same layout height whether focused or not; the focused title only moves down visually, clear of the zoom.

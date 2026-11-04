@@ -64,36 +64,9 @@ fun StartupSplashScreen(
                 contentScale = ContentScale.Crop
             )
         } else if (!skipGradient) {
-            val baseBg = Color(0xFF121212)
-            val baseBgElevated = NuvioPrimitives.neutral875
-            val gradientTop = lerp(baseBgElevated, avatarColor, 0.3f)
-            val gradientMid = lerp(baseBg, avatarColor, 0.14f)
-            val halfFadeStrong = avatarColor.copy(alpha = 0.26f)
-            val halfFadeSoft = avatarColor.copy(alpha = 0.08f)
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0f to gradientTop,
-                                0.42f to gradientMid,
-                                1f to baseBg
-                            )
-                        )
-                    )
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colorStops = arrayOf(
-                                0f to halfFadeStrong,
-                                0.45f to halfFadeSoft,
-                                0.72f to Color.Transparent,
-                                1f to Color.Transparent
-                            )
-                        )
-                    )
-            )
+            // Nuvio Launcher: the same background as the profile page (the last title's picture, blurred, over
+            // the launcher grey) instead of Nuvio's profile-colour gradient.
+            com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(com.nuvio.tv.LauncherChrome.lastBackdrop.value)
         }
 
         Column(
@@ -101,12 +74,7 @@ fun StartupSplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            BrandWordmark(
-                modifier = Modifier.height(48.dp),
-                contentDescription = stringResource(R.string.cd_nuvio_logo),
-                drawableOverride = brandWordmarkRes
-            )
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxl))
+            // Nuvio Launcher: no Nuvio logo, just the loading animation.
             LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
         }
     }
