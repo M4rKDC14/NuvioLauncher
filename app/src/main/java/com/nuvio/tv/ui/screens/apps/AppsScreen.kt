@@ -152,7 +152,8 @@ fun AppsScreen() {
     val hidden = settings.hiddenPackages
     val groups = remember(allApps, hidden) { groupApps(allApps.filterNot { it.pkg in hidden }) }
     val tileScale = settings.appsScale
-    val tileGap = settings.appsTileSpacingDp.dp
+    // never less than the focused banner's zoom overhang (17 at 120% zoom let it overlap its neighbours)
+    val tileGap = com.nuvio.tv.ui.launcher.zoomSafeGap(settings.appsTileSpacingDp.dp, 224.dp * settings.appsScale, settings.appsZoom)
     val tileZoom = settings.appsZoom
     val firstTile = LocalContentFocusRequester.current
 
@@ -180,7 +181,8 @@ fun AppsScreen() {
                         modifier = Modifier.padding(start = Pad, end = Pad, top = if (gi == 0) 14.dp else 22.dp)
                     )
                     LazyRow(
-                        contentPadding = PaddingValues(start = Pad, end = Pad, top = 18.dp, bottom = 26.dp),
+                        // room above for the zoomed banner (126 tall x size x zoom), so it never runs into the row title
+                        contentPadding = PaddingValues(start = Pad, end = Pad, top = maxOf(18.dp, 126.dp * tileScale * ((tileZoom - 1f) / 2f) + 6.dp), bottom = 26.dp),
                         horizontalArrangement = Arrangement.spacedBy(tileGap)
                     ) {
                         items(apps, key = { it.pkg }) { app ->

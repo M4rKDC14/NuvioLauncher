@@ -137,3 +137,13 @@ fun LauncherGlass(
         content = content
     )
 }
+
+/**
+ * The space between tiles in a row, never less than the focused tile's zoom overhang plus a small margin. The zoom
+ * only scales how the tile is drawn, not how much room the row gives it, so a gap smaller than the overhang made
+ * the focused tile overlap its neighbours. The owner's spacing setting still applies whenever it's larger.
+ */
+fun zoomSafeGap(setting: androidx.compose.ui.unit.Dp, tileWidth: androidx.compose.ui.unit.Dp, zoom: Float): androidx.compose.ui.unit.Dp {
+    val overhang = tileWidth * ((zoom - 1f).coerceAtLeast(0f) / 2f)
+    return maxOf(setting, overhang + 6.dp)
+}

@@ -146,7 +146,7 @@ internal fun LauncherHomeContent(
     val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
     val heroCount = launcherSettings.heroCount
     val rotateMs = launcherSettings.rotationMs
-    val look = TileLook(launcherSettings.catalogScale, launcherSettings.catalogTileSpacingDp.dp, launcherSettings.catalogZoom)
+    val look = TileLook(launcherSettings.catalogScale, com.nuvio.tv.ui.launcher.zoomSafeGap(launcherSettings.catalogTileSpacingDp.dp, 224.dp * launcherSettings.catalogScale, launcherSettings.catalogZoom), launcherSettings.catalogZoom)
     val rows = remember(uiState.continueWatchingItems, uiState.homeRows, uiState.catalogRows) { rowsOf(uiState) }
     val hero = remember(uiState.heroItems, uiState.catalogRows, heroCount) {
         (uiState.heroItems.ifEmpty { uiState.catalogRows.firstOrNull { it.items.isNotEmpty() }?.items.orEmpty() })

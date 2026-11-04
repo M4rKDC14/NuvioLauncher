@@ -290,7 +290,7 @@ fun CatalogRowSection(
 
     val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
     val launcherScale = launcherSettings.catalogScale
-    val launcherGap = launcherSettings.catalogTileSpacingDp.dp
+    val launcherGap = com.nuvio.tv.ui.launcher.zoomSafeGap(launcherSettings.catalogTileSpacingDp.dp, 224.dp * launcherSettings.catalogScale, launcherSettings.catalogZoom)
     val launcherZoom = launcherSettings.catalogZoom
     val rowStart = if (launcherTiles) LauncherStyle.Start else NuvioTheme.spacing.xxxl
     val launcherTileShape = LauncherStyle.Corner

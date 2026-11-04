@@ -126,7 +126,7 @@ internal fun LauncherFolderContent(
 ) {
     val context = LocalContext.current
     val launcherSettings by LauncherSettingsHolder.settings.collectAsState()
-    val look = TileLook(launcherSettings.catalogScale, launcherSettings.catalogTileSpacingDp.dp, launcherSettings.catalogZoom)
+    val look = TileLook(launcherSettings.catalogScale, com.nuvio.tv.ui.launcher.zoomSafeGap(launcherSettings.catalogTileSpacingDp.dp, 224.dp * launcherSettings.catalogScale, launcherSettings.catalogZoom), launcherSettings.catalogZoom)
     val rows = remember(uiState.tabs, uiState.catalogTypeSuffixEnabled) {
         uiState.tabs.mapIndexedNotNull { i, tab ->
             if (tab.isAllTab) return@mapIndexedNotNull null
