@@ -90,6 +90,29 @@ internal fun SettingsSectionLabel(
     modifier: Modifier = Modifier,
     description: String? = null
 ) {
+    if (isSettingsGlass()) {
+        // Launcher look: 10.5 Bold uppercase, 0.08em apart, white .6, 12 above, 4 in from the rows.
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 4.dp, top = SettingsGlassColors.SectionLabelTop),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
+        ) {
+            Text(
+                text = text.uppercase(),
+                style = SettingsGlassType.SectionLabel,
+                color = SettingsGlassColors.TextIdleSecondary
+            )
+            if (!description.isNullOrBlank()) {
+                Text(
+                    text = description,
+                    style = SettingsGlassType.RowSubtitle,
+                    color = SettingsGlassColors.TextIdleSecondary
+                )
+            }
+        }
+        return
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -125,9 +148,10 @@ internal fun SettingsNote(
     modifier: Modifier = Modifier,
     tone: SettingsNoteTone = SettingsNoteTone.Info
 ) {
+    val glass = isSettingsGlass()
     Text(
         text = text,
-        style = MaterialTheme.typography.bodySmall,
+        style = if (glass) SettingsGlassType.RowSubtitle else MaterialTheme.typography.bodySmall,
         color = when (tone) {
             SettingsNoteTone.Info -> settingsSecondaryColor(false)
             SettingsNoteTone.Warning -> NuvioTheme.colors.Warning
@@ -135,21 +159,30 @@ internal fun SettingsNote(
         },
         modifier = modifier
             .fillMaxWidth()
-            .padding(
-                start = SettingsRowContentInset,
-                end = SettingsRowContentInset,
-                top = NuvioTheme.spacing.xxs,
-                bottom = NuvioTheme.spacing.xs
+            .then(
+                if (glass) {
+                    // The mockup's text-only row: 4 above and below, 16 in.
+                    Modifier.padding(horizontal = SettingsGlassColors.RowPaddingH, vertical = 4.dp)
+                } else {
+                    Modifier.padding(
+                        start = SettingsRowContentInset,
+                        end = SettingsRowContentInset,
+                        top = NuvioTheme.spacing.xxs,
+                        bottom = NuvioTheme.spacing.xs
+                    )
+                }
             )
     )
 }
 
 @Composable
 internal fun SettingsRailDivider() {
+    // Launcher look: inset 16 on each side.
+    val inset = if (isSettingsGlass()) 16.dp else SettingsRowContentInset
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = SettingsRowContentInset, end = SettingsRowContentInset, bottom = 10.dp)
+            .padding(start = inset, end = inset, bottom = 10.dp)
             .height(NuvioTheme.spacing.hairline)
             .background(if (isSettingsGlass()) SettingsGlassColors.Divider else NuvioTheme.colors.Border)
     )

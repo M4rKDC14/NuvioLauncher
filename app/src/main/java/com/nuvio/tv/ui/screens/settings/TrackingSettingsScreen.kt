@@ -508,14 +508,16 @@ internal fun TrackingSettingsOverview(
             title = stringResource(R.string.settings_tracking_title),
             subtitle = stringResource(R.string.settings_tracking_description)
         )
-        Box(modifier = Modifier.weight(1f)) {
+        // Launcher look: the sections scroll inside one glass panel (Box off the glass).
+        val glass = isSettingsGlass()
+        SettingsGlassPanel(modifier = Modifier.weight(1f)) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag(TrackingSettingsTestTags.OVERVIEW_LIST),
-                contentPadding = PaddingValues(bottom = NuvioTheme.spacing.md),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                contentPadding = if (glass) SettingsGlassPanelContentPadding else PaddingValues(bottom = NuvioTheme.spacing.md),
+                verticalArrangement = Arrangement.spacedBy(if (glass) SettingsGlassColors.RowGap else 14.dp)
             ) {
                 item(key = "tracking_accounts") {
                     SettingsGroupCard(

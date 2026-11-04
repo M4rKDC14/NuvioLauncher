@@ -33,6 +33,8 @@ internal fun BoxScope.SettingsVerticalScrollIndicators(
     state: ScrollableState,
     modifier: Modifier = Modifier
 ) {
+    // Nuvio Launcher: no arrows drawn over the Settings rail or panels on the glass.
+    if (isSettingsGlass()) return
     AnimatedVisibility(
         visible = state.canScrollBackward,
         modifier = modifier
@@ -70,6 +72,7 @@ internal fun BoxScope.SettingsHorizontalScrollIndicators(
     state: ScrollableState,
     modifier: Modifier = Modifier
 ) {
+    if (isSettingsGlass()) return
     AnimatedVisibility(
         visible = state.canScrollBackward,
         modifier = modifier

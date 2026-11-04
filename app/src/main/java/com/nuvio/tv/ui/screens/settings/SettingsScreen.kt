@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -33,6 +33,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyListState
@@ -425,20 +431,33 @@ fun SettingsScreen(
         LocalSettingsGlass provides true,
         LocalSettingsHazeState provides settingsHazeState
     ) {
+    // Launcher look (the rail layout): the rail runs the full height at 40 from the left, the page
+    // starts 24 after it and ends 40 from the right; the page's own top and bottom are set below.
+    val launcherRailLayout = !isHorizonStyle
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                start = NuvioTheme.spacing.xxl,
-                end = NuvioTheme.spacing.xxl,
-                top = if (showBuiltInHeader) NuvioTheme.spacing.xl else 68.dp,
-                bottom = NuvioTheme.spacing.xl
+            .then(
+                if (launcherRailLayout) {
+                    Modifier
+                } else {
+                    Modifier.padding(
+                        start = NuvioTheme.spacing.xxl,
+                        end = NuvioTheme.spacing.xxl,
+                        top = if (showBuiltInHeader) NuvioTheme.spacing.xl else 68.dp,
+                        bottom = NuvioTheme.spacing.xl
+                    )
+                }
             )
     ) {
-        SettingsWorkspaceSurface(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
+        val workspace: @Composable (@Composable BoxScope.() -> Unit) -> Unit = { body ->
+            if (launcherRailLayout) {
+                Box(modifier = Modifier.fillMaxSize(), content = body)
+            } else {
+                SettingsWorkspaceSurface(modifier = Modifier.fillMaxSize(), content = body)
+            }
+        }
+        workspace {
 
             val onSectionClick: (SettingsSectionSpec) -> Unit = { section ->
                 if (section.destination == SettingsSectionDestination.External) {
@@ -685,15 +704,33 @@ fun SettingsScreen(
                     }
                 }
             } else {
+            // The rail keeps the focused item centred as it moves, and brings the selected item
+            // into the middle when the page opens.
+            val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
+            val centredRailSpec = remember(defaultBringIntoViewSpec) {
+                @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+                object : BringIntoViewSpec {
+                    override val scrollAnimationSpec: AnimationSpec<Float> =
+                        defaultBringIntoViewSpec.scrollAnimationSpec
+                    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+                        (offset + size / 2f) - containerSize / 2f
+                }
+            }
+            LaunchedEffect(Unit) {
+                val index = visibleSections.indexOfFirst { it.category == selectedCategory }
+                if (index >= 0) railListState.centreItem(index)
+            }
             Row(
                 modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 Box(
                     modifier = Modifier
+                        .padding(start = 40.dp)
                         .width(220.dp)
                         .fillMaxHeight()
                 ) {
+                    CompositionLocalProvider(LocalBringIntoViewSpec provides centredRailSpec) {
                     LazyColumn(
                         state = railListState,
                         modifier = Modifier
@@ -747,7 +784,8 @@ fun SettingsScreen(
                                     false
                                 }
                             },
-                        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
+                        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+                        contentPadding = PaddingValues(vertical = 20.dp)
                     ) {
                         itemsIndexed(
                             items = visibleSections,
@@ -787,13 +825,16 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    SettingsVerticalScrollIndicators(state = railListState)
+                    }
                 }
 
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        // Launcher look: the page starts 30 from the top, ends 40 from the right and
+                        // 30 from the bottom.
+                        .padding(top = 30.dp, end = 40.dp, bottom = 30.dp)
                         .onKeyEvent { event ->
                             val toRailKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
                             if (event.type == KeyEventType.KeyDown && event.key == toRailKey) {
@@ -1120,6 +1161,11 @@ private fun IntegrationSettingsContent(
         runCatching { requester.requestFocus() }
     }
 
+    // Launcher look: the sub-pages show "Integrations ›" above their title.
+    val integrationsBreadcrumb = stringResource(R.string.settings_integrations_section) + " ›"
+    CompositionLocalProvider(
+        LocalSettingsBreadcrumb provides integrationsBreadcrumb.takeIf { selectedSection != IntegrationSettingsSection.Hub }
+    ) {
     when (selectedSection) {
         IntegrationSettingsSection.Hub -> {
             Column(
@@ -1140,7 +1186,9 @@ private fun IntegrationSettingsContent(
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = integrationHubState,
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(
+                                if (isSettingsGlass()) SettingsGlassColors.RowGap else 10.dp
+                            )
                         ) {
                             item(key = "integration_hub_debrid") {
                                 SettingsActionRow(
@@ -1225,6 +1273,7 @@ private fun IntegrationSettingsContent(
             )
         }
     }
+    }
 }
 
 /**
@@ -1234,6 +1283,21 @@ private fun IntegrationSettingsContent(
  */
 private fun LazyListState.isItemVisible(index: Int): Boolean =
     layoutInfo.visibleItemsInfo.any { it.index == index }
+
+/** Scrolls so the item at [index] sits in the middle of the list, as far as the list's ends allow. */
+private suspend fun LazyListState.centreItem(index: Int) {
+    // The list may not be laid out yet on the first frame.
+    var tries = 0
+    while (layoutInfo.viewportEndOffset == 0 && tries < 10) {
+        withFrameNanos { }
+        tries++
+    }
+    if (!isItemVisible(index)) runCatching { scrollToItem(index) }
+    val item = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+    val viewportCentre = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
+    val delta = item.offset + item.size / 2f - viewportCentre
+    if (delta != 0f) runCatching { scrollBy(delta) }
+}
 
 /** Whether [this] is one of the directional keys, so a press of it means the user is moving. */
 private fun Key.isDirection(): Boolean =

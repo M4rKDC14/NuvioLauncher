@@ -38,6 +38,11 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.ui.screens.ambient.AmbientDialogEffect
+import com.nuvio.tv.ui.launcher.LauncherStyle
+import com.nuvio.tv.ui.screens.settings.SettingsGlassColors
+import com.nuvio.tv.ui.screens.settings.SettingsGlassType
+import com.nuvio.tv.ui.screens.settings.isSettingsGlass
+import androidx.compose.foundation.layout.PaddingValues
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -60,12 +65,26 @@ fun NuvioDialog(
 ) {
     var isReady by remember { mutableStateOf(!suppressFirstKeyUp) }
     val maxDialogHeight = (LocalConfiguration.current.screenHeightDp.dp - NuvioTheme.spacing.xxxl).coerceAtLeast(320.dp)
-    val containerShape = RoundedCornerShape(containerCornerRadius)
-    val backgroundModifier = if (containerBrush == null) {
+    // Nuvio Launcher: opened from Settings (launcher glass), the dialog takes the mockup's look: 470 wide
+    // (when no width was asked for), radius 22, 22 by 24 inside, dark see-through glass, title 18 Bold.
+    val settingsGlass = isSettingsGlass()
+    val dialogWidth = if (settingsGlass && width == 520.dp) 470.dp else width
+    val containerShape = RoundedCornerShape(if (settingsGlass) 22.dp else containerCornerRadius)
+    val backgroundModifier = if (settingsGlass && containerBrush == null) {
+        Modifier
+            .background(Color(0xE6141518), containerShape)
+            .background(LauncherStyle.glassBrush(), containerShape)
+    } else if (containerBrush == null) {
         Modifier.background(NuvioTheme.colors.BackgroundElevated, containerShape)
     } else {
         Modifier.background(containerBrush, containerShape)
     }
+    val innerPadding = if (settingsGlass && contentPadding == NuvioTheme.spacing.xl) {
+        PaddingValues(horizontal = 24.dp, vertical = 22.dp)
+    } else {
+        PaddingValues(contentPadding)
+    }
+    val innerSpacing = if (settingsGlass && contentSpacing == NuvioTheme.spacing.lg) 18.dp else contentSpacing
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -74,13 +93,13 @@ fun NuvioDialog(
         AmbientDialogEffect(onDismiss)
         Box(
             modifier = Modifier
-                .width(width)
+                .width(dialogWidth)
                 .heightIn(max = maxDialogHeight)
                 .clip(containerShape)
                 .then(backgroundModifier)
                 .border(
                     containerBorderWidth,
-                    containerBorderColor ?: NuvioTheme.colors.Border,
+                    containerBorderColor ?: if (settingsGlass) LauncherStyle.Edge else NuvioTheme.colors.Border,
                     containerShape
                 )
                 .onPreviewKeyEvent { event ->
@@ -100,16 +119,16 @@ fun NuvioDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(contentPadding),
-                verticalArrangement = Arrangement.spacedBy(contentSpacing)
+                    .padding(innerPadding),
+                verticalArrangement = Arrangement.spacedBy(innerSpacing)
             ) {
                 if (title.isNotBlank()) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.titleLarge.copy(
+                        style = (if (settingsGlass) SettingsGlassType.DialogTitle else MaterialTheme.typography.titleLarge).copy(
                             textDirection = title.contentTextDirection()
                         ),
-                        color = NuvioTheme.colors.TextPrimary,
+                        color = if (settingsGlass) Color.White else NuvioTheme.colors.TextPrimary,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = titleTextAlign,
                         maxLines = 1,
@@ -120,8 +139,8 @@ fun NuvioDialog(
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = NuvioTheme.colors.TextSecondary
+                        style = if (settingsGlass) SettingsGlassType.PageSubtitle else MaterialTheme.typography.bodyMedium,
+                        color = if (settingsGlass) SettingsGlassColors.TextIdleSecondary else NuvioTheme.colors.TextSecondary
                     )
                 }
 

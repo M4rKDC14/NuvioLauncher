@@ -10,6 +10,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -215,6 +218,20 @@ private fun SliderSettingsItemLayout(
         shape = CardDefaults.shape(shape = shape),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
+        if (glass) {
+            GlassSliderContent(
+                title = title,
+                subtitle = subtitle,
+                valueText = valueText,
+                rowFocused = isFocused,
+                enabled = enabled,
+                progressFraction = progressFraction,
+                onDecrease = onDecrease,
+                onIncrease = onIncrease,
+                onFocused = onFocused
+            )
+            return@Card
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -298,6 +315,123 @@ private fun SliderSettingsItemLayout(
     }
 }
 
+/**
+ * The launcher look of a slider row: 9 above, 16 on the sides, 11 below; title and subtitle with the
+ * value (13 SemiBold) at the right; 8 below, a 20 "−" button, the 4 tall track with its 12 knob and a
+ * 20 "+" button, 10 apart. White on the glass, dark on the focused white row.
+ */
+@Composable
+private fun GlassSliderContent(
+    title: String,
+    subtitle: String?,
+    valueText: String,
+    rowFocused: Boolean,
+    enabled: Boolean,
+    progressFraction: Float,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    onFocused: () -> Unit
+) {
+    val contentAlpha = if (enabled) 1f else 0.4f
+    val ink = if (rowFocused) LauncherStyle.FocusText else Color.White
+    val trackColor = if (rowFocused) LauncherStyle.FocusText.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.18f)
+    val fraction = progressFraction.coerceIn(0f, 1f)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 9.dp, bottom = 11.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = SettingsGlassType.RowTitle,
+                    color = settingsTitleColor(rowFocused).copy(alpha = contentAlpha),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = SettingsGlassType.RowSubtitle,
+                        color = settingsSecondaryColor(rowFocused).copy(alpha = contentAlpha),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = valueText.keepLtr(),
+                style = SettingsGlassType.SliderValue,
+                color = ink.copy(alpha = contentAlpha),
+                maxLines = 1
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SliderStepButton(
+                icon = Icons.Default.Remove,
+                contentDescription = stringResource(R.string.cd_decrease),
+                rowFocused = rowFocused,
+                enabled = enabled,
+                onClick = onDecrease,
+                onFocused = onFocused
+            )
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(12.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                val trackWidth = maxWidth
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(trackColor)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(ink.copy(alpha = contentAlpha))
+                    )
+                }
+                // The knob is centred on the end of the fill, as in the mockup (white, with a small shadow).
+                Box(
+                    modifier = Modifier
+                        .offset(x = trackWidth * fraction - 6.dp)
+                        .size(12.dp)
+                        .shadow(1.5.dp, CircleShape)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = contentAlpha))
+                )
+            }
+            SliderStepButton(
+                icon = Icons.Default.Add,
+                contentDescription = stringResource(R.string.cd_increase),
+                rowFocused = rowFocused,
+                enabled = enabled,
+                onClick = onIncrease,
+                onFocused = onFocused
+            )
+        }
+    }
+}
+
 @Composable
 private fun SliderStepButton(
     icon: ImageVector,
@@ -322,9 +456,10 @@ private fun SliderStepButton(
             }
         },
         colors = if (glass) {
-            // On the focused white row the idle button is a faint dark disc instead of a white one.
+            // On the focused white row the idle button is a faint dark disc (22,23,27 at .12) instead
+            // of the white .14 one.
             CardDefaults.colors(
-                containerColor = if (rowFocused) LauncherStyle.FocusText.copy(alpha = 0.1f) else SettingsGlassColors.RowIdle,
+                containerColor = if (rowFocused) LauncherStyle.FocusText.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f),
                 focusedContainerColor = LauncherStyle.FocusWhite
             )
         } else CardDefaults.colors(
@@ -346,7 +481,8 @@ private fun SliderStepButton(
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(38.dp)
+            // Launcher look: a 20 circle with a 12 glyph.
+            modifier = Modifier.size(if (glass) 20.dp else 38.dp)
         ) {
             Icon(
                 imageVector = icon,
@@ -357,7 +493,7 @@ private fun SliderStepButton(
                     isFocused -> NuvioTheme.colors.OnPrimary
                     else -> NuvioTheme.colors.TextPrimary
                 }).copy(alpha = contentAlpha),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(if (glass) 12.dp else 20.dp)
             )
         }
     }
@@ -374,6 +510,7 @@ internal fun ColorSettingsItem(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val contentAlpha = if (enabled) 1f else 0.4f
+    val glass = isSettingsGlass()
 
     Card(
         onClick = { if (enabled) onClick() },
@@ -394,13 +531,16 @@ internal fun ColorSettingsItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 62.dp)
-                .padding(horizontal = SettingsRowContentInset, vertical = NuvioTheme.spacing.md),
+                .heightIn(min = if (glass) SettingsGlassColors.RowMinHeight else 62.dp)
+                .padding(
+                    horizontal = if (glass) SettingsGlassColors.RowPaddingH else SettingsRowContentInset,
+                    vertical = if (glass) SettingsGlassColors.RowPaddingV else NuvioTheme.spacing.md
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = if (glass) SettingsGlassType.RowTitle else MaterialTheme.typography.bodyLarge,
                 color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

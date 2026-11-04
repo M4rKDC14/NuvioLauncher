@@ -12,6 +12,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,6 +81,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.ui.res.stringResource
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
@@ -220,10 +226,61 @@ internal object SettingsGlassColors {
     val TrackOn = Color(0xFFE8E8EA)
     val TrackOff = Color(0x2EFFFFFF)
     val KnobOn = Color(0xFF111111)
-    val KnobOff = Color(0x8CFFFFFF)
+    val KnobOff = Color(0xFF8B8D94)             // grey knob of an off switch
     val GroupShape = RoundedCornerShape(16.dp)
     val RowShape = RoundedCornerShape(12.dp)
     val RailShape = RoundedCornerShape(10.dp)
+
+    // Sizes of the approved launcher Settings mockup (960x540 dp screen).
+    val RailItemHeight = 52.dp
+    val RowMinHeight = 50.dp
+    val RowPaddingH = 16.dp
+    val RowPaddingV = 8.dp
+    val RowGap = 8.dp
+    val PanelPadding = 14.dp
+    val SectionLabelTop = 12.dp
+}
+
+/**
+ * Inside a scrolling glass panel: 14 on the sides and bottom, 2 on top because every section label
+ * inside the panel brings its own 12 above it (so the first label sits 14 below the panel's edge).
+ */
+internal val SettingsGlassPanelContentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 2.dp, bottom = 14.dp)
+
+/** The page's breadcrumb ("Integrations ›") shown above a sub-page's title on the launcher glass. */
+internal val LocalSettingsBreadcrumb = staticCompositionLocalOf<String?> { null }
+
+/** Text of the launcher glass at the mockup's exact sizes, on the app's font, with no extra letter spacing. */
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
+internal fun settingsGlassText(
+    size: TextUnit,
+    weight: FontWeight = FontWeight.Normal,
+    lineHeight: Float = 1.3f,
+    letterSpacing: TextUnit = 0.sp
+): TextStyle = MaterialTheme.typography.bodyMedium.copy(
+    fontSize = size,
+    fontWeight = weight,
+    lineHeight = size * lineHeight,
+    letterSpacing = letterSpacing
+)
+
+internal object SettingsGlassType {
+    val RowTitle: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(13.sp, FontWeight.SemiBold)
+    val RowSubtitle: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(10.5.sp, lineHeight = 1.35f)
+    val Value: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(12.sp)
+    val SectionLabel: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() =
+        settingsGlassText(10.5.sp, FontWeight.Bold, lineHeight = 1.25f, letterSpacing = 0.08.em)
+    val Chip: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(11.sp, FontWeight.SemiBold)
+    val SliderValue: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(13.sp, FontWeight.SemiBold)
+    val PageTitle: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(20.sp, FontWeight.SemiBold)
+    val PageSubtitle: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(11.5.sp)
+    val Breadcrumb: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(11.sp)
+    val DialogTitle: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(18.sp, FontWeight.Bold)
+    val DialogButton: TextStyle @Composable @androidx.compose.runtime.ReadOnlyComposable get() = settingsGlassText(12.sp, FontWeight.SemiBold)
+    @Composable
+    @androidx.compose.runtime.ReadOnlyComposable
+    fun rail(selected: Boolean): TextStyle = settingsGlassText(13.sp, if (selected) FontWeight.SemiBold else FontWeight.Medium)
 }
 
 @Composable
@@ -476,7 +533,11 @@ internal fun SettingsRailButton(
         modifier = appliedModifier
             .padding(top = NuvioTheme.spacing.xxs, bottom = NuvioTheme.spacing.xxs)
             .fillMaxWidth()
-            .heightIn(min = SettingsRailItemHeight)
+            .then(
+                // Launcher look: exactly 52 tall, 2 above and below, like the mockup's rail.
+                if (glass) Modifier.height(SettingsGlassColors.RailItemHeight)
+                else Modifier.heightIn(min = SettingsRailItemHeight)
+            )
             .onFocusChanged { state ->
                 val nowFocused = state.isFocused
                 if (isFocused != nowFocused) {
@@ -525,7 +586,10 @@ internal fun SettingsRailButton(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = SettingsRailItemHeight),
+                .then(
+                    if (glass) Modifier.height(SettingsGlassColors.RailItemHeight)
+                    else Modifier.heightIn(min = SettingsRailItemHeight)
+                ),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
@@ -569,14 +633,17 @@ internal fun SettingsRailButton(
                     }
 
                     if (rawIconRes != null || icon != null) {
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(if (glass) 12.dp else 10.dp))
                     }
 
                     FocusMarqueeText(
                         text = title,
                         focused = isFocused,
                         modifier = Modifier.clearAndSetSemantics {},
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        style = if (glass) {
+                            // 13, weight 500; the current section 600.
+                            SettingsGlassType.rail(selected = isSelected)
+                        } else MaterialTheme.typography.titleMedium.copy(
                             fontWeight = if (isSelected || isFocused) FontWeight.SemiBold else FontWeight.Medium
                         ),
                         color = railContentColor,
@@ -709,6 +776,41 @@ internal fun SettingsDetailHeader(
     subtitle: String,
     modifier: Modifier = Modifier
 ) {
+    if (isSettingsGlass()) {
+        // Launcher look: breadcrumb 11 (sub-pages only), title 20 SemiBold 2 below it, subtitle 11.5 3 below.
+        // The 14 down to the panel is the page column's own spacing.
+        Column(modifier = modifier.fillMaxWidth()) {
+            val breadcrumb = LocalSettingsBreadcrumb.current
+            if (!breadcrumb.isNullOrBlank()) {
+                Text(
+                    text = breadcrumb,
+                    style = SettingsGlassType.Breadcrumb,
+                    color = SettingsGlassColors.TextIdleSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = title,
+                style = SettingsGlassType.PageTitle,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = SettingsGlassType.PageSubtitle,
+                    color = SettingsGlassColors.TextIdleSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 3.dp)
+                )
+            }
+        }
+        return
+    }
     when (NuvioTheme.settingsUiStyle) {
         SettingsUiStyle.ZEN -> Column(
             modifier = modifier
@@ -855,18 +957,19 @@ private fun SettingsGlassGroupCard(
     val nested = LocalSettingsInGlassCard.current
     val header: @Composable ColumnScope.() -> Unit = {
         if (!title.isNullOrBlank()) {
+            // Section label: 10.5 Bold uppercase, 0.08em apart, white .6; 12 above it inside a panel
+            // (none when it opens the panel), 8 below (the column's spacing).
             Text(
                 text = title.uppercase(),
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                letterSpacing = 1.2.sp,
+                style = SettingsGlassType.SectionLabel,
                 color = SettingsGlassColors.TextIdleSecondary,
-                modifier = Modifier.padding(start = 4.dp)
+                modifier = Modifier.padding(start = 4.dp, top = if (nested) SettingsGlassColors.SectionLabelTop else 0.dp)
             )
         }
         if (!subtitle.isNullOrBlank()) {
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
+                style = SettingsGlassType.RowSubtitle,
                 color = SettingsGlassColors.TextIdleSecondary,
                 modifier = Modifier.padding(start = 4.dp)
             )
@@ -875,7 +978,7 @@ private fun SettingsGlassGroupCard(
     if (nested) {
         Column(
             modifier = modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(SettingsGlassColors.RowGap)
         ) {
             header()
             content()
@@ -891,13 +994,69 @@ private fun SettingsGlassGroupCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(SettingsGlassColors.PanelPadding),
+                verticalArrangement = Arrangement.spacedBy(SettingsGlassColors.RowGap)
             ) {
                 header()
                 content()
             }
         }
+    }
+}
+
+/**
+ * The launcher glass panel with nothing laid out in it, for a page whose own list scrolls inside the
+ * panel (pass [SettingsGlassPanelContentPadding] to that list). Cards inside draw as plain groups with
+ * section labels. Off the glass it is a plain box.
+ */
+@Composable
+internal fun SettingsGlassPanel(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    if (!isSettingsGlass()) {
+        Box(modifier = modifier, content = content)
+        return
+    }
+    LauncherGlass(
+        modifier = modifier.fillMaxWidth(),
+        shape = SettingsGlassColors.GroupShape,
+        hazeState = LocalSettingsHazeState.current
+    ) {
+        val scope = this
+        CompositionLocalProvider(LocalSettingsInGlassCard provides true) {
+            scope.content()
+        }
+    }
+}
+
+/**
+ * One glass panel holding a page's sections, scrolling inside the panel (the page title stays put),
+ * as in the launcher Settings mockup. Off the glass it is a plain scrolling column.
+ */
+@Composable
+internal fun SettingsGlassScrollPanel(
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    if (!isSettingsGlass()) {
+        Column(
+            modifier = modifier.fillMaxWidth().verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            content = content
+        )
+        return
+    }
+    SettingsGlassPanel(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(SettingsGlassPanelContentPadding),
+            verticalArrangement = Arrangement.spacedBy(SettingsGlassColors.RowGap),
+            content = content
+        )
     }
 }
 
@@ -916,6 +1075,7 @@ internal fun SettingsToggleRow(
 ) {
     val contentAlpha = if (enabled) 1f else 0.4f
     var isFocused by remember { mutableStateOf(false) }
+    val glass = isSettingsGlass()
 
     Card(
         onClick = {
@@ -923,7 +1083,8 @@ internal fun SettingsToggleRow(
         },
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 62.dp)
+            // On the glass the minimum is on the content row, so short rows stay centred.
+            .then(if (glass) Modifier else Modifier.heightIn(min = 62.dp))
             .focusProperties { canFocus = enabled }
             .semantics {
                 if (!enabled) disabled()
@@ -945,7 +1106,15 @@ internal fun SettingsToggleRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md),
+                .then(
+                    if (glass) {
+                        Modifier
+                            .heightIn(min = SettingsGlassColors.RowMinHeight)
+                            .padding(horizontal = SettingsGlassColors.RowPaddingH, vertical = SettingsGlassColors.RowPaddingV)
+                    } else {
+                        Modifier.padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md)
+                    }
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -953,7 +1122,7 @@ internal fun SettingsToggleRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = if (glass) SettingsGlassType.RowTitle else MaterialTheme.typography.bodyLarge,
                         color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -975,14 +1144,14 @@ internal fun SettingsToggleRow(
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = if (glass) SettingsGlassType.RowSubtitle else MaterialTheme.typography.bodySmall,
                         color = settingsSecondaryColor(isFocused).copy(alpha = contentAlpha),
-                        maxLines = if (expandSubtitleOnFocus && isFocused) 8 else 3,
+                        maxLines = if (expandSubtitleOnFocus && isFocused) 8 else if (glass) 2 else 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+            Spacer(modifier = Modifier.width(if (glass) 16.dp else NuvioTheme.spacing.md))
             SettingsTogglePill(
                 checked = checked,
                 enabled = enabled,
@@ -1011,11 +1180,13 @@ internal fun SettingsActionRow(
 ) {
     val contentAlpha = if (enabled) 1f else 0.4f
     var isFocused by remember { mutableStateOf(false) }
+    val glass = isSettingsGlass()
 
     Card(
         onClick = { if (enabled) onClick() },
         modifier = modifier
-            .padding(top = NuvioTheme.spacing.xxs, bottom = NuvioTheme.spacing.xxs)
+            // On the glass rows are exactly 8 apart: no extra space around each one.
+            .then(if (glass) Modifier else Modifier.padding(top = NuvioTheme.spacing.xxs, bottom = NuvioTheme.spacing.xxs))
             .fillMaxWidth()
             .focusProperties { canFocus = enabled }
             .semantics {
@@ -1037,8 +1208,17 @@ internal fun SettingsActionRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 62.dp)
-                .padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md),
+                .then(
+                    if (glass) {
+                        Modifier
+                            .heightIn(min = SettingsGlassColors.RowMinHeight)
+                            .padding(horizontal = SettingsGlassColors.RowPaddingH, vertical = SettingsGlassColors.RowPaddingV)
+                    } else {
+                        Modifier
+                            .heightIn(min = 62.dp)
+                            .padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md)
+                    }
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (leadingRawIconRes != null) {
@@ -1050,16 +1230,16 @@ internal fun SettingsActionRow(
                         .alpha(contentAlpha),
                     contentScale = ContentScale.Fit
                 )
-                Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
+                Spacer(modifier = Modifier.width(if (glass) 12.dp else NuvioTheme.spacing.lg))
             } else if (leadingIcon != null) {
                 SettingsRowLeadingIcon(icon = leadingIcon, enabled = enabled, focused = isFocused)
-                Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
+                Spacer(modifier = Modifier.width(if (glass) 12.dp else NuvioTheme.spacing.lg))
             }
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = if (glass) SettingsGlassType.RowTitle else MaterialTheme.typography.bodyLarge,
                         color = settingsTitleColor(isFocused).copy(alpha = contentAlpha),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1081,12 +1261,54 @@ internal fun SettingsActionRow(
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
                     Text(
                         text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = if (glass) SettingsGlassType.RowSubtitle else MaterialTheme.typography.bodySmall,
                         color = settingsSecondaryColor(isFocused).copy(alpha = contentAlpha),
-                        maxLines = 3,
+                        maxLines = if (glass) 2 else 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+
+            if (glass) {
+                // Launcher look: the value in 12 white .72 followed by " ›" (or "⌄" for a section that
+                // opens), dark on the focused white row.
+                val defaultValueColor = if (isFocused) LauncherStyle.FocusText.copy(alpha = 0.65f) else LauncherStyle.Soft
+                val shownValueColor = if (valueColor != NuvioTheme.colors.TextSecondary) valueColor else defaultValueColor
+                val glyph = when (trailingIcon) {
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight -> "›"
+                    Icons.Default.ExpandMore -> "⌄"
+                    else -> null
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!value.isNullOrBlank()) {
+                        Text(
+                            text = value,
+                            style = SettingsGlassType.Value,
+                            color = shownValueColor.copy(alpha = contentAlpha),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 260.dp)
+                        )
+                    }
+                    if (glyph != null) {
+                        Text(
+                            text = if (value.isNullOrBlank()) glyph else " $glyph",
+                            style = SettingsGlassType.Value,
+                            color = defaultValueColor.copy(alpha = contentAlpha),
+                            maxLines = 1
+                        )
+                    } else {
+                        if (!value.isNullOrBlank()) Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = trailingIcon,
+                            contentDescription = null,
+                            tint = defaultValueColor.copy(alpha = contentAlpha),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                return@Row
             }
 
             if (!value.isNullOrBlank()) {
@@ -1364,9 +1586,15 @@ internal fun SettingsDialogActionButton(
     text: String,
     onClick: () -> Unit,
     primary: Boolean = false,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
+    if (isSettingsGlass()) {
+        SettingsGlassDialogButton(text = text, onClick = onClick, enabled = enabled, modifier = modifier)
+        return
+    }
     Button(
+        modifier = modifier,
         onClick = onClick,
         enabled = enabled,
         colors = ButtonDefaults.colors(
@@ -1378,6 +1606,48 @@ internal fun SettingsDialogActionButton(
             text = text,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+/**
+ * A dialog button on the launcher glass: a pill, 12 SemiBold, 7 by 16 inside; white .18 with white
+ * text, the launcher's white with dark text when focused.
+ */
+@Composable
+internal fun SettingsGlassDialogButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    Card(
+        onClick = { if (enabled) onClick() },
+        modifier = modifier
+            .focusProperties { canFocus = enabled }
+            .onFocusChanged { isFocused = it.isFocused }
+            .semantics {
+                role = Role.Button
+                if (!enabled) disabled()
+            },
+        colors = CardDefaults.colors(
+            containerColor = SettingsGlassColors.RailSelected,
+            contentColor = Color.White,
+            focusedContainerColor = LauncherStyle.FocusWhite,
+            focusedContentColor = LauncherStyle.FocusText
+        ),
+        border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
+        shape = CardDefaults.shape(RoundedCornerShape(SettingsPillRadius)),
+        scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+    ) {
+        Text(
+            text = text,
+            style = SettingsGlassType.DialogButton,
+            color = (if (isFocused) LauncherStyle.FocusText else Color.White).copy(alpha = if (enabled) 1f else 0.4f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
         )
     }
 }
@@ -1460,8 +1730,9 @@ internal fun SettingsChoiceChip(
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
         Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium.copy(
+            // Launcher look: a ticked chip reads "✓ label".
+            text = if (glass && selected) "✓ $label" else label,
+            style = (if (glass) SettingsGlassType.Chip else MaterialTheme.typography.labelMedium).copy(
                 textDirection = label.contentTextDirection()
             ),
             color = when {
@@ -1471,7 +1742,12 @@ internal fun SettingsChoiceChip(
                 selected || isFocused -> NuvioTheme.colors.TextPrimary
                 else -> NuvioTheme.colors.TextSecondary
             },
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.lg, vertical = 10.dp)
+            maxLines = 1,
+            modifier = if (glass) {
+                Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+            } else {
+                Modifier.padding(horizontal = NuvioTheme.spacing.lg, vertical = 10.dp)
+            }
         )
     }
 }
@@ -1509,16 +1785,17 @@ private fun SettingsTogglePill(
     }
     Box(
         modifier = Modifier
-            .width(46.dp)
-            .height(NuvioTheme.spacing.xl)
+            // Launcher look: a 34 by 19 switch with a 14 knob, 2.5 in from the edge.
+            .width(if (glass) 34.dp else 46.dp)
+            .height(if (glass) 19.dp else NuvioTheme.spacing.xl)
             .clip(RoundedCornerShape(SettingsPillRadius))
             .background(trackColor)
-            .padding(NuvioTheme.spacing.xxs),
+            .padding(if (glass) 2.5.dp else NuvioTheme.spacing.xxs),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         Box(
             modifier = Modifier
-                .size(20.dp)
+                .size(if (glass) 14.dp else 20.dp)
                 .clip(CircleShape)
                 .background(knobColor)
         )

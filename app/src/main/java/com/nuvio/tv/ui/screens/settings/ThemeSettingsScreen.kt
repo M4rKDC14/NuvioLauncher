@@ -175,17 +175,21 @@ fun ThemeSettingsContent(
         themeRowState.scrollToItem(selectedIndex)
         initialFocusRequester?.requestFocusAfterFrames()
     }
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
+    // The title stays put and the sections scroll inside one glass panel below it.
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        SettingsDetailHeader(
+            title = stringResource(R.string.appearance_title),
+            subtitle = stringResource(R.string.appearance_subtitle)
+        )
+        SettingsGlassScrollPanel(
+            scrollState = themeScrollState,
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(themeScrollState),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxWidth()
+                .weight(1f)
         ) {
-            SettingsDetailHeader(
-                title = stringResource(R.string.appearance_title),
-                subtitle = stringResource(R.string.appearance_subtitle)
-            )
 
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -329,7 +333,6 @@ fun ThemeSettingsContent(
                 )
             }
         }
-        SettingsVerticalScrollIndicators(state = themeScrollState)
     }
 
     if (showCustomThemeDialog && AppTheme.CUSTOM in uiState.availableThemes) {

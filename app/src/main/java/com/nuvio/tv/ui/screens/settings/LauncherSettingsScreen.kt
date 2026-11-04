@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -8,6 +8,15 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.key
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -130,62 +139,59 @@ private fun LauncherSettingsMainPage(
     val resetRowFocus = remember { FocusRequester() }
     val catalogs = layoutState.availableCatalogs
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            SettingsDetailHeader(title = LauncherTitle, subtitle = LauncherSubtitle)
+    // The title stays put and the sections scroll inside one glass panel below it, as in the mockup.
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        SettingsDetailHeader(title = LauncherTitle, subtitle = LauncherSubtitle)
 
+        SettingsGlassScrollPanel(
+            scrollState = scrollState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
             // ---- Carousel ----
             SettingsGroupCard(modifier = Modifier.fillMaxWidth(), title = "Carousel") {
-                LauncherRowText(
+                // Title, description and the catalog chips together in one row card.
+                LauncherRowCard(
                     title = "Carousel catalogs",
                     subtitle = "Which catalogs the Home carousel takes its titles from. Same list as Nuvio's \"Hero Catalogs\". None ticked: the first Home row."
-                )
-                if (catalogs.isEmpty()) {
-                    Text(
-                        text = "No Home catalogs yet",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NuvioTheme.colors.TextTertiary,
-                        modifier = Modifier.padding(horizontal = SettingsRowContentInset, vertical = NuvioTheme.spacing.xs)
-                    )
-                } else {
-                    val firstCatalogFocus = remember { FocusRequester() }
-                    val catalogRowState = rememberLazyListState()
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        LazyRow(
-                            state = catalogRowState,
+                ) {
+                    if (catalogs.isEmpty()) {
+                        Text(
+                            text = "No Home catalogs yet",
+                            style = SettingsGlassType.RowSubtitle,
+                            color = SettingsGlassColors.TextIdleSecondary
+                        )
+                    } else {
+                        val firstCatalogFocus = remember { FocusRequester() }
+                        FlowRow(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .settingsOptionRow(firstCatalogFocus),
-                            contentPadding = PaddingValues(
-                                start = SettingsRowContentInset,
-                                end = NuvioTheme.spacing.sm,
-                                top = NuvioTheme.spacing.xxs,
-                                bottom = NuvioTheme.spacing.xs
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            verticalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
-                            itemsIndexed(items = catalogs, key = { _, catalog -> catalog.key }) { index, catalog ->
-                                SettingsChoiceChip(
-                                    label = catalogChipLabel(catalog),
-                                    selected = catalog.key in layoutState.heroCatalogKeys,
-                                    onClick = { onToggleHeroCatalog(catalog.key) },
-                                    multiSelect = true,
-                                    modifier = if (index == 0) {
-                                        Modifier
-                                            .focusRequester(firstCatalogFocus)
-                                            .then(initialFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
-                                    } else {
-                                        Modifier
-                                    }
-                                )
+                            catalogs.forEachIndexed { index, catalog ->
+                                key(catalog.key) {
+                                    SettingsChoiceChip(
+                                        label = catalogChipLabel(catalog),
+                                        selected = catalog.key in layoutState.heroCatalogKeys,
+                                        onClick = { onToggleHeroCatalog(catalog.key) },
+                                        multiSelect = true,
+                                        modifier = if (index == 0) {
+                                            Modifier
+                                                .focusRequester(firstCatalogFocus)
+                                                .then(initialFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                                }
                             }
                         }
-                        SettingsHorizontalScrollIndicators(state = catalogRowState)
                     }
                 }
                 LauncherChoiceRow(
@@ -288,9 +294,7 @@ private fun LauncherSettingsMainPage(
                     modifier = Modifier.focusRequester(resetRowFocus)
                 )
             }
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
         }
-        SettingsVerticalScrollIndicators(state = scrollState)
     }
 
     if (showResetDialog) {
@@ -325,31 +329,42 @@ private fun catalogChipLabel(catalog: CatalogInfo): String {
     return listOf(catalog.addonName, catalog.name, type).filter { it.isNotBlank() }.joinToString(" · ")
 }
 
-/** A title and description on their own, above a row of chips. */
+/**
+ * A row card that is not itself focusable: title and description, then [content] (chips) 8 below,
+ * on the row's white .07 ground, 9 above, 16 on the sides and 11 below, as in the mockup.
+ */
 @Composable
-private fun LauncherRowText(title: String, subtitle: String?) {
+private fun LauncherRowCard(
+    title: String,
+    subtitle: String?,
+    content: @Composable () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = SettingsRowContentInset, vertical = NuvioTheme.spacing.xs)
+            .clip(settingsRowShape())
+            .background(SettingsGlassColors.RowIdle)
+            .padding(start = 16.dp, end = 16.dp, top = 9.dp, bottom = 11.dp)
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = NuvioTheme.colors.TextPrimary,
+            style = SettingsGlassType.RowTitle,
+            color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         if (!subtitle.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = NuvioTheme.colors.TextSecondary,
-                maxLines = 3,
+                style = SettingsGlassType.RowSubtitle,
+                color = SettingsGlassColors.TextIdleSecondary,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        content()
     }
 }
 
@@ -364,36 +379,39 @@ private fun <T> LauncherChoiceRow(
     firstOptionModifier: Modifier = Modifier
 ) {
     val firstOptionFocus = remember { FocusRequester() }
+    // A row card (white .07, 50 high, 8 by 16 inside) with the choice chips 6 apart at its right.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 62.dp)
-            .padding(horizontal = SettingsRowContentInset, vertical = NuvioTheme.spacing.sm),
+            .clip(settingsRowShape())
+            .background(SettingsGlassColors.RowIdle)
+            .heightIn(min = SettingsGlassColors.RowMinHeight)
+            .padding(horizontal = SettingsGlassColors.RowPaddingH, vertical = SettingsGlassColors.RowPaddingV),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = NuvioTheme.colors.TextPrimary,
+                style = SettingsGlassType.RowTitle,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (!subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NuvioTheme.colors.TextSecondary,
+                    style = SettingsGlassType.RowSubtitle,
+                    color = SettingsGlassColors.TextIdleSecondary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
-        Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+        Spacer(modifier = Modifier.width(16.dp))
         Row(
             modifier = Modifier.settingsOptionRow(firstOptionFocus),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             options.forEachIndexed { index, (value, label) ->
@@ -466,22 +484,34 @@ private fun TilePreviewStrip(sizePercent: Int, spacingDp: Int, zoomPercent: Int)
     val tileH = 126.dp * scale * factor
     val gap = spacingDp.dp * factor
     val shape = RoundedCornerShape(3.dp)
-    Column(
+    // Launcher look: the tiles on a dark well (black .25, radius 10, 70 high), 14 in from its left,
+    // with a small "Preview" at its bottom right.
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = SettingsRowContentInset, vertical = NuvioTheme.spacing.xs)
+            .heightIn(min = 70.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color.Black.copy(alpha = 0.25f))
     ) {
         Text(
             text = "Preview",
-            style = MaterialTheme.typography.labelMedium,
-            color = NuvioTheme.colors.TextTertiary
+            style = settingsGlassText(8.5.sp),
+            color = SettingsGlassColors.TextIdleSecondary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 10.dp, bottom = 6.dp)
         )
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = 14.dp)
                 // room for the largest size at the largest zoom, so the rows below do not move
-                .height(126.dp * (LauncherSettings.MAX_SIZE / 100f) * (LauncherSettings.MAX_ZOOM / 100f) * factor + 4.dp)
+                .height(
+                    maxOf(
+                        70.dp,
+                        126.dp * (LauncherSettings.MAX_SIZE / 100f) * (LauncherSettings.MAX_ZOOM / 100f) * factor + 8.dp
+                    )
+                )
                 .clipToBounds(),
             horizontalArrangement = Arrangement.spacedBy(gap),
             verticalAlignment = Alignment.CenterVertically
@@ -499,7 +529,7 @@ private fun TilePreviewStrip(sizePercent: Int, spacingDp: Int, zoomPercent: Int)
                         }
                         .clip(shape)
                         .background(
-                            NuvioTheme.colors.TextPrimary.copy(alpha = if (focused) 0.55f else 0.16f)
+                            Color.White.copy(alpha = if (focused) 0.55f else 0.16f)
                         )
                 )
             }
@@ -515,30 +545,22 @@ private fun ResetLauncherSettingsDialog(onCancel: () -> Unit, onReset: () -> Uni
         title = "Reset launcher settings?",
         suppressFirstKeyUp = false
     ) {
+        // Pills 8 apart at the right: the focused one white with dark text, the other white .18.
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm, Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(
+            SettingsDialogActionButton(
+                text = "Cancel",
                 onClick = onCancel,
-                modifier = Modifier.focusRequester(cancelFocus),
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary
-                )
-            ) {
-                Text(text = "Cancel", maxLines = 1)
-            }
-            Button(
+                modifier = Modifier.focusRequester(cancelFocus)
+            )
+            SettingsDialogActionButton(
+                text = "Reset",
                 onClick = onReset,
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.FocusBackground,
-                    contentColor = NuvioTheme.colors.TextPrimary
-                )
-            ) {
-                Text(text = "Reset", maxLines = 1)
-            }
+                primary = true
+            )
         }
     }
     // Cancel has focus first, so a stray OK changes nothing.
@@ -565,7 +587,10 @@ private fun HideAppsPage(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        SettingsDetailHeader(title = "$LauncherTitle › Hide apps", subtitle = LauncherSubtitle)
+        // A sub-page: "Launcher ›" above the title.
+        CompositionLocalProvider(LocalSettingsBreadcrumb provides "$LauncherTitle ›") {
+            SettingsDetailHeader(title = "Hide apps", subtitle = LauncherSubtitle)
+        }
         SettingsGroupCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -586,7 +611,7 @@ private fun HideAppsPage(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
                         items(items = loaded, key = { it.pkg }) { app ->
                             HideAppRow(
@@ -611,26 +636,30 @@ private fun HideAppRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var isFocused by remember { mutableStateOf(false) }
     Card(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused },
         colors = settingsRowColors(),
         border = settingsRowBorder(),
         shape = CardDefaults.shape(settingsRowShape()),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
+        // Launcher look: 7 by 14 inside, the 64 by 36 banner (radius 4), the name 12.5 SemiBold and
+        // the state 11 at the right.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .padding(horizontal = SettingsRowContentInset, vertical = NuvioTheme.spacing.sm),
+                .padding(horizontal = 14.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .size(width = 64.dp, height = 36.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f))
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.White.copy(alpha = 0.08f))
                     .graphicsLayer { alpha = if (hidden) 0.45f else 1f },
                 contentAlignment = Alignment.Center
             ) {
@@ -644,29 +673,22 @@ private fun HideAppRow(
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = app.label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = NuvioTheme.colors.TextPrimary.copy(alpha = if (hidden) 0.6f else 1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
-                Text(
-                    text = "${app.groupName} · ${if (hidden) "Hidden" else "Shown"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NuvioTheme.colors.TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = if (hidden) "Hidden" else "Shown",
-                style = MaterialTheme.typography.labelLarge,
-                color = if (hidden) NuvioTheme.colors.TextTertiary else NuvioTheme.colors.TextPrimary
+                text = app.label,
+                style = settingsGlassText(12.5.sp, FontWeight.SemiBold),
+                color = settingsTitleColor(isFocused).copy(alpha = if (hidden) 0.45f else 1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "${app.groupName} · ${if (hidden) "Hidden" else "Shown"}",
+                style = settingsGlassText(11.sp),
+                color = if (isFocused) LauncherStyle.FocusText.copy(alpha = 0.65f) else Color.White.copy(alpha = if (hidden) 0.3f else 0.65f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
