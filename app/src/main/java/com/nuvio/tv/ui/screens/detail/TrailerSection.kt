@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.layout.Arrangement
@@ -179,8 +180,8 @@ fun TrailerSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
         ) {
             itemsIndexed(
                 items = trailerItems,
@@ -209,16 +210,16 @@ fun TrailerSection(
                         }
                     )
                 ) {
-                    GridContentCard(
+                    LauncherMetaTile(
                         item = item.preview,
+                        width = 224.dp,
+                        height = 126.dp,
+                        landscape = true,
                         onClick = { onTrailerClick(item.trailer) },
-                        posterCardStyle = landscapeStyle,
-                        showLabel = true,
-                        imageCrossfade = true,
+                        subtitle = item.preview.releaseInfo,
                         focusRequester = focusRequester,
                         upFocusRequester = upFocusRequester,
                         downFocusRequester = downFocusRequester,
-                        depthSurface = CardDepthSurface.TRAILERS,
                         onFocused = {
                             onLastFocusedTrailerIdChange(item.preview.id)
                             onTrailerFocused(item.trailer)
@@ -228,20 +229,6 @@ fun TrailerSection(
                             }
                         }
                     )
-
-                    val subtitle = item.preview.releaseInfo
-                    if (!subtitle.isNullOrBlank()) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = NuvioTheme.colors.TextTertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .width(landscapeStyle.width)
-                                .padding(start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs, top = NuvioTheme.spacing.xxs)
-                        )
-                    }
                 }
             }
         }

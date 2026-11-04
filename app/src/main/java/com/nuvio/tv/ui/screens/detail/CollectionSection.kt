@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import androidx.compose.ui.focus.onFocusChanged
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -116,24 +118,25 @@ fun CollectionSection(
         )
     }
 
+    var rowHasFocus by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else 20.dp, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else 26.dp, bottom = NuvioTheme.spacing.sm)
     ) {
         if (!title.isNullOrBlank()) {
-            Text(
+            LauncherRowTitle(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = NuvioTheme.colors.TextPrimary,
+                highlighted = rowHasFocus,
                 modifier = Modifier
-                    .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.sm)
+                    .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, bottom = NuvioTheme.spacing.xs)
             )
         }
         LazyRow(
             state = listState,
             modifier = Modifier
                 .fillMaxWidth()
+                .onFocusChanged { rowHasFocus = it.hasFocus }
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .focusRestorer {
                     when {
@@ -143,8 +146,8 @@ fun CollectionSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
         ) {
             itemsIndexed(
                 items = items,
@@ -171,13 +174,14 @@ fun CollectionSection(
                         }
                     )
                 ) {
-                    GridContentCard(
+                    LauncherMetaTile(
                         item = item,
+                        width = 224.dp,
+                        height = 126.dp,
+                        landscape = true,
                         onClick = { onItemClick(item) },
                         onLongPress = { onItemLongPress(item) },
-                        posterCardStyle = landscapeStyle,
-                        showLabel = true,
-                        imageCrossfade = true,
+                        subtitle = item.releaseInfo,
                         isWatched = isItemWatched(item),
                         focusRequester = focusRequester,
                         upFocusRequester = upFocusRequester,
@@ -191,19 +195,6 @@ fun CollectionSection(
                             }
                         }
                     )
-                    val year = item.releaseInfo
-                    if (!year.isNullOrBlank()) {
-                        Text(
-                            text = year,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = NuvioTheme.colors.TextTertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .width(landscapeStyle.width)
-                                .padding(start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs, top = NuvioTheme.spacing.xxs)
-                        )
-                    }
                 }
             }
         }

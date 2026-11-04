@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -134,8 +135,8 @@ fun MoreLikeThisSection(
                     }
                 }
                 .focusGroup(),
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(LauncherStyle.Gap)
         ) {
             itemsIndexed(
                 items = items,
@@ -162,13 +163,14 @@ fun MoreLikeThisSection(
                         }
                     )
                 ) {
-                    GridContentCard(
+                    LauncherMetaTile(
                         item = item,
+                        width = 224.dp,
+                        height = 126.dp,
+                        landscape = true,
                         onClick = { onItemClick(item) },
                         onLongPress = { onItemLongPress(item) },
-                        posterCardStyle = landscapeStyle,
-                        showLabel = true,
-                        imageCrossfade = true,
+                        subtitle = item.releaseInfo,
                         isWatched = isItemWatched(item),
                         focusRequester = focusRequester,
                         upFocusRequester = upFocusRequester,
@@ -182,19 +184,6 @@ fun MoreLikeThisSection(
                             }
                         }
                     )
-                    val year = item.releaseInfo
-                    if (!year.isNullOrBlank()) {
-                        Text(
-                            text = year,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = NuvioTheme.colors.TextTertiary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .width(landscapeStyle.width)
-                                .padding(start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs, top = NuvioTheme.spacing.xxs)
-                        )
-                    }
                 }
             }
         }
@@ -205,7 +194,7 @@ fun MoreLikeThisSection(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.bodySmall,
-                    color = NuvioTheme.colors.TextTertiary,
+                    color = LauncherStyle.Dim,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier

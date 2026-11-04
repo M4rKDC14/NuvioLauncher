@@ -5,6 +5,11 @@
 
 package com.nuvio.tv.ui.screens.detail
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.shadow
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -109,6 +114,7 @@ fun CompanyLogosSection(
     }
 
     var holdRestoreScrollSuppress by remember { mutableStateOf(false) }
+    var rowHasFocus by remember { mutableStateOf(false) }
     var revealOverflowPx by remember { mutableFloatStateOf(0f) }
     val view = LocalView.current
     val density = LocalDensity.current
@@ -150,22 +156,22 @@ fun CompanyLogosSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp, bottom = NuvioTheme.spacing.sm)
+            .padding(top = 26.dp, bottom = NuvioTheme.spacing.sm)
             .onGloballyPositioned { coords ->
                 val bounds = coords.boundsInWindow()
                 revealOverflowPx = (bounds.bottom - view.height + revealPaddingPx).coerceAtLeast(0f)
             }
     ) {
-        Text(
+        LauncherRowTitle(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = NuvioTheme.colors.TextPrimary,
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+            highlighted = rowHasFocus,
+            modifier = Modifier.padding(horizontal = LauncherStyle.Start)
         )
 
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
+                .onFocusChanged { rowHasFocus = it.hasFocus }
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .focusRestorer {
                     when {
@@ -175,8 +181,8 @@ fun CompanyLogosSection(
                 }
                 .focusGroup(),
             state = listState,
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 14.dp, bottom = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             itemsIndexed(
                 items = companies,
@@ -259,7 +265,26 @@ private fun CompanyLogoCard(
         }
     }
     var logoLoadFailed by remember(company.logo) { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
+    val launcherScale by animateFloatAsState(
+        targetValue = if (isFocused) LauncherStyle.Zoom else 1f,
+        animationSpec = tween(160),
+        label = "companyZoom"
+    )
 
+    Box(
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = launcherScale
+                scaleY = launcherScale
+            }
+            .shadow(
+                elevation = if (isFocused) 17.dp else 7.dp,
+                shape = LauncherStyle.Corner,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+    ) {
     Card(
         onClick = {
             if (company.tmdbId != null) {
@@ -284,27 +309,23 @@ private fun CompanyLogoCard(
                 }
             }
             .onFocusChanged { state ->
+                isFocused = state.isFocused
                 if (state.isFocused) onFocused()
             },
-        shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.sm)),
+        shape = CardDefaults.shape(shape = LauncherStyle.Corner),
         colors = CardDefaults.colors(
-            containerColor = Color.White,
+            containerColor = LauncherStyle.FocusWhite,
             focusedContainerColor = Color.White
         ),
-        border = CardDefaults.border(
-            focusedBorder = Border(
-                border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                shape = RoundedCornerShape(NuvioTheme.radii.sm)
-            )
-        ),
-        scale = CardDefaults.scale(focusedScale = 1.03f)
+        border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
+        scale = CardDefaults.scale(focusedScale = 1f)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(NuvioTheme.spacing.huge)
-                .clip(RoundedCornerShape(NuvioTheme.radii.sm))
-                .background(Color.White),
+                .clip(LauncherStyle.Corner)
+                .background(if (isFocused) Color.White else LauncherStyle.FocusWhite),
         contentAlignment = Alignment.Center
         ) {
             if (logoModel != null && !logoLoadFailed) {
@@ -321,12 +342,13 @@ private fun CompanyLogoCard(
                 Text(
                     text = company.name,
                     style = MaterialTheme.typography.labelLarge,
-                    color = NuvioTheme.extendedColors.textSecondary,
+                    color = LauncherStyle.FocusText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = NuvioTheme.spacing.lg)
                 )
             }
         }
+    }
     }
 }

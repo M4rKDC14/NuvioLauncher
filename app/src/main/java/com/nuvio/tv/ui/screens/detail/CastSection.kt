@@ -55,6 +55,15 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -197,8 +206,9 @@ fun CastSection(
         holdEnterRowScrollSuppress = false
     }
 
-    val itemWidth = 150.dp
-    val cardSize = 100.dp
+    // Launcher look: round 84dp photos in 100dp columns, 14dp apart.
+    val itemWidth = 100.dp
+    val cardSize = 84.dp
     val hasTitle = title.isNotBlank()
     val currentUpFocusRequester by rememberUpdatedState(upFocusRequester)
     val currentDownFocusRequester by rememberUpdatedState(downFocusRequester)
@@ -215,7 +225,7 @@ fun CastSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = if (hasTitle) 20.dp else NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (hasTitle) 26.dp else NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm)
             .onGloballyPositioned { coords ->
                 val bounds = coords.boundsInWindow()
                 val next = bounds.top >= -1f &&
@@ -229,11 +239,13 @@ fun CastSection(
         if (hasTitle) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
-                color = NuvioTheme.colors.TextPrimary,
-                modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+                color = if (rowHasFocus) Color.White else LauncherStyle.Soft,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = LauncherStyle.Start)
             )
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
+            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
         }
 
         LazyRow(
@@ -257,10 +269,10 @@ fun CastSection(
                 }
                 .focusGroup(),
             state = listState,
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+            contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 12.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.Start
         ) {
-            val standardGap = NuvioTheme.spacing.sm
+            val standardGap = 14.dp
             val deadSpace = itemWidth - cardSize
 
             if (leadingCast.isNotEmpty()) {
@@ -439,8 +451,10 @@ private fun CastMemberItem(
         with(density) { cardSize.roundToPx() }
     }
     val typography = MaterialTheme.typography
-    val nameStyle = remember(typography) { typography.labelMedium }
-    val characterStyle = remember(typography) { typography.labelSmall }
+    val nameStyle = remember(typography) {
+        typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold)
+    }
+    val characterStyle = remember(typography) { typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 13.sp) }
     val initialsStyle = remember(typography) { typography.titleLarge }
     val photo = member.photo
     val photoModel = remember(context, photo, cardSizePx) {
@@ -454,6 +468,11 @@ private fun CastMemberItem(
     }
 
     var isFocused by remember { mutableStateOf(false) }
+    val launcherScale by animateFloatAsState(
+        targetValue = if (isFocused) LauncherStyle.Zoom else 1f,
+        animationSpec = tween(160),
+        label = "castZoom"
+    )
     val cardDepthStyle = LocalCardDepthStyle.current
     val labelAreaHeight = remember(density, nameStyle, characterStyle) {
         with(density) {
@@ -465,7 +484,7 @@ private fun CastMemberItem(
 
     Column(
         modifier = Modifier.width(itemWidth),
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // The visible name/character live in the sibling Column below and the portrait carries the
         // photo's description, so the focusable card replaces all of them with one stable name:
@@ -475,11 +494,23 @@ private fun CastMemberItem(
             ?.takeIf { it.isNotBlank() }
             ?.let { "${member.name}, $it" }
             ?: member.name
+        Box(
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = launcherScale
+                    scaleY = launcherScale
+                }
+                .shadow(
+                    elevation = if (isFocused) 17.dp else 7.dp,
+                    shape = CircleShape,
+                    ambientColor = Color.Black,
+                    spotColor = Color.Black
+                )
+        ) {
         Card(
             onClick = onClick,
             modifier = modifier
                 .size(cardSize)
-                .align(Alignment.Start)
                 .onFocusChanged { state ->
                     isFocused = state.isFocused
                     if (state.isFocused) onFocused()
@@ -495,12 +526,8 @@ private fun CastMemberItem(
                 containerColor = androidx.compose.ui.graphics.Color.Transparent,
                 focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent
             ),
-            border = CardDefaults.border(
-                focusedBorder = Border(
-                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                    shape = CircleShape
-                )
-            )
+            scale = CardDefaults.scale(focusedScale = 1f),
+            border = CardDefaults.border(border = Border.None, focusedBorder = Border.None)
         ) {
             Box(
                 modifier = Modifier
@@ -513,7 +540,7 @@ private fun CastMemberItem(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                val currentBgColor = if (isFocused) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.SurfaceVariant
+                val currentBgColor = if (isFocused) Color(0xFF3A3C44) else Color(0xFF2A2C33)
                 val bgPainter = remember(currentBgColor) { androidx.compose.ui.graphics.painter.ColorPainter(currentBgColor) }
 
                 if (photoModel != null) {
@@ -540,6 +567,7 @@ private fun CastMemberItem(
                 }
             }
         }
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -547,11 +575,15 @@ private fun CastMemberItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(labelAreaHeight)
+                // the focused name only moves down visually, clear of the zoomed photo
+                .graphicsLayer { translationY = if (isFocused) 8.dp.toPx() else 0f },
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = member.name,
                 style = nameStyle,
-                color = NuvioTheme.colors.TextSecondary,
+                color = if (isFocused) Color.White else LauncherStyle.Soft,
+                textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -564,13 +596,13 @@ private fun CastMemberItem(
                     character.equals("Writer", ignoreCase = true) -> stringResource(R.string.cast_role_writer)
                     else -> character
                 }
-                Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
                 Text(
                     text = displayCharacter,
                     style = characterStyle.copy(
                         textDirection = displayCharacter.contentTextDirection()
                     ),
-                    color = NuvioTheme.colors.TextTertiary,
+                    color = Color(0x80FFFFFF),
+                    textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

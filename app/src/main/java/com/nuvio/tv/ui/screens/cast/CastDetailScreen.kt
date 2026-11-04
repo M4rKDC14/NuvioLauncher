@@ -1,5 +1,11 @@
 package com.nuvio.tv.ui.screens.cast
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.shadow
+import com.nuvio.tv.ui.screens.detail.LauncherMetaTile
+import com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
@@ -124,7 +130,7 @@ fun CastDetailScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background)
+            .background(LauncherStyle.GreyBottom)
     ) {
         Crossfade(
             targetState = uiState,
@@ -210,6 +216,15 @@ private fun CastDetailContent(
     }
 
     val firstPosterFocusRequester = remember { FocusRequester() }
+    // Nuvio Launcher: the blurred backdrop of the focused title is the page's background.
+    var focusedCredit by remember(person.tmdbId) { mutableStateOf<MetaPreview?>(null) }
+    var filmographyHasFocus by remember { mutableStateOf(false) }
+    val fallbackBackdrop = remember(allCredits) {
+        allCredits.firstOrNull { !it.background.isNullOrBlank() }?.background
+    }
+    val blurredBackdropUrl = focusedCredit?.let { it.background ?: it.poster }
+        ?: fallbackBackdrop
+        ?: person.profilePhoto
     var isBiographyTruncated by rememberSaveable(person.tmdbId) { mutableStateOf(false) }
 
     // Focus restoration state for filmography row
@@ -229,25 +244,8 @@ private fun CastDetailContent(
         }
     }
 
-        Box(modifier = Modifier.fillMaxSize().background(backgroundColor)) {
-        // Left accent gradient overlay
-        val accentGradient = remember(accentColor, backgroundColor) {
-            Brush.horizontalGradient(
-                colorStops = arrayOf(
-                    0.0f to accentColor.copy(alpha = 0.26f),
-                    0.12f to accentColor.copy(alpha = 0.18f),
-                    0.28f to accentColor.copy(alpha = 0.10f),
-                    0.45f to accentColor.copy(alpha = 0.04f),
-                    0.60f to Color.Transparent
-                )
-            )
-        }
-        // Accent goes on top of the plain background to provide the Cast theme coloring
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(accentGradient)
-        )
+        Box(modifier = Modifier.fillMaxSize().background(LauncherStyle.GreyBottom)) {
+        LauncherBlurredBackdrop(url = blurredBackdropUrl)
 
         // Main content
         AnimatedVisibility(
@@ -280,10 +278,14 @@ private fun CastDetailContent(
                     Column {
                         SectionHeader(
                             title = stringResource(R.string.cast_detail_filmography),
-                            count = allCredits.size
+                            count = allCredits.size,
+                            highlighted = filmographyHasFocus
                         )
                         FilmographyRow(
                             credits = allCredits,
+                            modifier = Modifier.onFocusChanged { filmographyHasFocus = it.hasFocus },
+                            onItemFocused = { focusedCredit = it },
+                            landscape = globalLandscape,
                             posterCardStyle = filmographyPosterStyle,
                             firstItemFocusRequester = firstPosterFocusRequester,
                             restoreItemId = pendingRestoreItemId,
@@ -337,15 +339,16 @@ private fun HeroSection(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.sm),
+            .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 40.dp, bottom = NuvioTheme.spacing.sm),
         verticalAlignment = Alignment.Top
     ) {
-        // Avatar / Profile Photo
+        // Avatar / Profile Photo (Nuvio Launcher: 110x165, 7dp corners, soft shadow)
         Card(
             onClick = onPortraitClick,
             modifier = Modifier
-                .width(160.dp)
-                .height(240.dp)
+                .shadow(7.dp, LauncherStyle.Corner, ambientColor = Color.Black, spotColor = Color.Black)
+                .width(110.dp)
+                .height(165.dp)
                 .focusRequester(portraitFocusRequester)
                 .focusProperties {
                     canFocus = isBiographyExpanded || isBiographyTruncated
@@ -376,30 +379,28 @@ private fun HeroSection(
                     }
                 },
             shape = CardDefaults.shape(
-                shape = RoundedCornerShape(NuvioTheme.radii.xl)
+                shape = LauncherStyle.Corner
             ),
             colors = CardDefaults.colors(
                 containerColor = Color.Transparent,
                 focusedContainerColor = Color.Transparent
             ),
             border = CardDefaults.border(
-                border = Border(
-                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                    shape = RoundedCornerShape(NuvioTheme.radii.xl)
-                ),
+                border = Border.None,
                 focusedBorder = Border(
-                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                    shape = RoundedCornerShape(NuvioTheme.radii.xl)
+                    border = BorderStroke(2.dp, LauncherStyle.FocusWhite),
+                    shape = LauncherStyle.Corner
                 )
-            )
+            ),
+            scale = CardDefaults.scale(focusedScale = 1.04f)
         ) {
-            val bgCardColor = NuvioTheme.colors.SurfaceVariant
+            val bgCardColor = Color(0xFF2A2C33)
             val bgPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }
             val photo = person.profilePhoto
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(NuvioTheme.radii.xl))
+                    .clip(LauncherStyle.Corner)
                     .then(if (photo.isNullOrBlank()) Modifier.background(bgCardColor) else Modifier),
                 contentAlignment = Alignment.Center
             ) {
@@ -409,8 +410,8 @@ private fun HeroSection(
                             .data(photo)
                             .crossfade(true)
                             .size(
-                                width = with(LocalDensity.current) { 160.dp.roundToPx() },
-                                height = with(LocalDensity.current) { 240.dp.roundToPx() }
+                                width = with(LocalDensity.current) { 110.dp.roundToPx() },
+                                height = with(LocalDensity.current) { 165.dp.roundToPx() }
                             )
                             .build(),
                         contentDescription = person.name,
@@ -423,19 +424,21 @@ private fun HeroSection(
                 } else {
                     Text(
                         text = person.name.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.displayLarge,
-                        color = NuvioTheme.colors.TextTertiary
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LauncherStyle.Soft
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.width(NuvioTheme.spacing.xl))
+        Spacer(modifier = Modifier.width(24.dp))
 
         // Bio Column
         Column(
             modifier = Modifier
                 .weight(1f)
+                .widthIn(max = 560.dp)
                 .then(if (isBiographyExpanded) Modifier.fillMaxHeight() else Modifier)
                 .padding(top = NuvioTheme.spacing.xs)
         ) {
@@ -443,18 +446,17 @@ private fun HeroSection(
             Text(
                 text = person.name,
                 style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = 26.sp,
+                    lineHeight = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp,
                     textDirection = person.name.contentTextDirection()
                 ),
-                color = NuvioTheme.colors.TextPrimary,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
-
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Personal Info Row
             val strBorn = stringResource(R.string.cast_detail_born)
@@ -475,18 +477,20 @@ private fun HeroSection(
                 }
                 person.placeOfBirth?.let { add(it) }
             }
-            if (infoItems.isNotEmpty()) {
-                infoItems.forEach { info ->
-                    Text(
-                        text = info,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = NuvioTheme.colors.TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
-                }
-                Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
+            // One soft sub-line: department · born … · place
+            val subLine = buildList {
+                person.knownFor?.takeIf { it.isNotBlank() }?.let { add(it) }
+                addAll(infoItems)
+            }
+            if (subLine.isNotEmpty()) {
+                Text(
+                    text = subLine.joinToString(" \u00B7 "),
+                    fontSize = 12.sp,
+                    color = LauncherStyle.Soft,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
             // Biography
@@ -501,27 +505,29 @@ private fun HeroSection(
                         Text(
                             text = bio,
                             style = MaterialTheme.typography.bodyMedium.copy(
-                                lineHeight = 20.sp,
+                                fontSize = 11.5.sp,
+                                lineHeight = 16.5.sp,
                                 textDirection = bio.contentTextDirection()
                             ),
-                            color = NuvioTheme.colors.TextSecondary,
+                            color = LauncherStyle.Soft,
                             modifier = Modifier.padding(end = NuvioTheme.spacing.md)
                         )
                     }
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                     Text(
                         text = stringResource(R.string.hero_synopsis_dismiss_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NuvioTheme.colors.TextTertiary
+                        fontSize = 10.5.sp,
+                        color = LauncherStyle.Dim
                     )
                 } else {
                     Text(
                         text = bio,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            lineHeight = 20.sp,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.5.sp,
                             textDirection = bio.contentTextDirection()
                         ),
-                        color = NuvioTheme.colors.TextSecondary,
+                        color = LauncherStyle.Soft,
                         maxLines = 5,
                         overflow = TextOverflow.Ellipsis,
                         onTextLayout = { result ->
@@ -538,31 +544,32 @@ private fun HeroSection(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SectionHeader(title: String, count: Int) {
+private fun SectionHeader(title: String, count: Int, highlighted: Boolean = false) {
+    // Nuvio Launcher row title (16 bold, white while the row has focus) with a count chip.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.md, bottom = NuvioTheme.spacing.sm),
+            .padding(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 26.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = NuvioTheme.colors.TextPrimary
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (highlighted) Color.White else LauncherStyle.Soft
         )
-        Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "$count",
-            style = MaterialTheme.typography.labelMedium,
-            color = NuvioTheme.colors.TextTertiary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (highlighted) Color.White else LauncherStyle.Soft,
             modifier = Modifier
                 .background(
-                    color = NuvioTheme.colors.SurfaceVariant,
-                    shape = RoundedCornerShape(NuvioTheme.radii.xs)
+                    color = if (highlighted) Color(0x33FFFFFF) else Color(0x24FFFFFF),
+                    shape = RoundedCornerShape(5.dp)
                 )
-                .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xxs)
+                .padding(horizontal = 7.dp, vertical = 2.dp)
         )
     }
 }
@@ -572,6 +579,9 @@ private fun SectionHeader(title: String, count: Int) {
 private fun FilmographyRow(
     credits: List<MetaPreview>,
     posterCardStyle: PosterCardStyle,
+    modifier: Modifier = Modifier,
+    landscape: Boolean = false,
+    onItemFocused: (MetaPreview) -> Unit = {},
     firstItemFocusRequester: FocusRequester,
     restoreItemId: String? = null,
     restoreFocusToken: Int = 0,
@@ -600,12 +610,12 @@ private fun FilmographyRow(
     }
 
     LazyRow(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .focusRestorer { if (restorePending) restoreFocusRequester else firstItemFocusRequester },
         state = lazyListState,
-        contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+        contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 14.dp, bottom = 30.dp),
+        horizontalArrangement = Arrangement.spacedBy(22.dp)
     ) {
         itemsIndexed(
             items = credits,
@@ -619,8 +629,11 @@ private fun FilmographyRow(
                 else -> null
             }
 
-            GridContentCard(
+            LauncherMetaTile(
                 item = item,
+                width = if (landscape) 224.dp else 102.dp,
+                height = if (landscape) 126.dp else 153.dp,
+                landscape = landscape,
                 onClick = { onItemClick(item) },
                 onLongPress = { onItemLongPress(item) },
                 isWatched = isItemWatched(item),
@@ -634,10 +647,9 @@ private fun FilmographyRow(
                 } else {
                     Modifier
                 },
-                posterCardStyle = posterCardStyle,
-                showLabel = true,
                 focusRequester = itemFocusRequester,
                 onFocused = {
+                    onItemFocused(item)
                     if (isRestoreTarget && restoreFocusToken > 0) {
                         onRestoreFocusHandled()
                         restorePending = false
@@ -653,8 +665,8 @@ private fun FilmographyRow(
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CastDetailSkeleton(personName: String) {
-    val backgroundColor = NuvioTheme.colors.Background
-    val accentColor = NuvioTheme.colors.Secondary
+    val backgroundColor = LauncherStyle.GreyBottom
+    val accentColor = LauncherStyle.GreyTop
     val shimmerBrush = rememberShimmerBrush()
 
     Box(modifier = Modifier.fillMaxSize().background(backgroundColor)) {
@@ -790,7 +802,7 @@ private fun CastDetailError(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background),
+            .background(LauncherStyle.GreyBottom),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -809,10 +821,10 @@ private fun CastDetailError(
             Button(
                 onClick = onRetry,
                 colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.Secondary,
-                    contentColor = NuvioTheme.colors.OnSecondary,
-                    focusedContainerColor = NuvioTheme.colors.SecondaryVariant,
-                    focusedContentColor = NuvioTheme.colors.OnSecondaryVariant
+                    containerColor = LauncherStyle.PillIdle,
+                    contentColor = Color.White,
+                    focusedContainerColor = LauncherStyle.FocusWhite,
+                    focusedContentColor = LauncherStyle.FocusText
                 )
             ) {
                 Text(stringResource(R.string.cast_detail_retry))

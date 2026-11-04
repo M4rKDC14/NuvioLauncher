@@ -1,5 +1,9 @@
 package com.nuvio.tv.ui.screens.detail
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop
+import com.nuvio.tv.ui.launcher.LauncherStyle
 import com.nuvio.tv.ui.components.LocalPlaybackAvailability
 import com.nuvio.tv.ui.navigation.LocalDetailChildClosedEpoch
 import com.nuvio.tv.ui.navigation.LocalDetailChildOverlayVisible
@@ -2077,7 +2081,8 @@ private fun MetaDetailsContent(
     }
 
     // Backdrop alpha for crossfade
-    val backgroundColor = NuvioTheme.colors.Background
+    // Nuvio Launcher: the page's ground is the launcher grey; the backdrop's left side fades into it.
+    val backgroundColor = LauncherStyle.GreyBottom
 
     // Pre-compute gradient brushes once
 
@@ -2224,22 +2229,22 @@ private fun MetaDetailsContent(
         val transparent = backgroundColor.copy(alpha = 0f).toArgb()
         val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
-        val fadeWidth = w * 0.78f
+        val fadeWidth = w * 0.62f
         val shader = if (isRtl) {
             android.graphics.LinearGradient(
                 w.toFloat(), 0f, w - fadeWidth, 0f,
                 intArrayOf(
                     backgroundColor.copy(alpha = 1f).toArgb(),
-                    backgroundColor.copy(alpha = 0.95f).toArgb(),
-                    backgroundColor.copy(alpha = 0.84f).toArgb(),
-                    backgroundColor.copy(alpha = 0.70f).toArgb(),
+                    backgroundColor.copy(alpha = 1f).toArgb(),
+                    backgroundColor.copy(alpha = 0.92f).toArgb(),
+                    backgroundColor.copy(alpha = 0.72f).toArgb(),
                     backgroundColor.copy(alpha = 0.52f).toArgb(),
-                    backgroundColor.copy(alpha = 0.34f).toArgb(),
-                    backgroundColor.copy(alpha = 0.18f).toArgb(),
-                    backgroundColor.copy(alpha = 0.07f).toArgb(),
+                    backgroundColor.copy(alpha = 0.32f).toArgb(),
+                    backgroundColor.copy(alpha = 0.16f).toArgb(),
+                    backgroundColor.copy(alpha = 0.06f).toArgb(),
                     transparent
                 ),
-                floatArrayOf(0f, 0.10f, 0.22f, 0.36f, 0.52f, 0.66f, 0.78f, 0.90f, 1f),
+                floatArrayOf(0f, 0.36f, 0.46f, 0.56f, 0.66f, 0.76f, 0.85f, 0.93f, 1f),
                 android.graphics.Shader.TileMode.CLAMP
             )
         } else {
@@ -2247,16 +2252,16 @@ private fun MetaDetailsContent(
                 0f, 0f, fadeWidth, 0f,
                 intArrayOf(
                     backgroundColor.copy(alpha = 1f).toArgb(),
-                    backgroundColor.copy(alpha = 0.95f).toArgb(),
-                    backgroundColor.copy(alpha = 0.84f).toArgb(),
-                    backgroundColor.copy(alpha = 0.70f).toArgb(),
+                    backgroundColor.copy(alpha = 1f).toArgb(),
+                    backgroundColor.copy(alpha = 0.92f).toArgb(),
+                    backgroundColor.copy(alpha = 0.72f).toArgb(),
                     backgroundColor.copy(alpha = 0.52f).toArgb(),
-                    backgroundColor.copy(alpha = 0.34f).toArgb(),
-                    backgroundColor.copy(alpha = 0.18f).toArgb(),
-                    backgroundColor.copy(alpha = 0.07f).toArgb(),
+                    backgroundColor.copy(alpha = 0.32f).toArgb(),
+                    backgroundColor.copy(alpha = 0.16f).toArgb(),
+                    backgroundColor.copy(alpha = 0.06f).toArgb(),
                     transparent
                 ),
-                floatArrayOf(0f, 0.10f, 0.22f, 0.36f, 0.52f, 0.66f, 0.78f, 0.90f, 1f),
+                floatArrayOf(0f, 0.36f, 0.46f, 0.56f, 0.66f, 0.76f, 0.85f, 0.93f, 1f),
                 android.graphics.Shader.TileMode.CLAMP
             )
         }
@@ -2298,12 +2303,28 @@ private fun MetaDetailsContent(
 
     // Always-composed bottom gradient alpha (avoids add/remove during scroll)
 
+    // Nuvio Launcher: once focus is in the rows, the title's backdrop, blurred, is the page's background.
+    val blurredBackdropAlpha by animateFloatAsState(
+        targetValue = if (isScrolledPastHero && !isTrailerPlaying) 1f else 0f,
+        animationSpec = tween(durationMillis = 400),
+        label = "blurredBackdropFade"
+    )
+    // The "Episodes" title above the season pills stays white while the episode tiles have focus.
+    var episodesRowFocused by remember { mutableStateOf(false) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(backgroundColor)
             .onPreviewKeyEvent { randomEpisodePlaybackPending }
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = blurredBackdropAlpha }
+        ) {
+            LauncherBlurredBackdrop(url = backdropDataUrl)
+        }
         // Sticky background — backdrop or trailer
         BackdropLayer(
             backdropRequest = backdropRequest,
@@ -2559,7 +2580,8 @@ private fun MetaDetailsContent(
                             selectedTabFocusRequester = selectedSeasonFocusRequester,
                             upFocusRequester = heroPlayFocusRequester,
                             downFocusRequester = seasonDownFocusRequester,
-                            isFocusEnabled = pendingRestoreType != RestoreTarget.EPISODE
+                            isFocusEnabled = pendingRestoreType != RestoreTarget.EPISODE,
+                            titleHighlighted = episodesRowFocused
                         )
                     }
                 }
@@ -2575,7 +2597,11 @@ private fun MetaDetailsContent(
                     } else {
                         null
                     }
-                    Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder)) {
+                    Box(
+                        modifier = Modifier
+                            .bringIntoViewResponder(episodeRowStayVerticalResponder)
+                            .onFocusChanged { episodesRowFocused = it.hasFocus }
+                    ) {
                         EpisodesRow(
                             episodes = episodesForSeason,
                             episodeProgressMap = episodeProgressMap,
@@ -3277,10 +3303,10 @@ private fun BackdropLayer(
         targetValue = when {
             isTrailerPlaying && isTrailerRendered -> 0f
             isBackgroundTrailerVisible && isTrailerRendered -> 0f
-            isScrolledPastHero -> 0.15f
+            isScrolledPastHero -> 0f
             else -> 1f
         },
-        animationSpec = tween(durationMillis = if (isScrolledPastHero) 300 else 800),
+        animationSpec = tween(durationMillis = if (isScrolledPastHero) 400 else 800),
         label = "backdropFade"
     )
     val trailerAlphaState = animateFloatAsState(
@@ -3352,6 +3378,13 @@ private fun BackdropLayer(
                                 alpha = gradientAlphaState.value,
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
                             )
+                            // the bottom of the picture blends into the grey below the hero
+                            drawImage(
+                                bottomGradient,
+                                dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
+                                alpha = gradientAlphaState.value,
+                                filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
+                            )
                         }
                     }
                 }
@@ -3372,10 +3405,12 @@ private fun PeopleSectionTabs(
     val defaultRequester = tabs.first().focusRequester
     val restorerRequester = tabs.firstOrNull { it.tab == activeTab }?.focusRequester ?: defaultRequester
 
+    // Nuvio Launcher: the tabs read as row titles (16 bold; white when focused, soft white for the
+    // row shown, dimmer for the others).
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp, start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl),
+            .padding(top = 26.dp, start = LauncherStyle.Start - NuvioTheme.spacing.xxs, end = LauncherStyle.Start),
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
         @Composable
@@ -3386,8 +3421,8 @@ private fun PeopleSectionTabs(
                         modifier = Modifier
                             .padding(horizontal = 10.dp)
                             .width(1.dp)
-                            .height(16.dp)
-                            .background(NuvioTheme.colors.TextPrimary.copy(alpha = 0.45f))
+                            .height(14.dp)
+                            .background(LauncherStyle.Dim)
                     )
                 }
 
@@ -3466,15 +3501,16 @@ private fun PeopleSectionTabButton(
                 shape = RoundedCornerShape(NuvioTheme.radii.xl)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.03f)
+        scale = CardDefaults.scale(focusedScale = 1f)
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
             color = when {
-                isFocused -> NuvioTheme.colors.TextPrimary
-                selected -> NuvioTheme.colors.TextPrimary.copy(alpha = 0.92f)
-                else -> NuvioTheme.colors.TextPrimary.copy(alpha = 0.55f)
+                isFocused -> Color.White
+                selected -> LauncherStyle.Soft
+                else -> LauncherStyle.Dim
             },
             modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxs, vertical = NuvioTheme.spacing.xxs)
         )

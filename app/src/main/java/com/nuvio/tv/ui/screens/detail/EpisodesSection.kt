@@ -98,6 +98,9 @@ import com.nuvio.tv.ui.components.LightweightCard
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.components.WatchedMarker
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.launcher.LauncherStyle
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.ui.components.LocalCardDepthStyle
 import com.nuvio.tv.ui.components.nuvioCardDepth
@@ -128,7 +131,8 @@ fun SeasonTabs(
     selectedTabFocusRequester: FocusRequester,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
-    isFocusEnabled: Boolean = true
+    isFocusEnabled: Boolean = true,
+    titleHighlighted: Boolean = false
 ) {
     // Move season 0 (specials) to the end
     val sortedSeasons = remember(seasons) {
@@ -137,17 +141,14 @@ fun SeasonTabs(
         regularSeasons + specials
     }
 
-    val tabShape = remember { RoundedCornerShape(20.dp) }
-    val tabBorder = CardDefaults.border(
-        focusedBorder = Border(
-            border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-            shape = RoundedCornerShape(20.dp)
-        )
-    )
+    // Launcher look: sidebar-style pills (idle white .12, selected white .30, focused near-white with dark text)
+    val tabShape = remember { RoundedCornerShape(14.dp) }
+    val tabBorder = CardDefaults.border(border = Border.None, focusedBorder = Border.None)
     val tabScale = CardDefaults.scale(focusedScale = 1.0f)
     val typography = MaterialTheme.typography
-    val tabTextStyle = remember(typography) { typography.titleMedium }
-    val textSecondary = NuvioTheme.extendedColors.textSecondary
+    val tabTextStyle = remember(typography) { typography.titleMedium.copy(fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold) }
+    val textSecondary = LauncherStyle.Soft
+    var anyTabFocused by remember { mutableStateOf(false) }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val initialSeasonIndex = remember(sortedSeasons, selectedSeason) {
         (sortedSeasons.indexOf(selectedSeason) - (SEASON_EDGE_PIN_COUNT - 1)).coerceAtLeast(0)
@@ -261,6 +262,15 @@ fun SeasonTabs(
         }
     }
 
+    Column(modifier = Modifier.fillMaxWidth().onFocusChanged { anyTabFocused = it.hasFocus }) {
+    Text(
+        text = stringResource(R.string.tmdb_episodes_title),
+        color = if (titleHighlighted || anyTabFocused) Color.White else LauncherStyle.Soft,
+        fontSize = 16.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        modifier = Modifier.padding(start = LauncherStyle.Start, top = 14.dp)
+    )
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -273,8 +283,8 @@ fun SeasonTabs(
             }
             .focusGroup(),
         state = lazyListState,
-        contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xl),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+        contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = 14.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(sortedSeasons, key = { it }) { season ->
             val isSelected = season == selectedSeason
@@ -354,8 +364,8 @@ fun SeasonTabs(
                     },
                 shape = CardDefaults.shape(shape = tabShape),
                 colors = CardDefaults.colors(
-                    containerColor = if (isSelected) NuvioTheme.colors.SurfaceVariant else NuvioTheme.colors.BackgroundCard,
-                    focusedContainerColor = NuvioTheme.colors.Secondary
+                    containerColor = if (isSelected) LauncherStyle.PillSelected else LauncherStyle.PillIdle,
+                    focusedContainerColor = LauncherStyle.FocusWhite
                 ),
                 border = tabBorder,
                 scale = tabScale
@@ -364,14 +374,15 @@ fun SeasonTabs(
                     text = if (season == 0) stringResource(R.string.episodes_specials) else stringResource(R.string.episodes_season, season),
                     style = tabTextStyle,
                     color = when {
-                        isFocused -> NuvioTheme.colors.OnSecondary
-                        isSelected -> NuvioTheme.colors.TextPrimary
+                        isFocused -> LauncherStyle.FocusText
+                        isSelected -> Color.White
                         else -> textSecondary
                     },
-                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 20.dp)
+                    modifier = Modifier.padding(vertical = 5.dp, horizontal = 13.dp)
                 )
             }
         }
+    }
     }
 }
 
@@ -414,7 +425,33 @@ fun EpisodesRow(
     val dedupedEpisodes = remember(episodes) { episodes.distinctBy { it.id } }
     var optionsEpisode by remember { mutableStateOf<Video?>(null) }
     val isOverlayOpen = optionsEpisode != null
-    val cardMetrics = rememberEpisodeCardMetrics(posterCardCornerRadiusDp)
+    val baseCardMetrics = rememberEpisodeCardMetrics(posterCardCornerRadiusDp)
+    // Launcher look: 224x126 landscape tiles, 7dp corners, 29dp apart, starting at 56dp.
+    val cardMetrics = remember(baseCardMetrics) {
+        baseCardMetrics.copy(
+            rowHorizontalPadding = LauncherStyle.Start,
+            rowVerticalPadding = 12.dp,
+            itemSpacing = LauncherStyle.Gap,
+            cardWidth = 224.dp,
+            cardHeight = 126.dp,
+            cornerRadius = 7.dp,
+            contentPadding = 9.dp,
+            contentBottomPadding = 12.dp,
+            episodeBadgeHorizontalPadding = 6.dp,
+            episodeBadgeVerticalPadding = 2.dp,
+            episodeBadgeCornerRadius = 4.dp,
+            episodeBadgeLetterSpacing = 0.6.sp,
+            descriptionLineHeight = 14.sp,
+            descriptionMaxLines = 2,
+            metadataIconSize = 11.dp,
+            imdbLogoWidth = 20.dp,
+            imdbLogoHeight = 10.dp,
+            progressBarHeight = 3.dp,
+            statusBadgeSize = 20.dp,
+            statusIconSize = 13.dp,
+            statusBadgeInset = 8.dp
+        )
+    }
     val density = LocalDensity.current
     val rowPrefetchStrategy = remember { LazyListPrefetchStrategy(nestedPrefetchItemCount = 2) }
     val initialEpisodeIndex = remember(dedupedEpisodes, restoreEpisodeId, scrollToEpisodeId, anchorEpisodeId) {
@@ -818,8 +855,26 @@ private fun EpisodeCard(
 
     val primaryColor = NuvioTheme.colors.Secondary
     val textPrimary = NuvioTheme.colors.TextPrimary
-    val focusRingBorder = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs)
+    val launcherScale by animateFloatAsState(
+        targetValue = if (isFocused) LauncherStyle.Zoom else 1f,
+        animationSpec = tween(160),
+        label = "episodeZoom"
+    )
 
+    Column(modifier = Modifier.width(cardMetrics.cardWidth)) {
+    Box(
+        modifier = Modifier
+            .graphicsLayer {
+                scaleX = launcherScale
+                scaleY = launcherScale
+            }
+            .shadow(
+                elevation = if (isFocused) 17.dp else 7.dp,
+                shape = shape,
+                ambientColor = Color.Black,
+                spotColor = Color.Black
+            )
+    ) {
     LightweightCard(
         onClick = {
             if (longPressTriggered) {
@@ -875,10 +930,7 @@ private fun EpisodeCard(
             },
         shape = shape,
         containerColor = Color.Transparent,
-        focusedBorder = Border(
-            border = focusRingBorder,
-            shape = shape
-        )
+        focusedBorder = Border.None
     ) {
         Box(
             modifier = Modifier
@@ -915,22 +967,21 @@ private fun EpisodeCard(
                         // into a visible "line" over smooth/blurred thumbnails) and ramping to ~95%
                         // black in the bottom strip where the text sits. The scrim — not the shadow —
                         // carries legibility (WCAG 3:1 title / ~4.5:1 description).
+                        // Launcher look: title and summary sit under the tile now, so only a light
+                        // floor shade remains for the episode badge, meta line and progress bar.
                         val localBrush = Brush.verticalGradient(
                             colorStops = arrayOf(
                                 0.0f to Color.Transparent,
-                                0.20f to Color.Black.copy(alpha = 0.04f),
-                                0.38f to Color.Black.copy(alpha = 0.26f),
-                                0.54f to Color.Black.copy(alpha = 0.56f),
-                                0.70f to Color.Black.copy(alpha = 0.76f),
-                                0.86f to Color.Black.copy(alpha = 0.88f),
-                                1.0f to Color.Black.copy(alpha = 0.95f)
+                                0.45f to Color.Transparent,
+                                0.70f to Color.Black.copy(alpha = 0.30f),
+                                1.0f to Color.Black.copy(alpha = 0.70f)
                             ),
                             startY = 0f,
                             endY = size.height
                         )
                         drawRect(
                             brush = localBrush,
-                            alpha = if (isFocusedState.value) 1f else 0.94f
+                            alpha = 1f
                         )
                     },
                 contentScale = ContentScale.Crop,
@@ -966,22 +1017,6 @@ private fun EpisodeCard(
                         text = episodeCode,
                         style = episodeBadgeStyle,
                         maxLines = 1
-                    )
-                }
-
-                FocusMarqueeText(
-                    text = episode.title.localizeEpisodeTitle(context),
-                    focused = isFocused && !suppressMarquee,
-                    style = titleStyle,
-                    color = textPrimary,
-                )
-
-                if (description.isNotBlank()) {
-                    Text(
-                        text = description,
-                        style = descriptionStyle.copy(textDirection = description.contentTextDirection()),
-                        maxLines = cardMetrics.descriptionMaxLines,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -1130,6 +1165,36 @@ private fun EpisodeCard(
                 }
             }
         }
+    }
+    }
+
+    // Title and two-line summary under the tile; the focused title moves down (visually only)
+    // clear of the zoomed tile so the row height never changes.
+    FocusMarqueeText(
+        text = episode.title.localizeEpisodeTitle(context),
+        focused = isFocused && !suppressMarquee,
+        style = typography.labelLarge.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+        color = if (isFocused) Color.White else LauncherStyle.Soft,
+        modifier = Modifier
+            .padding(top = 8.dp)
+            .graphicsLayer { translationY = if (isFocused) 10.dp.toPx() else 0f }
+    )
+    if (description.isNotBlank()) {
+        Text(
+            text = description,
+            style = typography.bodySmall.copy(
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp,
+                textDirection = description.contentTextDirection()
+            ),
+            color = LauncherStyle.Dim,
+            maxLines = cardMetrics.descriptionMaxLines,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .graphicsLayer { translationY = if (isFocused) 10.dp.toPx() else 0f }
+        )
+    }
     }
 }
 
