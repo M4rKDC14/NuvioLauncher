@@ -2,6 +2,7 @@
 
 package com.nuvio.tv.ui.screens.account
 
+import androidx.compose.ui.focus.onFocusChanged
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import android.content.Intent
@@ -171,70 +172,36 @@ fun AuthQrSignInScreen(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .authGradientBackground()
-    ) {
-        Row(
+    // Nuvio Launcher (approved mockup): the launcher's own background; no Nuvio logo panel, no glass panel and no
+    // server menu; everything in one centred column.
+    Box(modifier = Modifier.fillMaxSize()) {
+        com.nuvio.tv.ui.launcher.LauncherBlurredBackdrop(com.nuvio.tv.LauncherChrome.lastBackdrop.value)
+        AuthQrLoginPane(
             modifier = Modifier
-                .fillMaxSize(),
-        ) {
-            AuthQrBrandPanel(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(start = 56.dp, end = 56.dp),
-                isSignedIn = isSignedIn,
-                fullAccount = fullAccount,
-                useEmailLogin = useEmailLogin
-            )
-
-            AuthQrLoginPane(
-                modifier = Modifier
-                    .width(460.dp)
-                    .fillMaxHeight()
-                    .background(AuthPaneBackground)
-                    .drawBehind {
-                        drawLine(
-                            color = AuthPaneBorder,
-                            start = Offset(0f, 0f),
-                            end = Offset(0f, size.height),
-                            strokeWidth = 1.dp.toPx()
-                        )
-                    },
-                uiState = uiState,
-                isSignedIn = isSignedIn,
-                isOnboardingMode = isOnboardingMode,
-                useEmailLogin = useEmailLogin,
-                onSignIn = viewModel::signIn,
-                onRefreshOrSignOut = {
-                    if (isSignedIn) {
-                        showSignOutConfirmation = true
-                    } else {
-                        viewModel.startQrLogin()
-                    }
-                },
-                onBackOrContinue = {
-                    if (isOnboardingMode) {
-                        continueFromAuthScreen()
-                    } else {
-                        leaveAuthScreen()
-                    }
-                },
-                initialFocusRequester = loginFocusRequester
-            )
-        }
-
-        if (BuildConfig.FEATURE_CUSTOM_SERVER_CONNECTIONS_ENABLED) {
-            ServerOptionsMenuHost(
-                viewModel = hiltViewModel(),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(28.dp)
-            )
-        }
+                .align(Alignment.Center)
+                .widthIn(max = 560.dp),
+            fullAccount = fullAccount,
+            uiState = uiState,
+            isSignedIn = isSignedIn,
+            isOnboardingMode = isOnboardingMode,
+            useEmailLogin = useEmailLogin,
+            onSignIn = viewModel::signIn,
+            onRefreshOrSignOut = {
+                if (isSignedIn) {
+                    showSignOutConfirmation = true
+                } else {
+                    viewModel.startQrLogin()
+                }
+            },
+            onBackOrContinue = {
+                if (isOnboardingMode) {
+                    continueFromAuthScreen()
+                } else {
+                    leaveAuthScreen()
+                }
+            },
+            initialFocusRequester = loginFocusRequester
+        )
     }
 
     LaunchedEffect(Unit) {
@@ -317,6 +284,7 @@ private fun AuthQrBrandPanel(
 @Composable
 private fun AuthQrLoginPane(
     modifier: Modifier,
+    fullAccount: AuthState.FullAccount?,
     uiState: AccountUiState,
     isSignedIn: Boolean,
     isOnboardingMode: Boolean,
@@ -328,11 +296,32 @@ private fun AuthQrLoginPane(
 ) {
     val focusEmail = useEmailLogin && !isSignedIn
     val focusMainAction = !focusEmail && !uiState.isLoading
+    // Sizes (approved mockup, then everything 20% smaller): heading 20.8sp white, text 11.2sp / 10.4sp / 9.6sp grey,
+    // QR 144dp, code 19.2sp white, 28.8dp pills.
     Column(
-        modifier = modifier.padding(horizontal = 48.dp),
+        modifier = modifier.padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Text(
+            text = stringResource(R.string.auth_qr_tagline),
+            style = MaterialTheme.typography.displayLarge.copy(
+                color = Color.White,
+                fontSize = 20.8.sp,
+                lineHeight = 25.6.sp,
+                fontWeight = FontWeight.SemiBold
+            ),
+            textAlign = TextAlign.Center
+        )
+        if (isSignedIn && fullAccount != null) {
+            Text(   // the signed-in email (was on the removed left panel)
+                text = fullAccount.email,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.2.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = if (isSignedIn) {
                 stringResource(R.string.auth_qr_synced_data)
@@ -342,13 +331,13 @@ private fun AuthQrLoginPane(
                 stringResource(R.string.auth_qr_scan_instruction)
             },
             style = MaterialTheme.typography.bodyLarge.copy(
-                color = AuthTextSecondary,
-                fontSize = 15.sp,
-                lineHeight = 21.sp
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                fontSize = 11.2.sp,
+                lineHeight = 16.8.sp
             ),
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (isSignedIn && !isOnboardingMode) {
             AccountConnectedStatsStrip(
@@ -371,67 +360,73 @@ private fun AuthQrLoginPane(
             AuthQrCodeBlock(uiState = uiState)
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(9.6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isSignedIn || !useEmailLogin) {
-                Button(
+                AuthLauncherPill(
+                    text = when {
+                        isSignedIn -> stringResource(R.string.account_sign_out)
+                        uiState.isLoading -> stringResource(R.string.auth_qr_please_wait)
+                        else -> stringResource(R.string.auth_qr_refresh)
+                    },
                     onClick = onRefreshOrSignOut,
                     enabled = !uiState.isLoading,
-                    modifier = if (focusMainAction) Modifier.focusRequester(initialFocusRequester) else Modifier,
-                    colors = ButtonDefaults.colors(
-                        containerColor = AuthSecondaryButtonBackground,
-                        focusedContainerColor = Color.White,
-                        contentColor = AuthTextPrimary,
-                        focusedContentColor = Color.Black,
-                        disabledContainerColor = AuthSecondaryButtonBackground.copy(alpha = 0.45f)
-                    ),
-                    border = ButtonDefaults.border(
-                        border = androidx.tv.material3.Border(
-                            border = androidx.compose.foundation.BorderStroke(1.dp, AuthSecondaryButtonBorder),
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                    )
-                ) {
-                    Text(
-                        when {
-                            isSignedIn -> stringResource(R.string.account_sign_out)
-                            uiState.isLoading -> stringResource(R.string.auth_qr_please_wait)
-                            else -> stringResource(R.string.auth_qr_refresh)
-                        }
-                    )
-                }
+                    modifier = if (focusMainAction) Modifier.focusRequester(initialFocusRequester) else Modifier
+                )
             }
-            Button(
+            AuthLauncherPill(
+                text = if (isOnboardingMode) {
+                    if (isSignedIn) stringResource(R.string.auth_qr_continue) else stringResource(R.string.auth_qr_continue_without_account)
+                } else {
+                    stringResource(R.string.auth_qr_back)
+                },
                 onClick = onBackOrContinue,
                 modifier = if (!focusEmail && !focusMainAction) {
                     Modifier.focusRequester(initialFocusRequester)
                 } else {
                     Modifier
-                },
-                colors = ButtonDefaults.colors(
-                    containerColor = AuthSecondaryButtonBackground,
-                    focusedContainerColor = Color.White,
-                    contentColor = AuthTextPrimary,
-                    focusedContentColor = Color.Black
+                }
+            )
+        }
+    }
+}
+
+/** Nuvio Launcher (approved mockup): a 28.8dp pill, 11.2sp; grey on white 12%, focused the white pill, dark bold. */
+@Composable
+@OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
+private fun AuthLauncherPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    var focused by remember { mutableStateOf(false) }
+    androidx.tv.material3.Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .height(28.8.dp)
+            .onFocusChanged { focused = it.isFocused },
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite,
+            disabledContainerColor = Color.White.copy(alpha = 0.06f)
+        ),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(999.dp))
+    ) {
+        Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 14.4.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = 11.2.sp,
+                    fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal
                 ),
-                border = ButtonDefaults.border(
-                    border = androidx.tv.material3.Border(
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AuthSecondaryButtonBorder),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                )
-            ) {
-                Text(
-                    if (isOnboardingMode) {
-                        if (isSignedIn) stringResource(R.string.auth_qr_continue) else stringResource(R.string.auth_qr_continue_without_account)
-                    } else {
-                        stringResource(R.string.auth_qr_back)
-                    }
-                )
-            }
+                color = if (focused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+            )
         }
     }
 }
@@ -524,17 +519,17 @@ private fun AuthQrCodeBlock(
             bitmap = qrBitmap,
             contentDescription = stringResource(R.string.cd_qr_login),
             modifier = Modifier
-                .size(206.dp)
-                .background(Color.White, RoundedCornerShape(8.dp))
-                .padding(8.dp),
+                .size(144.dp)
+                .background(Color.White, RoundedCornerShape(6.4.dp))
+                .padding(6.4.dp),
             contentScale = ContentScale.Fit
         )
     } else {
         Box(
             modifier = Modifier
-                .size(206.dp)
-                .background(AuthSecondaryButtonBackground, RoundedCornerShape(8.dp))
-                .border(1.dp, AuthSecondaryButtonBorder, RoundedCornerShape(8.dp)),
+                .size(144.dp)
+                .background(AuthSecondaryButtonBackground, RoundedCornerShape(6.4.dp))
+                .border(1.dp, AuthSecondaryButtonBorder, RoundedCornerShape(6.4.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -552,12 +547,12 @@ private fun AuthQrCodeBlock(
         isLoading = uiState.isLoading
     )
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(9.6.dp))
     AuthTermsAcknowledgement()
 
     val statusText = uiState.error ?: uiState.qrLoginStatus
     if (!statusText.isNullOrBlank()) {
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(9.6.dp))
         if (uiState.error != null) {
             StatusPill(
                 text = statusText,
@@ -567,8 +562,8 @@ private fun AuthQrCodeBlock(
         } else {
             Text(
                 text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = AuthTextSecondary,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.6.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -591,26 +586,26 @@ private fun AuthQrManualCodeDetails(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (displayUri != null && displayCode != null) {
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(12.8.dp))
             Text(
                 text = stringResource(R.string.auth_qr_manual_instruction, displayVerificationUri(displayUri)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = AuthTextSecondary,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.4.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.4.dp))
             Text(
                 text = formatDeviceLoginCode(displayCode),
                 style = MaterialTheme.typography.headlineSmall.copy(
-                    fontSize = if (displayCode.length == 6) 24.sp else 14.sp,
-                    letterSpacing = if (displayCode.length == 6) 3.sp else 0.sp
+                    fontSize = if (displayCode.length == 6) 19.2.sp else 11.2.sp,
+                    letterSpacing = if (displayCode.length == 6) 2.4.sp else 0.sp
                 ),
-                color = AuthTextPrimary,
+                color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
             if (expiresAtMillis != null) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.8.dp))
                 AuthQrExpiresText(expiresAtMillis = expiresAtMillis)
             }
         } else if (isLoading) {
@@ -658,8 +653,8 @@ private fun AuthQrExpiresText(expiresAtMillis: Long) {
     val remainingMillis = (expiresAtMillis - nowMillis).coerceAtLeast(0L)
     Text(
         text = stringResource(R.string.auth_qr_expires, formatDuration(remainingMillis)),
-        style = MaterialTheme.typography.bodySmall,
-        color = AuthTextSecondary
+        style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.6.sp),
+        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
     )
 }
 
@@ -682,9 +677,9 @@ private fun AuthTermsAcknowledgement() {
         Text(
             text = stringResource(R.string.auth_qr_terms_prefix),
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = AuthTextSecondary,
-                fontSize = 13.sp,
-                lineHeight = 18.sp
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                fontSize = 9.6.sp,
+                lineHeight = 14.sp
             )
         )
         Spacer(modifier = Modifier.width(4.dp))
@@ -696,10 +691,10 @@ private fun AuthTermsAcknowledgement() {
                 }
                 .semantics { role = Role.Button },
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = AuthTextPrimary,
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                fontSize = 9.6.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Bold
             )
         )
     }

@@ -2175,8 +2175,10 @@ private fun MetaDetailsContent(
     // white text stays readable) instead of always the launcher grey. Worked out once per title from a 24x14
     // copy of the backdrop; grey while it loads or when the picture has no real colour.
     var shadeColor by remember(backdropDataUrl) { mutableStateOf(backgroundColor) }
+    // Nuvio Launcher (approved mockup): true when the picture behind the details block (left 60%, lower 65%) is
+    // bright; a dark scrim then goes behind the text so it and the white title logo stay readable.
+    var backdropBehindTextIsBright by remember(backdropDataUrl) { mutableStateOf(false) }
     LaunchedEffect(backdropDataUrl) {
-        if (!DetailsHeroShade) return@LaunchedEffect
         val u = backdropDataUrl ?: return@LaunchedEffect
         val result = runCatching {
             localContext.imageLoader.execute(
@@ -2187,7 +2189,10 @@ private fun MetaDetailsContent(
             )
         }.getOrNull()
         val bmp = (result as? coil3.request.SuccessResult)?.image?.let { (it as? coil3.BitmapImage)?.bitmap }
-        if (bmp != null) launcherDominantShade(bmp)?.let { shadeColor = it }
+        if (bmp != null) {
+            backdropBehindTextIsBright = launcherBrightBehindText(bmp, rtl = isRtl)
+            if (DetailsHeroShade) launcherDominantShade(bmp)?.let { shadeColor = it }
+        }
     }
     val shouldReuseSeedBackdrop = seedBackdropUrl != null && seedBackdropUrl == backdropDataUrl
     val shouldShowSeedBackdropUnderlay = seedBackdropUrl != null && !shouldReuseSeedBackdrop
@@ -2348,6 +2353,45 @@ private fun MetaDetailsContent(
             leftGradient = leftGradientBitmap,
             bottomGradient = bottomGradientBitmap,
         )
+
+        // Nuvio Launcher (approved mockup): on a bright picture, a dark scrim behind the details block: black 70% at
+        // the text side's edge, 60% a third of the way across, 30% at 58%, gone by 75%; plus a light shade along the
+        // bottom (25% at the edge). Only over the hero, and not while a trailer plays.
+        val brightScrimAlpha by animateFloatAsState(
+            targetValue = if (backdropBehindTextIsBright && !isScrolledPastHero && !isTrailerPlaying) 1f else 0f,
+            animationSpec = tween(durationMillis = 400),
+            label = "brightBackdropScrim"
+        )
+        if (brightScrimAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = brightScrimAlpha }
+                    .drawWithCache {
+                        val stops = arrayOf(
+                            0f to Color.Black.copy(alpha = 0.70f),
+                            0.35f to Color.Black.copy(alpha = 0.60f),
+                            0.58f to Color.Black.copy(alpha = 0.30f),
+                            0.75f to Color.Transparent
+                        )
+                        val across = if (isRtl) {
+                            Brush.horizontalGradient(*stops, startX = size.width, endX = 0f)
+                        } else {
+                            Brush.horizontalGradient(*stops, startX = 0f, endX = size.width)
+                        }
+                        val down = Brush.verticalGradient(
+                            0.30f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.25f),
+                            startY = 0f,
+                            endY = size.height
+                        )
+                        onDrawBehind {
+                            drawRect(brush = across)
+                            drawRect(brush = down)
+                        }
+                    }
+            )
+        }
 
         // Single scrollable column with hero + content
         CompositionLocalProvider(
@@ -3349,6 +3393,34 @@ private const val LeftShadeOpacity = 0.7f
  * pixel is (near-black and near-grey pixels ignored); the strongest hue at saturation .35 and brightness .22
  * (30% lighter than the first proposal's .17). Null when the picture has no real colour.
  */
+/**
+ * Nuvio Launcher: whether the picture is bright where the details text sits: the text side's 60% of the width, lower
+ * 65% of the height. Average luminance (Rec. 709) of that part of a small copy of the backdrop, above 0.45.
+ */
+internal fun launcherBrightBehindText(bitmap: android.graphics.Bitmap, rtl: Boolean): Boolean {
+    val w = bitmap.width
+    val h = bitmap.height
+    if (w <= 0 || h <= 0) return false
+    val px = IntArray(w * h)
+    runCatching { bitmap.getPixels(px, 0, w, 0, 0, w, h) }.getOrElse { return false }
+    val x0 = if (rtl) (w * 0.4f).toInt() else 0
+    val x1 = if (rtl) w else (w * 0.6f).toInt().coerceAtLeast(1)
+    val y0 = (h * 0.35f).toInt()
+    var sum = 0.0
+    var n = 0
+    for (y in y0 until h) for (x in x0 until x1) {
+        val c = px[y * w + x]
+        val r = ((c shr 16) and 0xFF) / 255.0
+        val g = ((c shr 8) and 0xFF) / 255.0
+        val b = (c and 0xFF) / 255.0
+        sum += 0.2126 * r + 0.7152 * g + 0.0722 * b
+        n++
+    }
+    return n > 0 && sum / n > BrightBehindTextThreshold
+}
+
+private const val BrightBehindTextThreshold = 0.45
+
 internal fun launcherDominantShade(bitmap: android.graphics.Bitmap): Color? {
     val w = bitmap.width
     val h = bitmap.height

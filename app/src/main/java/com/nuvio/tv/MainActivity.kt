@@ -867,10 +867,15 @@ open class MainActivity : ComponentActivity() {
                     val modernSidebarBlurEnabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
                     val hideBuiltInHeadersForFloatingPill = modernSidebarEnabled && !sidebarCollapsed
 
+                    // Nuvio Launcher: no "Choose your home screen layout" step at first start. The launcher draws its
+                    // own home either way; the layout is recorded as chosen (Modern, the screen's default) so nothing
+                    // that waits on that choice holds back.
+                    LaunchedEffect(layoutChosen) {
+                        if (!layoutChosen) layoutPreferenceDataStore.setLayout(com.nuvio.tv.domain.model.HomeLayout.MODERN)
+                    }
                     val startDestination = when {
                         needsExperienceSelection -> Screen.ExperienceModeSelection.route
-                        layoutChosen -> Screen.Home.route
-                        else -> Screen.LayoutSelection.route
+                        else -> Screen.Home.route
                     }
                     val navController = rememberNavController()
                     val navViewModelStoreOwner = rememberNavSessionViewModelStoreOwner(navController)

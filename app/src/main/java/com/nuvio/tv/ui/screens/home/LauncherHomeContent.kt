@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.home
 
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.activity.compose.BackHandler
@@ -167,6 +168,8 @@ internal fun LauncherHomeContent(
     // Right, Android picked the nearest tile on its own, often in the row above; focus goes back to this tile instead.
     var contentHasFocus by remember { mutableStateOf(false) }
     var exitRowKey by remember { mutableStateOf<String?>(null) }
+    var exitTile by remember { mutableIntStateOf(0) }
+    val enteredDirect = remember { booleanArrayOf(false) }
     var focusedRow by remember { mutableIntStateOf(-1) }
     // The focused tile's picture, blurred behind the rows. Held in a state object and read only by the backdrop,
     // so a Left/Right press redraws the backdrop alone, not every row and tile (that redraw made the rows stutter).
@@ -222,17 +225,35 @@ internal fun LauncherHomeContent(
     }
     val rowsNow by androidx.compose.runtime.rememberUpdatedState(rows)
     val focusRowNow by androidx.compose.runtime.rememberUpdatedState<(Int) -> Boolean>({ t -> focusRow(t) })
+    // Back from a folder or a title: the rows stay hidden until focus is back on the tile you left from and the page
+    // has settled there, then show. (The page first came back at its old scroll position and then moved to centre
+    // that row once it had loaded; the move showed as a small jitter.)
+    var restoringRows by remember { mutableStateOf(savedRowKey != null) }
+    val rowsAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (restoringRows) 0f else 1f,
+        animationSpec = if (restoringRows) androidx.compose.animation.core.snap() else tween(150),
+        label = "rowsRestore"
+    )
     LaunchedEffect(Unit) {
-        val key = savedRowKey
-        if (key == null) { runCatching { playFocus.requestFocus() }; return@LaunchedEffect }
-        // Back from a folder or title: the tile you left from. Waits for that row (up to 2 s), else the carousel.
-        val row = kotlinx.coroutines.withTimeoutOrNull(2_000) {
-            androidx.compose.runtime.snapshotFlow { rowsNow.indexOfFirst { it.key == key } }.first { it >= 0 }
+        try {
+            val key = savedRowKey
+            if (key == null) { runCatching { playFocus.requestFocus() }; return@LaunchedEffect }
+            // Back from a folder or title: the tile you left from. Waits for that row (up to 2 s), else the carousel.
+            val row = kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                androidx.compose.runtime.snapshotFlow { rowsNow.indexOfFirst { it.key == key } }.first { it >= 0 }
+            }
+            if (row == null) { runCatching { playFocus.requestFocus() }; return@LaunchedEffect }
+            lastIndex[row] = savedTile
+            androidx.compose.runtime.withFrameNanos { }
+            focusRowNow(row)
+            // let the focus move and its scroll finish before showing the rows (at most about 0.4 s)
+            kotlinx.coroutines.withTimeoutOrNull(400) {
+                repeat(3) { androidx.compose.runtime.withFrameNanos { } }
+                androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }.first { !it }
+            }
+        } finally {
+            restoringRows = false
         }
-        if (row == null) { runCatching { playFocus.requestFocus() }; return@LaunchedEffect }
-        lastIndex[row] = savedTile
-        androidx.compose.runtime.withFrameNanos { }
-        focusRowNow(row)
     }
 
     BackHandler(enabled = !heroFocused) {
@@ -321,14 +342,43 @@ internal fun LauncherHomeContent(
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize().onFocusChanged { st ->
+                modifier = Modifier.fillMaxSize()
+                    .graphicsLayer { alpha = rowsAlpha }
+                    // Back in from the side panel: focus goes straight to the tile you left from, as it enters the
+                    // rows. (Before, Android first landed on a tile of its own choosing, the rows scrolled to it, and
+                    // a frame later focus was moved back to the right tile: two moves, seen as a small jitter.)
+                    .focusProperties {
+                        onEnter = {
+                            val key = exitRowKey
+                            val row = if (key == null) -1 else rows.indexOfFirst { it.key == key }
+                            val req = if (row >= 0) tiles[row]?.get(exitTile)?.first else null
+                            if (req != null) {
+                                lastIndex[row] = exitTile
+                                sideways[0] = false
+                                enteredDirect[0] = runCatching { req.requestFocus() }.getOrDefault(false)
+                            }
+                        }
+                    }
+                    .onFocusChanged { st ->
                     if (contentHasFocus && !st.hasFocus) {
                         exitRowKey = savedRowKey   // leaving (side panel, another page): remember the row
+                        exitTile = savedTile
                     } else if (!contentHasFocus && st.hasFocus) {
                         val key = exitRowKey
                         val row = if (key == null) -1 else rows.indexOfFirst { it.key == key }
-                        // back in: put focus on that row's remembered tile, wherever Android landed first
-                        if (row >= 0) focusRow(row)
+                        // back in: put focus on that row's remembered tile, wherever Android landed first. Done a
+                        // frame later: asking during Android's own focus move was overridden by it, so focus ended
+                        // up on the row below.
+                        if (enteredDirect[0]) {
+                            enteredDirect[0] = false   // already on the right tile (onEnter above): nothing to move
+                        } else if (row >= 0) {
+                            val tile = exitTile   // the tile it left from (the landing tile may have changed it)
+                            navScope.launch {
+                                androidx.compose.runtime.withFrameNanos { }
+                                lastIndex[row] = tile
+                                focusRow(row)
+                            }
+                        }
                     }
                     contentHasFocus = st.hasFocus
                 },
@@ -536,6 +586,7 @@ private fun RowBlock(
         } else {
             val rowTiles = remember(rowIndex) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
             DisposableEffect(rowIndex) { tiles[rowIndex] = rowTiles; onDispose { tiles.remove(rowIndex) } }
+            val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             LazyRow(
                 // 6 above the tiles, plus however much more a zoomed poster grows than at the default size and zoom
                 contentPadding = PaddingValues(start = Start, end = Start, top = 6.dp + maxOf(0.dp, (180.dp * look.scale * (look.zoom - 1f) - 180.dp * 0.11f) / 2f), bottom = 26.dp),
@@ -550,6 +601,12 @@ private fun RowBlock(
                         modifier = Modifier
                             .focusRequester(req)
                             .onPreviewKeyEvent { e ->
+                                // Back on a row's first tile opens the side panel (as Left does there). Both the press
+                                // and the release are taken, so the page's own Back (to the carousel) does not also run.
+                                if (e.key == Key.Back && i == 0) {
+                                    if (e.type == KeyEventType.KeyDown) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
+                                    return@onPreviewKeyEvent true
+                                }
                                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 when (e.key) {
                                     Key.DirectionLeft -> { sideways[0] = true; false }

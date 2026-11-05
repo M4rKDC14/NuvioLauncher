@@ -1,5 +1,12 @@
 package com.nuvio.tv.ui.components
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Alignment
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.contentTextDirection
 
@@ -76,14 +83,22 @@ fun SourceStatusFilterChip(
         shakeOffsetPx.animateTo(0f, tween(140, easing = FastOutSlowInEasing))
     }
 
+    // Nuvio Launcher (approved mockup): grey on white 12%; the selected filter white on white 30%; focused the white
+    // pill, dark bold; 32dp tall, 14sp, no borders
     val textColor = when {
         isError -> NuvioTheme.colors.Error
-        isFocused || isSelected -> NuvioTheme.colors.OnSecondary
-        else -> NuvioTheme.colors.TextSecondary
+        isFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+        isSelected -> Color.White
+        else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
     }
 
-    FilterChip(
-        selected = isSelected,
+    val container = when {
+        isError -> NuvioTheme.colors.Error.copy(alpha = if (isSelected) 0.07f else 0.05f)
+        isSelected -> Color.White.copy(alpha = 0.30f)
+        else -> Color.White.copy(alpha = 0.12f)
+    }
+    // Nuvio Launcher: a plain clickable surface (the TV FilterChip has a 36dp minimum height; the mockup is 32dp)
+    androidx.tv.material3.Surface(
         onClick = { if (isSelectable) onClick() },
         modifier = modifier
             .graphicsLayer {
@@ -97,51 +112,30 @@ fun SourceStatusFilterChip(
                     onFocusSelect?.invoke()
                 }
             },
-        colors = FilterChipDefaults.colors(
-            containerColor = if (shouldUseNormalColors) NuvioTheme.colors.BackgroundCard else NuvioTheme.colors.Error.copy(alpha = 0.05f),
-            focusedContainerColor = if (shouldUseNormalColors) NuvioTheme.colors.Secondary else NuvioTheme.colors.Error.copy(alpha = 0.08f),
-            selectedContainerColor = if (shouldUseNormalColors) NuvioTheme.colors.Secondary else NuvioTheme.colors.Error.copy(alpha = 0.07f),
-            focusedSelectedContainerColor = if (shouldUseNormalColors) NuvioTheme.colors.Secondary else NuvioTheme.colors.Error.copy(alpha = 0.09f),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = container,
+            focusedContainerColor = if (isError) NuvioTheme.colors.Error.copy(alpha = 0.09f) else com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite,
             contentColor = textColor,
-            focusedContentColor = textColor,
-            selectedContentColor = textColor,
-            focusedSelectedContentColor = textColor
+            focusedContentColor = textColor
         ),
-        border = FilterChipDefaults.border(
-            border = Border(
-                border = BorderStroke(NuvioTheme.spacing.hairline, if (isError) NuvioTheme.colors.Error.copy(alpha = 0.7f) else NuvioTheme.colors.Border),
-                shape = RoundedCornerShape(20.dp)
-            ),
-            focusedBorder = Border(
-                border = if (isError) {
-                    BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.Error.copy(alpha = 0.8f))
-                } else {
-                    NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs)
-                },
-                shape = RoundedCornerShape(20.dp)
-            ),
-            selectedBorder = Border(
-                border = BorderStroke(NuvioTheme.spacing.hairline, if (isError) NuvioTheme.colors.Error.copy(alpha = 0.75f) else NuvioTheme.colors.Primary),
-                shape = RoundedCornerShape(20.dp)
-            ),
-            focusedSelectedBorder = Border(
-                border = if (isError) {
-                    BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.Error.copy(alpha = 0.8f))
-                } else {
-                    NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs)
-                },
-                shape = RoundedCornerShape(20.dp)
-            )
+        border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+            border = if (isError) Border(BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Error.copy(alpha = 0.7f)), shape = RoundedCornerShape(20.dp)) else Border.None,
+            focusedBorder = if (isError) Border(BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.Error.copy(alpha = 0.8f)), shape = RoundedCornerShape(20.dp)) else Border.None
         ),
-        shape = FilterChipDefaults.shape(shape = RoundedCornerShape(20.dp))
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(20.dp))
     ) {
-        Text(
-            text = name,
-            modifier = Modifier.shimmer(isLoading),
-            style = MaterialTheme.typography.labelLarge.copy(
-                textDirection = name.contentTextDirection()
-            ),
-            color = textColor
-        )
+        Box(modifier = Modifier.height(32.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = name,
+                modifier = Modifier.shimmer(isLoading),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = 14.sp,
+                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
+                    textDirection = name.contentTextDirection()
+                ),
+                color = textColor
+            )
+        }
     }
 }

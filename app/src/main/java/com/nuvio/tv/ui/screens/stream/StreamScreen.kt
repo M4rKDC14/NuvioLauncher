@@ -1357,7 +1357,7 @@ private fun StreamProviderHeader(sourceName: String?) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun StreamCard(
+internal fun StreamCard(   // internal: the player's Sources panel uses the same cards (Nuvio Launcher)
     stream: Stream,
     showFileSizeBadges: Boolean,
     showAddonLogo: Boolean,

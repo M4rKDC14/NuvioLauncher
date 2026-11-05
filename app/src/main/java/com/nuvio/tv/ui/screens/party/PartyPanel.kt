@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.party
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -77,14 +79,15 @@ fun PartyPanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
+    // Nuvio Launcher (approved mockup): the same glass panel as Sources: 480dp wide, 16dp in from the right, top and
+    // bottom, 24dp corners; white 22sp title and a grey Close pill
+    com.nuvio.tv.ui.launcher.LauncherGlass(
         modifier = modifier
             .fillMaxHeight()
-            .width(520.dp)
-            .clip(RoundedCornerShape(topStart = NuvioTheme.spacing.lg, bottomStart = NuvioTheme.spacing.lg))
-            .background(NuvioTheme.colors.BackgroundElevated),
+            .padding(16.dp)
+            .width(480.dp),
     ) {
-        Column(modifier = Modifier.padding(NuvioTheme.spacing.xl)) {
+        Column(modifier = Modifier.fillMaxHeight().padding(start = 24.dp, end = 24.dp, top = 22.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -92,16 +95,15 @@ fun PartyPanel(
             ) {
                 Text(
                     text = stringResource(R.string.party_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = NuvioTheme.colors.TextPrimary,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
                 )
-                DialogButton(
+                com.nuvio.tv.ui.screens.player.LauncherPillButton(
                     text = stringResource(R.string.action_close),
                     onClick = onClose,
-                    isPrimary = false,
                 )
             }
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(22.dp))
             AnimatedContent(
                 targetState = state.party,
                 contentKey = { it != null },
@@ -139,6 +141,7 @@ fun PartyPanel(
 }
 
 @Composable
+@OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
 private fun StartContent(
     profile: PartyProfile,
     busy: Boolean,
@@ -151,45 +154,71 @@ private fun StartContent(
     LaunchedEffect(canPress) {
         if (canPress) startFocusRequester.requestFocusAfterFrames()
     }
+    // Nuvio Launcher (approved mockup): 50dp avatar with the open seats overlapping it; white 20sp heading; 14sp grey
+    // text; a 40dp pill button sized to its text (grey on white 12%, focused the white pill, dark bold); 11sp note
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(bottom = NuvioTheme.spacing.xl),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
     ) {
         SeatsHero(
             profile = profile,
-            size = 56.dp,
-            ringColor = NuvioTheme.colors.BackgroundElevated,
-            modifier = Modifier.padding(bottom = NuvioTheme.spacing.sm),
+            size = 50.dp,
+            ringColor = Color.Transparent,
+            stepFraction = 0.86f,
         )
         Text(
             text = stringResource(R.string.party_start_title),
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp),
             fontWeight = FontWeight.SemiBold,
-            color = NuvioTheme.colors.TextPrimary,
+            color = Color.White,
+            modifier = Modifier.padding(top = 22.dp),
         )
         Text(
             text = stringResource(R.string.party_start_description),
-            style = MaterialTheme.typography.bodyMedium,
-            color = NuvioTheme.colors.TextSecondary,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+            modifier = Modifier.padding(top = 8.dp),
         )
         when {
-            !isSupported -> PartyNote(stringResource(R.string.party_unavailable))
-            !canStart -> PartyNote(stringResource(R.string.party_sign_in_required))
-            else -> DialogButton(
-                text = stringResource(R.string.party_start_action),
-                onClick = onStart,
-                isPrimary = true,
-                enabled = !busy,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = NuvioTheme.spacing.sm)
-                    .focusRequester(startFocusRequester),
-            )
+            !isSupported -> PartyNote(stringResource(R.string.party_unavailable), modifier = Modifier.padding(top = 20.dp))
+            !canStart -> PartyNote(stringResource(R.string.party_sign_in_required), modifier = Modifier.padding(top = 20.dp))
+            else -> {
+                var startFocused by remember { mutableStateOf(false) }
+                androidx.tv.material3.Surface(
+                    onClick = { if (!busy) onStart() },
+                    modifier = Modifier
+                        .padding(top = 20.dp)
+                        .height(40.dp)
+                        .focusRequester(startFocusRequester)
+                        .onFocusChanged { startFocused = it.isFocused },
+                    colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.12f),
+                        focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
+                    ),
+                    scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                    shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(999.dp)),
+                ) {
+                    Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.party_start_action),
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 15.sp,
+                                fontWeight = if (startFocused) FontWeight.Bold else FontWeight.Normal
+                            ),
+                            color = if (startFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                        )
+                    }
+                }
+            }
         }
-        ExperimentalNote()
+        Text(
+            text = stringResource(R.string.party_experimental),
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle.copy(alpha = 0.75f),
+            modifier = Modifier.padding(top = 12.dp),
+        )
     }
 }
 

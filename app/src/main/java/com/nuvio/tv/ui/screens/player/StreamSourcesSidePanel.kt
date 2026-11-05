@@ -5,6 +5,8 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -230,14 +232,17 @@ internal fun StreamSourcesSidePanel(
         streamListState.scrollToItem(0)
     }
 
-    Box(
+    // Nuvio Launcher (approved mockup): a launcher glass panel 480dp wide, 16dp in from the right, top and bottom,
+    // 24dp corners; white 22sp title, grey pills
+    // Owner's request: the same style as the details page's sources (that panel's darker glass, its chips and its cards).
+    com.nuvio.tv.ui.launcher.LauncherGlass(
         modifier = modifier
             .fillMaxHeight()
-            .width(520.dp)
-            .clip(RoundedCornerShape(topStart = NuvioTheme.spacing.lg, bottomStart = NuvioTheme.spacing.lg))
-            .background(NuvioTheme.colors.BackgroundElevated)
+            .padding(16.dp)
+            .width(480.dp),
+        tint = Color(0xC2121316)   // as the details page's sources panel
     ) {
-        Column(modifier = Modifier.padding(NuvioTheme.spacing.xl)) {
+        Column(modifier = Modifier.fillMaxHeight().padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -245,14 +250,13 @@ internal fun StreamSourcesSidePanel(
             ) {
                 Text(
                     text = stringResource(R.string.sources_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = NuvioTheme.colors.TextPrimary
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp, fontWeight = FontWeight.SemiBold),
+                    color = Color.White
                 )
 
-                DialogButton(
+                LauncherPillButton(
                     text = stringResource(R.string.sources_close),
                     onClick = onClose,
-                    isPrimary = false,
                     modifier = Modifier
                         .focusRequester(closeButtonFocusRequester)
                         .onFocusChanged { closeButtonHasFocus = it.isFocused }
@@ -269,7 +273,7 @@ internal fun StreamSourcesSidePanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Current content info
             val context = LocalContext.current
@@ -292,13 +296,13 @@ internal fun StreamSourcesSidePanel(
             }
             Text(
                 text = contentInfoText,
-                style = MaterialTheme.typography.bodyLarge,
-                color = NuvioTheme.extendedColors.textSecondary,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(16.dp))
 
             AnimatedVisibility(
                 visible = uiState.sourceChips.isNotEmpty() || uiState.sourceAvailableAddons.isNotEmpty(),
@@ -306,7 +310,7 @@ internal fun StreamSourcesSidePanel(
                 exit = fadeOut(animationSpec = tween(120))
             ) {
                 Box(modifier = Modifier.onFocusChanged { chipsHasFocus = it.hasFocus }) {
-                    AddonFilterChips(
+                    com.nuvio.tv.ui.screens.stream.StreamLauncherFilterChips(
                         addons = uiState.sourceAvailableAddons,
                         sourceChips = uiState.sourceChips,
                         selectedAddon = uiState.sourceSelectedAddonFilter,
@@ -330,13 +334,12 @@ internal fun StreamSourcesSidePanel(
                         },
                         onFocusIndexChanged = { index ->
                             if (index != 1) userMovedFromFirstResult = true
-                        },
-                        debugTag = "SourcesSidePanel"
+                        }
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(16.dp))
 
             when {
                 uiState.sourceStreamsError != null -> {
@@ -393,13 +396,8 @@ internal fun StreamSourcesSidePanel(
 
                     LazyColumn(
                         state = streamListState,
-                        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
-                        contentPadding = PaddingValues(
-                            start = NuvioTheme.spacing.sm,
-                            top = 14.dp,
-                            end = NuvioTheme.spacing.sm,
-                            bottom = NuvioTheme.spacing.sm
-                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),   // approved mockup
+                        contentPadding = PaddingValues(bottom = 16.dp),
                         modifier = Modifier
                             .fillMaxHeight()
                             .onFocusChanged { listHasFocus = it.hasFocus }
@@ -464,14 +462,14 @@ internal fun StreamSourcesSidePanel(
                         itemsIndexed(uiState.sourceFilteredStreams, key = { index, _ ->
                             streamKeys[index]
                         }) { index, stream ->
-                            StreamItem(
+                            com.nuvio.tv.ui.screens.stream.StreamCard(
                                 stream = stream,
                                 focusRequester = if (index == 0) {
                                     streamsFocusRequester
                                 } else {
                                     streamFocusRequesters.getValue(streamKeys[index])
                                 },
-                                isCurrentStream = index == currentStreamIndex,
+                                label = if (index == currentStreamIndex) stringResource(R.string.sources_playing) else null,
                                 showFileSizeBadges = uiState.showFileSizeBadges,
                                 showAddonLogo = uiState.showAddonLogo,
                                 badgePlacement = uiState.streamBadgePlacement,
@@ -573,4 +571,37 @@ internal fun findCurrentStreamIndex(
     }
 
     return -1
+}
+
+/** Nuvio Launcher (approved mockup): a 32dp grey pill on white 12%, 14sp; focused the white pill, dark bold. */
+@Composable
+internal fun LauncherPillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var focused by remember { mutableStateOf(false) }
+    androidx.tv.material3.Surface(
+        onClick = onClick,
+        modifier = modifier
+            .height(32.dp)
+            .onFocusChanged { focused = it.isFocused },
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
+        ),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(999.dp))
+    ) {
+        Box(modifier = Modifier.fillMaxHeight().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = 14.sp,
+                    fontWeight = if (focused) FontWeight.Bold else FontWeight.Normal
+                ),
+                color = if (focused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+            )
+        }
+    }
 }

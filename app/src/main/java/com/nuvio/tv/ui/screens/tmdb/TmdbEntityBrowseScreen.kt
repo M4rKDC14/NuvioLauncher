@@ -296,6 +296,9 @@ private fun TmdbEntityBrowseContent(
                     contentPadding = PaddingValues(bottom = 400.dp)   // room for the last row to scroll up to the first row's place
                 ) {
                     itemsIndexed(rows, key = { _, r -> r.key }) { ri, row ->
+                        /* rows above the focused one have scrolled off the top; hide them so their tile shadows don't show above the focused row */
+                        val aboveFocus = ri < rows.indexOfFirst { it.key == focusedRowKey }
+                        Box(Modifier.graphicsLayer { alpha = if (aboveFocus) 0f else 1f }) {
                         CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
                             EntityRowBlock(
                                 rowIndex = ri,
@@ -329,6 +332,7 @@ private fun TmdbEntityBrowseContent(
                                 onLongClick = onItemLongPress,
                                 onLoadMore = onLoadMoreRail
                             )
+                        }
                         }
                     }
                 }

@@ -322,7 +322,8 @@ fun CastSection(
                                 .width(NuvioTheme.spacing.hairline)
                                 .height(72.dp)
                                 .offset(x = -deadSpace / 2)
-                                .background(NuvioTheme.colors.SurfaceVariant.copy(alpha = 0.9f))
+                                /* Nuvio Launcher: the line between crew and cast is not drawn; the item stays so the
+                                   row's index maths and focus restore are unchanged */
                         )
                     }
                 }

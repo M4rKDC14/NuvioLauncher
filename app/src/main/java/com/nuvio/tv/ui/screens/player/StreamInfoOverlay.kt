@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.player
 
+import androidx.compose.ui.unit.sp
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import android.view.KeyEvent
@@ -89,8 +90,13 @@ fun StreamInfoOverlay(
             runCatching { hudFocusRequester.requestFocus() }.isSuccess
         },
         dismissOnCenter = !hudButtonShown,
-        contentPadding = PaddingValues(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = 36.dp, bottom = 36.dp)
+        // Nuvio Launcher (approved mockup): black 80% on the left to 55% on the right; 56dp side margin
+        launcherScrim = androidx.compose.ui.graphics.Brush.horizontalGradient(
+            listOf(Color.Black.copy(alpha = 0.80f), Color.Black.copy(alpha = 0.55f))
+        ),
+        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 36.dp, bottom = 36.dp)
     ) {
+        LauncherScaled(0.85f) {   // Nuvio Launcher: the whole page 15% smaller (owner's request)
         // Someone who never turned the overlay on has no use for a control they cannot interpret.
         if (hudButtonShown) {
             StreamInfoHudButton(
@@ -110,6 +116,7 @@ fun StreamInfoOverlay(
                 StreamInfoContent(data = data)
             }
         }
+        }
     }
 }
 
@@ -119,7 +126,7 @@ private fun StreamInfoContent(data: StreamInfoData) {
     val hasSourceInfo = data.addonName != null || data.streamName != null
     if (hasSourceInfo) {
         SectionLabel(stringResource(R.string.stream_info_section_source))
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+        Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (!data.addonLogo.isNullOrBlank()) {
                 AsyncImage(
@@ -129,17 +136,17 @@ private fun StreamInfoContent(data: StreamInfoData) {
                         .build(),
                     contentDescription = data.addonName,
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(32.dp)
                         .clip(RoundedCornerShape(NuvioTheme.radii.sm)),
                     contentScale = ContentScale.Fit
                 )
-                Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+                Spacer(modifier = Modifier.width(12.dp))
             }
             Column {
                 if (data.addonName != null) {
                     Text(
                         text = data.addonName,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp),
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -149,8 +156,9 @@ private fun StreamInfoContent(data: StreamInfoData) {
                 if (data.streamName != null && data.streamName != data.addonName) {
                     Text(
                         text = data.streamName.replace("\n", " · "),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = NuvioTheme.colors.TextSecondary,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontSize = 14.sp),
+                        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                        modifier = Modifier.padding(top = 2.dp),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -160,15 +168,15 @@ private fun StreamInfoContent(data: StreamInfoData) {
         if (!data.streamDescription.isNullOrBlank()) {
             Text(
                 text = data.streamDescription.replace("\n", " · "),
-                style = MaterialTheme.typography.bodyMedium,
-                color = NuvioTheme.colors.TextSecondary,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = NuvioTheme.spacing.xs)
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
         if (data.playerEngine != null || data.serverPlayback != null) {
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
+            Spacer(modifier = Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
                 InfoItem(label = stringResource(R.string.stream_info_player_engine), value = data.playerEngine)
                 InfoItem(
@@ -178,19 +186,19 @@ private fun StreamInfoContent(data: StreamInfoData) {
                 )
             }
         }
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+        Spacer(modifier = Modifier.height(20.dp))   // approved mockup: 20dp between sections
     }
 
     // FILE section
     val hasFileInfo = data.filename != null || data.fileSize != null
     if (hasFileInfo) {
         SectionLabel(stringResource(R.string.stream_info_section_file))
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
             InfoItem(label = stringResource(R.string.stream_info_filename), value = data.filename, modifier = Modifier.weight(1f))
             InfoItem(label = stringResource(R.string.stream_info_size), value = data.fileSize?.let { formatFileSize(it) })
         }
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+        Spacer(modifier = Modifier.height(20.dp))   // approved mockup: 20dp between sections
     }
 
     // VIDEO section
@@ -198,7 +206,7 @@ private fun StreamInfoContent(data: StreamInfoData) {
         data.videoFrameRate != null || data.videoBitrate != null || data.fileBitrate != null
     if (hasVideoInfo) {
         SectionLabel(stringResource(R.string.stream_info_section_video))
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
             InfoItem(label = stringResource(R.string.stream_info_codec), value = data.videoCodec)
             InfoItem(
@@ -225,14 +233,14 @@ private fun StreamInfoContent(data: StreamInfoData) {
                 )
             }
         }
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+        Spacer(modifier = Modifier.height(20.dp))   // approved mockup: 20dp between sections
     }
 
     // AUDIO section
     val hasAudioInfo = data.audioCodec != null || data.audioChannels != null || data.audioLanguage != null || data.audioSampleRate != null
     if (hasAudioInfo) {
         SectionLabel(stringResource(R.string.stream_info_section_audio))
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
             InfoItem(label = stringResource(R.string.stream_info_codec), value = data.audioCodec)
             InfoItem(label = stringResource(R.string.stream_info_channels), value = data.audioChannels)
@@ -245,14 +253,14 @@ private fun StreamInfoContent(data: StreamInfoData) {
                 value = data.audioLanguage?.let { languageCodeToName(it) }
             )
         }
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+        Spacer(modifier = Modifier.height(20.dp))   // approved mockup: 20dp between sections
     }
 
     // SUBTITLE section
     val hasSubtitleInfo = data.subtitleName != null || data.subtitleCodec != null || data.subtitleLanguage != null
     if (hasSubtitleInfo) {
         SectionLabel(stringResource(R.string.stream_info_section_subtitle))
-        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+        Spacer(modifier = Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
             InfoItem(label = stringResource(R.string.stream_info_name), value = data.subtitleName)
             InfoItem(label = stringResource(R.string.stream_info_codec), value = data.subtitleCodec)
@@ -267,10 +275,11 @@ private fun StreamInfoContent(data: StreamInfoData) {
 
 @Composable
 private fun SectionLabel(text: String) {
+    // Nuvio Launcher (approved mockup): small grey caps with letter spacing
     Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = NuvioTheme.colors.TextTertiary,
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, letterSpacing = 1.5.sp),
+        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
         fontWeight = FontWeight.SemiBold
     )
 }
@@ -279,15 +288,17 @@ private fun SectionLabel(text: String) {
 private fun InfoItem(label: String, value: String?, modifier: Modifier = Modifier) {
     if (value == null) return
     Column(modifier = modifier) {
+        // Nuvio Launcher (approved mockup): 11sp label at 70%, 15sp value, both grey
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = NuvioTheme.colors.TextTertiary
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle.copy(alpha = 0.7f)
         )
         Text(
             text = value.keepLtr(),
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.Normal),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+            modifier = Modifier.padding(top = 3.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

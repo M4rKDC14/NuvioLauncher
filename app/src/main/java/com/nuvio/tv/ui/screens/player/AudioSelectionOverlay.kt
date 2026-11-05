@@ -2,6 +2,13 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.BorderStroke
@@ -172,28 +179,36 @@ internal fun AudioSelectionOverlay(
         onDismiss = onDismiss,
         modifier = modifier,
         captureKeys = false,
-        contentPadding = PaddingValues(start = 44.dp, end = 44.dp, top = 28.dp, bottom = 64.dp)
+        launcherScrim = androidx.compose.ui.graphics.SolidColor(Color.Black.copy(alpha = 0.70f)),   // approved mockup
+        contentPadding = PaddingValues(start = 56.dp, end = 44.dp, top = 36.dp, bottom = 64.dp)
     ) {
+        LauncherScaled(0.85f) {   // Nuvio Launcher: the whole page 15% smaller (owner's request)
         Column(
             modifier = Modifier
-                .width(724.dp)
+                .width(824.dp)
                 .align(Alignment.BottomStart)
                 .fillMaxHeight(),
             verticalArrangement = Arrangement.Bottom
         ) {
             Text(
                 text = stringResource(R.string.audio_dialog_title),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, fontWeight = FontWeight.SemiBold),
                 color = Color.White,
-                modifier = Modifier.padding(bottom = NuvioTheme.spacing.sm)
+                modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
             )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(44.dp),   // approved mockup
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.padding(bottom = NuvioTheme.spacing.sm)
             ) {
-                Column(modifier = Modifier.width(444.dp)) {
+                Column(modifier = Modifier.width(430.dp)) {
+                    Text(
+                        text = "TRACKS",   // Nuvio Launcher (approved mockup): small grey caps label
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp),
+                        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                     AudioTracksContent(
                         tracks = tracks,
                         selectedIndex = selectedIndex,
@@ -212,7 +227,13 @@ internal fun AudioSelectionOverlay(
                         onTrackSelected = onTrackSelected
                     )
                 }
-                Column(modifier = Modifier.width(268.dp)) {
+                Column(modifier = Modifier.width(350.dp)) {
+                    Text(
+                        text = "SETTINGS",   // Nuvio Launcher (approved mockup): small grey caps label
+                        style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp),
+                        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                     AudioControlsContent(
                         audioDelayMs = audioDelayMs,
                         audioAmplificationDb = audioAmplificationDb,
@@ -243,6 +264,7 @@ internal fun AudioSelectionOverlay(
                 }
             }
         }
+        }
     }
 }
 
@@ -268,8 +290,8 @@ private fun AudioTracksContent(
 
     LazyColumn(
         state = listState,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(0.dp),   // approved mockup: rows touch, 8dp under the label
+        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.sm),
         modifier = Modifier
             .heightIn(max = 620.dp)
             .fillMaxWidth()
@@ -307,6 +329,7 @@ private fun AudioTrackCard(
         track.channelCount?.let { "$it ch" },
         track.sampleRate?.let { "${it / 1000} kHz" }
     ).joinToString(" | ")
+    var trackFocused by remember { mutableStateOf(false) }
 
     Card(
         onClick = onClick,
@@ -318,64 +341,63 @@ private fun AudioTrackCard(
             }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .focusProperties { right = rightFocusRequester }
-            .onFocusChanged { if (it.isFocused) onFocused() },
+            .onFocusChanged {
+                trackFocused = it.isFocused
+                if (it.isFocused) onFocused()
+            },
+        // Nuvio Launcher (approved mockup): grey; the track in use white on a faint fill; focused the white pill, all
+        // lines dark bold; 7dp corners, no ring
         colors = CardDefaults.colors(
-            containerColor = if (isSelected) NuvioTheme.colors.Secondary else Color.Transparent,
-            focusedContainerColor = if (isSelected) NuvioTheme.colors.Secondary else Color.Transparent
+            containerColor = if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
         ),
-        shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+        shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
         border = CardDefaults.border(
             border = Border(
                 border = BorderStroke(NuvioTheme.spacing.xxs, Color.Transparent),
-                shape = RoundedCornerShape(NuvioTheme.radii.md)
+                shape = RoundedCornerShape(7.dp)
             ),
             focusedBorder = Border(
-                border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                shape = RoundedCornerShape(NuvioTheme.radii.md)
+                border = BorderStroke(NuvioTheme.spacing.xxs, Color.Transparent),
+                shape = RoundedCornerShape(7.dp)
             )
         ),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
-        val primaryTextColor = if (isSelected) NuvioTheme.colors.OnSecondary else Color.White
-        val secondaryTextColor = if (isSelected) {
-            NuvioTheme.colors.OnSecondary.copy(alpha = 0.82f)
-        } else {
-            Color.White.copy(alpha = 0.72f)
+        val primaryTextColor = when {
+            trackFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+            isSelected -> Color.White
+            else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
         }
-        val metadataTextColor = if (isSelected) {
-            NuvioTheme.colors.OnSecondary.copy(alpha = 0.72f)
-        } else {
-            NuvioTheme.colors.TextTertiary
-        }
+        val weight = if (trackFocused) FontWeight.Bold else FontWeight.Normal
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm),
+                .padding(horizontal = 14.dp, vertical = 9.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.name,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = weight),
                     color = primaryTextColor
                 )
                 if (!track.language.isNullOrBlank() && track.language != "und") {
                     Text(
                         text = languageCodeToName(track.language),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = secondaryTextColor
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, fontWeight = weight),
+                        color = primaryTextColor.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 3.dp)
                     )
                 }
                 if (metadata.isNotBlank()) {
                     Text(
                         text = metadata,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = metadataTextColor
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, fontWeight = weight),
+                        color = primaryTextColor.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
             }
@@ -384,7 +406,8 @@ private fun AudioTrackCard(
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = NuvioTheme.colors.OnSecondary
+                    tint = primaryTextColor,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -503,8 +526,8 @@ private fun AudioControlsContent(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(top = NuvioTheme.spacing.xs, bottom = NuvioTheme.spacing.sm),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(bottom = NuvioTheme.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(14.dp)   // approved mockup
     ) {
         AdjustmentSection(
             title = stringResource(R.string.audio_delay_label),
@@ -554,7 +577,7 @@ private fun AudioControlsContent(
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)   // approved mockup
         ) {
             AdjustmentSection(
                 title = stringResource(R.string.audio_mix_label),
@@ -622,91 +645,93 @@ private fun AudioControlsContent(
                 }
             )
 
-            if (isNightModeAvailable) {
-                val nightModeOn = nightMode != NightMode.OFF
-                Card(
-                    onClick = {
-                        val levels = NightMode.entries
-                        onNightModeChange(levels[(levels.indexOf(nightMode) + 1) % levels.size])
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .focusRequester(nightModeFocusRequester)
-                        .focusProperties {
-                            left = persistLeftFocusRequester
-                            up = persistUpFocusRequester
-                            down = persistFocusRequester
+            // Nuvio Launcher (approved mockup): Night mode and Persist side by side, 32dp pills with 7dp corners and
+            // 14sp text: Night mode on white 12% (white 30% when on), Persist bare (white 30% when on); focused = the
+            // white pill, dark bold
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (isNightModeAvailable) {
+                    val nightModeOn = nightMode != NightMode.OFF
+                    var nightFocused by remember { mutableStateOf(false) }
+                    Card(
+                        onClick = {
+                            val levels = NightMode.entries
+                            onNightModeChange(levels[(levels.indexOf(nightMode) + 1) % levels.size])
                         },
-                    colors = CardDefaults.colors(
-                        containerColor = if (nightModeOn) NuvioTheme.colors.Secondary else Color.Transparent,
-                        focusedContainerColor = if (nightModeOn) NuvioTheme.colors.Secondary else Color.Transparent
-                    ),
-                    shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-                    border = CardDefaults.border(
-                        border = Border(
-                            border = BorderStroke(NuvioTheme.spacing.xxs, Color.White.copy(alpha = 0.18f)),
-                            shape = RoundedCornerShape(NuvioTheme.radii.md)
+                        modifier = Modifier
+                            .height(32.dp)
+                            .focusRequester(nightModeFocusRequester)
+                            .focusProperties {
+                                left = persistLeftFocusRequester
+                                up = persistUpFocusRequester
+                                right = persistFocusRequester
+                                down = persistFocusRequester
+                            }
+                            .onFocusChanged { nightFocused = it.isFocused },
+                        colors = CardDefaults.colors(
+                            containerColor = Color.White.copy(alpha = if (nightModeOn) 0.30f else 0.12f),
+                            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
                         ),
-                        focusedBorder = Border(
-                            border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                            shape = RoundedCornerShape(NuvioTheme.radii.md)
-                        )
-                    ),
-                    scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
-                ) {
-                    Text(
-                        text = stringResource(R.string.audio_night_mode_value, nightModeLevelLabel(nightMode)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (nightModeOn) NuvioTheme.colors.OnSecondary else Color.White,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                    )
-                }
-            }
-
-            Card(
-                onClick = { onPersistAmplificationChange(!persistAmplification) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(persistFocusRequester)
-                    .semantics {
-                        role = Role.Switch
-                        toggleableState = if (persistAmplification) {
-                            ToggleableState.On
-                        } else {
-                            ToggleableState.Off
+                        shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
+                        border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
+                        scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+                    ) {
+                        Box(Modifier.fillMaxHeight().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = stringResource(R.string.audio_night_mode_value, nightModeLevelLabel(nightMode)),
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, fontWeight = if (nightFocused) FontWeight.Bold else FontWeight.Normal),
+                                color = when {
+                                    nightFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+                                    nightModeOn -> Color.White
+                                    else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+                                }
+                            )
                         }
                     }
-                    .focusProperties {
-                        left = persistLeftFocusRequester
-                        up = if (isNightModeAvailable) nightModeFocusRequester else persistUpFocusRequester
-                    },
-                colors = CardDefaults.colors(
-                    containerColor = if (persistAmplification) NuvioTheme.colors.Secondary else Color.Transparent,
-                    focusedContainerColor = if (persistAmplification) NuvioTheme.colors.Secondary else Color.Transparent
-                ),
-                shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-                border = CardDefaults.border(
-                    border = Border(
-                        border = BorderStroke(NuvioTheme.spacing.xxs, Color.Transparent),
-                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                }
+
+                var persistFocused by remember { mutableStateOf(false) }
+                Card(
+                    onClick = { onPersistAmplificationChange(!persistAmplification) },
+                    modifier = Modifier
+                        .height(32.dp)
+                        .focusRequester(persistFocusRequester)
+                        .semantics {
+                            role = Role.Switch
+                            toggleableState = if (persistAmplification) {
+                                ToggleableState.On
+                            } else {
+                                ToggleableState.Off
+                            }
+                        }
+                        .focusProperties {
+                            left = if (isNightModeAvailable) nightModeFocusRequester else persistLeftFocusRequester
+                            up = if (isNightModeAvailable) nightModeFocusRequester else persistUpFocusRequester
+                        }
+                        .onFocusChanged { persistFocused = it.isFocused },
+                    colors = CardDefaults.colors(
+                        containerColor = if (persistAmplification) Color.White.copy(alpha = 0.30f) else Color.Transparent,
+                        focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
                     ),
-                    focusedBorder = Border(
-                        border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                        shape = RoundedCornerShape(NuvioTheme.radii.md)
-                    )
-                ),
-                scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
-            ) {
-                Text(
-                    text = if (persistAmplification) {
-                        stringResource(R.string.audio_mix_persist_on)
-                    } else {
-                        stringResource(R.string.audio_mix_persist_off)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (persistAmplification) NuvioTheme.colors.OnSecondary else Color.White,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
-                )
+                    shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
+                    border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
+                    scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+                ) {
+                    Box(Modifier.fillMaxHeight().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = if (persistAmplification) {
+                                stringResource(R.string.audio_mix_persist_on)
+                            } else {
+                                stringResource(R.string.audio_mix_persist_off)
+                            },
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp, fontWeight = if (persistFocused) FontWeight.Bold else FontWeight.Normal),
+                            color = when {
+                                persistFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+                                persistAmplification -> Color.White
+                                else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -730,26 +755,19 @@ private fun AdjustmentSection(
     onDecreaseHold: ((Int) -> Unit)? = null,
     onIncreaseHold: ((Int) -> Unit)? = null
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
-    ) {
+    // Nuvio Launcher (approved mockup): 14sp grey label; then − value + in one row (value 75dp wide, 14sp grey);
+    // then the 11sp helper line
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.92f)
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
         )
 
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Text(
-                text = valueText,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White
-            )
-        }
-
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(top = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             StepCard(
                 icon = Icons.Default.Remove,
@@ -763,6 +781,20 @@ private fun AdjustmentSection(
                 onClick = onDecrease,
                 onHoldTick = onDecreaseHold
             )
+            Box(
+                modifier = Modifier
+                    .width(75.dp)
+                    .alpha(if (canDecrease || canIncrease) 1f else 0.4f),
+                contentAlignment = Alignment.Center
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(
+                        text = valueText,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+                    )
+                }
+            }
             StepCard(
                 icon = Icons.Default.Add,
                 contentDescription = stringResource(R.string.cd_increase),
@@ -778,8 +810,9 @@ private fun AdjustmentSection(
 
         Text(
             text = helperText,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.66f)
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 3.dp)
         )
     }
 }
@@ -798,6 +831,7 @@ private fun StepCard(
     onHoldTick: ((Int) -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    var stepFocused by remember { mutableStateOf(false) }
 
     if (onHoldTick != null) {
         val isPressed by interactionSource.collectIsPressedAsState()
@@ -832,7 +866,9 @@ private fun StepCard(
         },
         interactionSource = interactionSource,
         modifier = Modifier
-            .width(NuvioTheme.spacing.huge)
+            .size(width = 36.dp, height = 32.dp)   // approved mockup
+            .alpha(if (enabled) 1f else 0.4f)
+            .onFocusChanged { stepFocused = it.isFocused }
             .focusRequester(focusRequester)
             .focusProperties {
                 canFocus = enabled
@@ -841,36 +877,22 @@ private fun StepCard(
                 upFocusRequester?.let { up = it }
                 downFocusRequester?.let { down = it }
             },
+        // Nuvio Launcher (approved mockup): grey on white 12%, 7dp corners; focused the white pill with a dark icon;
+        // disabled faded to 40%
         colors = CardDefaults.colors(
-            containerColor = if (enabled) Color.Transparent else Color.White.copy(alpha = 0.06f),
-            focusedContainerColor = if (enabled) Color.Transparent else Color.White.copy(alpha = 0.06f)
+            containerColor = Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
         ),
-        shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        border = CardDefaults.border(
-            border = Border(
-                border = BorderStroke(NuvioTheme.spacing.xxs, if (enabled) Color.White.copy(alpha = 0.18f) else Color.Transparent),
-                shape = RoundedCornerShape(NuvioTheme.radii.md)
-            ),
-            focusedBorder = Border(
-                border = NuvioTheme.focusRing.border(
-                    width = NuvioTheme.spacing.xxs,
-                    alpha = if (enabled) 1f else 0f
-                ),
-                shape = RoundedCornerShape(NuvioTheme.radii.md)
-            )
-        ),
+        shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
+        border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                tint = if (enabled) Color.White else Color.White.copy(alpha = 0.35f)
+                tint = if (stepFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                modifier = Modifier.size(20.dp)
             )
         }
     }

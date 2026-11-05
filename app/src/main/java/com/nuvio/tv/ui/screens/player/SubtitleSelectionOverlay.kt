@@ -2,6 +2,11 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.layout.layout
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import android.util.Log
@@ -401,7 +406,8 @@ internal fun SubtitleSelectionOverlay(
         onDismiss = onDismiss,
         modifier = modifier,
         captureKeys = false,
-        contentPadding = PaddingValues(start = 52.dp, end = 52.dp, top = 36.dp, bottom = 76.dp)
+        launcherScrim = androidx.compose.ui.graphics.SolidColor(Color.Black.copy(alpha = 0.70f)),   // approved mockup
+        contentPadding = PaddingValues(start = 56.dp, end = 52.dp, top = 36.dp, bottom = 76.dp)
     ) {
         LaunchedEffect(visible) {
             if (!visible) return@LaunchedEffect
@@ -469,15 +475,16 @@ internal fun SubtitleSelectionOverlay(
             pendingStyleFocusKey = null
         }
 
+        LauncherScaled(0.85f) {   // Nuvio Launcher: the whole page 15% smaller (owner's request)
         Column(verticalArrangement = Arrangement.Bottom) {
             Text(
                 text = stringResource(R.string.subtitle_dialog_title),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, fontWeight = FontWeight.SemiBold),
                 color = Color.White,
                 modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {   // approved mockup
                 SubtitleLanguageRail(
                     items = languageItems,
                     selectedLanguageKey = selectedLanguageKey,
@@ -606,6 +613,7 @@ internal fun SubtitleSelectionOverlay(
                 }
             }
         }
+        }
     }
 }
 
@@ -669,7 +677,7 @@ private fun SubtitleLanguageRail(
         onFocusRequestConsumed()
     }
 
-    RailColumn(width = 200.dp, title = stringResource(R.string.subtitle_tab_languages)) {
+    RailColumn(width = 180.dp, title = stringResource(R.string.subtitle_tab_languages)) {
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
@@ -749,7 +757,7 @@ private fun SubtitleOptionsRail(
         onFocusRequestConsumed()
     }
 
-    RailColumn(width = 300.dp, title = stringResource(R.string.subtitle_dialog_title)) {
+    RailColumn(width = 280.dp, title = stringResource(R.string.subtitle_dialog_title)) {
         when {
             selectedLanguageKey == SubtitleOffLanguageKey -> {
                 OverlayEmptyCard(text = stringResource(R.string.subtitle_none))
@@ -824,22 +832,24 @@ private fun SubtitleStyleRail(
     val styleCardModifier = if (isStyleDisabledByLibass) Modifier.alpha(0.35f) else Modifier
     val styleRailModifier = if (isStyleDisabledByLibass) Modifier.focusProperties { canFocus = false } else Modifier
     RailColumn(
-        width = 280.dp,
+        width = 320.dp,
         title = stringResource(R.string.subtitle_style_title),
         modifier = styleRailModifier
     ) {
         LazyColumn(
             state = listState,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(15.dp),   // approved mockup
             contentPadding = PaddingValues(bottom = NuvioTheme.spacing.sm),
             modifier = Modifier
                 .heightIn(max = 720.dp)
         ) {
             item {
+                var delayFocused by remember { mutableStateOf(false) }
+                val delayColor = if (delayFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
                 Card(
                     onClick = { dispatchStyleEvent(PlayerEvent.OnShowSubtitleDelayOverlay) },
                     colors = overlayCardColors(selected = false),
-                    shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                    shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(styleCardModifier)
@@ -861,7 +871,10 @@ private fun SubtitleStyleRail(
                                 else -> false
                             }
                         }
-                        .onFocusChanged { if (it.isFocused) onStyleFocused(StyleFocusKey.DelaySet) },
+                        .onFocusChanged {
+                            delayFocused = it.isFocused
+                            if (it.isFocused) onStyleFocused(StyleFocusKey.DelaySet)
+                        },
                     scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
                 ) {
                     Row(
@@ -873,13 +886,13 @@ private fun SubtitleStyleRail(
                     ) {
                         Text(
                             text = stringResource(R.string.subtitle_tab_delay),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = if (delayFocused) FontWeight.Bold else FontWeight.Normal),
+                            color = delayColor
                         )
                         Text(
                             text = formatSubtitleDelay(subtitleDelayMs).keepLtr(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.7f)
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = if (delayFocused) FontWeight.Bold else FontWeight.Normal),
+                            color = delayColor
                         )
                     }
                 }
@@ -1044,10 +1057,11 @@ private fun SubtitleStyleRail(
                 }
             }
             item {
+                var resetFocused by remember { mutableStateOf(false) }
                 Card(
                     onClick = { dispatchStyleEvent(PlayerEvent.OnResetSubtitleDefaults) },
                     colors = overlayCardColors(selected = false),
-                    shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                    shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
                     modifier = Modifier
                         .then(styleCardModifier)
                         .focusRequester(requireNotNull(focusRequesters[StyleFocusKey.Reset]))
@@ -1068,13 +1082,16 @@ private fun SubtitleStyleRail(
                                 else -> false
                             }
                         }
-                        .onFocusChanged { if (it.isFocused) onStyleFocused(StyleFocusKey.Reset) },
+                        .onFocusChanged {
+                            resetFocused = it.isFocused
+                            if (it.isFocused) onStyleFocused(StyleFocusKey.Reset)
+                        },
                     scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
                 ) {
                     Text(
                         text = stringResource(R.string.subtitle_reset_defaults),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = if (resetFocused) FontWeight.Bold else FontWeight.Normal),
+                        color = if (resetFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
                         modifier = Modifier.padding(horizontal = NuvioTheme.spacing.md, vertical = 10.dp)
                     )
                 }
@@ -1094,10 +1111,11 @@ private fun RailColumn(
         modifier = modifier.width(width),
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
+        // Nuvio Launcher (approved mockup): small grey caps with letter spacing
         Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = NuvioTheme.colors.TextTertiary
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
         )
         content()
     }
@@ -1112,7 +1130,13 @@ private fun SubtitleLanguageCard(
     onMoveRight: (() -> Unit)?,
     onFocused: () -> Unit
 ) {
-    val textColor = if (isSelected) NuvioTheme.colors.OnSecondary else Color.White
+    // Nuvio Launcher (approved mockup): grey; the language in use white on a faint fill; focused a white pill, dark bold
+    var isFocused by remember { mutableStateOf(false) }
+    val textColor = when {
+        isFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+        isSelected -> Color.White
+        else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+    }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val moveToOptionsKey = if (isRtl) android.view.KeyEvent.KEYCODE_DPAD_LEFT else android.view.KeyEvent.KEYCODE_DPAD_RIGHT
 
@@ -1144,6 +1168,7 @@ private fun SubtitleLanguageCard(
                 }
             }
             .onFocusChanged {
+                isFocused = it.isFocused
                 if (it.isFocused) {
                     Log.d(
                         SubtitleFocusTag,
@@ -1153,20 +1178,20 @@ private fun SubtitleLanguageCard(
                 }
             },
         colors = overlayCardColors(selected = isSelected),
-        shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+        shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
         border = overlayCardBorder(),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = NuvioTheme.spacing.sm),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = item.label,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal),
                 color = textColor,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -1174,7 +1199,11 @@ private fun SubtitleLanguageCard(
             )
             if (item.count > 0) {
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(6.dp))
-                CountBadge(count = item.count, selected = isSelected)
+                Text(   // approved mockup: the count as plain 12sp text, no badge
+                    text = item.count.toString(),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                    color = textColor
+                )
             }
         }
     }
@@ -1190,12 +1219,14 @@ private fun SubtitleOptionCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val titleColor = if (item.isSelected) NuvioTheme.colors.OnSecondary else Color.White
-    val metaColor = if (item.isSelected) {
-        NuvioTheme.colors.OnSecondary.copy(alpha = 0.72f)
-    } else {
-        NuvioTheme.colors.TextTertiary
+    // Nuvio Launcher (approved mockup): grey; the subtitle in use white on a faint fill; focused a white pill, dark bold
+    var isFocused by remember { mutableStateOf(false) }
+    val titleColor = when {
+        isFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+        item.isSelected -> Color.White
+        else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
     }
+    val metaColor = titleColor.copy(alpha = 0.7f)
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val moveLeftKey = if (isRtl) android.view.KeyEvent.KEYCODE_DPAD_RIGHT else android.view.KeyEvent.KEYCODE_DPAD_LEFT
     val moveRightKey = if (isRtl) android.view.KeyEvent.KEYCODE_DPAD_LEFT else android.view.KeyEvent.KEYCODE_DPAD_RIGHT
@@ -1240,6 +1271,7 @@ private fun SubtitleOptionCard(
                 }
             }
             .onFocusChanged {
+                isFocused = it.isFocused
                 if (it.isFocused) {
                     Log.d(
                         SubtitleFocusTag,
@@ -1249,37 +1281,37 @@ private fun SubtitleOptionCard(
                 }
             },
         colors = overlayCardColors(selected = item.isSelected),
-        shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+        shape = CardDefaults.shape(RoundedCornerShape(7.dp)),
         border = overlayCardBorder(),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = NuvioTheme.spacing.md, vertical = 9.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Row( // AutoSync hook: room for the "Auto synced" chip beside the source
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SourceChip(label = item.sourceLabel, selected = item.isSelected)
-                    item.addonSubtitle?.let { AutoSyncedChip(it.url, item.isSelected) } // AutoSync hook
+                    SourceChip(label = item.sourceLabel, selected = isFocused)
+                    item.addonSubtitle?.let { AutoSyncedChip(it.url, item.isSelected, onLight = isFocused) } // AutoSync hook
                 }
                 Text(
                     text = item.title,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal),
                     color = titleColor
                 )
                 if (!item.meta.isNullOrBlank()) {
                     Text(
                         text = item.meta,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                         color = metaColor
                     )
                 }
@@ -1288,7 +1320,8 @@ private fun SubtitleOptionCard(
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = NuvioTheme.colors.OnSecondary
+                    tint = titleColor,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -1322,37 +1355,20 @@ private fun CountBadge(
 
 @Composable
 private fun SourceChip(label: String, selected: Boolean = false) {
+    // Nuvio Launcher (approved mockup): 10sp grey on white 12%, 4dp corners; on a focused (white) card, dark on dark 10%.
+    // [selected] = the card is focused.
     Box(
         modifier = Modifier
             .background(
-                if (selected) {
-                    NuvioTheme.colors.OnSecondary.copy(alpha = 0.14f)
-                } else {
-                    Color.White.copy(alpha = 0.08f)
-                },
-                RoundedCornerShape(999.dp)
+                if (selected) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.12f),
+                RoundedCornerShape(4.dp)
             )
-            .then(
-                if (selected) {
-                    Modifier.border(
-                        width = NuvioTheme.spacing.hairline,
-                        color = NuvioTheme.colors.OnSecondary.copy(alpha = 0.22f),
-                        shape = RoundedCornerShape(999.dp)
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = NuvioTheme.spacing.sm, vertical = 3.dp)
+            .padding(horizontal = 7.dp, vertical = 2.dp)
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) {
-                NuvioTheme.colors.OnSecondary.copy(alpha = 0.9f)
-            } else {
-                Color.White.copy(alpha = 0.78f)
-            }
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal),
+            color = if (selected) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
         )
     }
 }
@@ -1402,12 +1418,12 @@ private fun OverlaySectionCard(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(7.dp)   // approved mockup
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+            color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
         )
         content()
     }
@@ -1418,7 +1434,7 @@ private fun StepperRow(
     value: String,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
-    valueWidth: Dp = 84.dp,
+    valueWidth: Dp = 75.dp,
     onMoveLeft: (() -> Unit)? = null,
     decrementFocusRequester: FocusRequester? = null,
     incrementFocusRequester: FocusRequester? = null,
@@ -1440,16 +1456,13 @@ private fun StepperRow(
             onFocused = onFocusChanged
         )
         Box(
-            modifier = Modifier
-                .width(valueWidth)
-                .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(NuvioTheme.radii.md))
-                .padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm),
+            modifier = Modifier.width(valueWidth),   // approved mockup: plain grey value, no box
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
             )
         }
         StepperButton(
@@ -1480,7 +1493,7 @@ private fun StepperButton(
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(40.dp)
+            .size(width = 36.dp, height = 32.dp)   // approved mockup
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onPreviewKeyEvent { event ->
                 when (event.nativeKeyEvent.keyCode) {
@@ -1500,32 +1513,23 @@ private fun StepperButton(
                     else -> false
                 }
             }
-            .then(
-                if (isFocused) {
-                    Modifier.border(
-                        NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-                        RoundedCornerShape(NuvioTheme.radii.md)
-                    )
-                } else {
-                    Modifier
-                }
-            )
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused && focusKey != null) {
                     onFocused?.invoke(focusKey)
                 }
             },
+        // Nuvio Launcher (approved mockup): grey on white 12%, 7dp corners; focused the white pill with a dark icon
         colors = IconButtonDefaults.colors(
-            containerColor = Color.White.copy(alpha = 0.08f),
-            focusedContainerColor = Color.White.copy(alpha = 0.14f),
-            contentColor = Color.White,
-            focusedContentColor = Color.White
+            containerColor = Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite,
+            contentColor = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+            focusedContentColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
         ),
-        shape = IconButtonDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.md)),
+        shape = IconButtonDefaults.shape(shape = RoundedCornerShape(7.dp)),
         scale = IconButtonDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
-        Icon(imageVector = icon, contentDescription = contentDescription)
+        Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -1541,6 +1545,7 @@ private fun ToggleChip(
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val moveLeftKey = if (isRtl) android.view.KeyEvent.KEYCODE_DPAD_RIGHT else android.view.KeyEvent.KEYCODE_DPAD_LEFT
+    var toggleFocused by remember { mutableStateOf(false) }
     val switchSemantics = Modifier.semantics {
         role = Role.Switch
         toggleableState = if (isEnabled) ToggleableState.On else ToggleableState.Off
@@ -1569,6 +1574,7 @@ private fun ToggleChip(
                     }
                 }
                 .onFocusChanged {
+                    toggleFocused = it.isFocused
                     if (it.isFocused && focusKey != null) onFocused?.invoke(focusKey)
                 }
                 .then(switchSemantics)
@@ -1593,20 +1599,31 @@ private fun ToggleChip(
                     }
                 }
                 .onFocusChanged {
+                    toggleFocused = it.isFocused
                     if (it.isFocused && focusKey != null) onFocused?.invoke(focusKey)
                 }
                 .then(switchSemantics)
         },
-        colors = overlayCardColors(selected = isEnabled),
-        shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+        // Nuvio Launcher (approved mockup): a 30dp pill; on = white 30% with white text, off = white 12% grey;
+        // focused the white pill, dark bold
+        colors = CardDefaults.colors(
+            containerColor = if (isEnabled) Color.White.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
+        ),
+        shape = CardDefaults.shape(RoundedCornerShape(999.dp)),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isEnabled) NuvioTheme.colors.OnSecondary else Color.White,
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm)
-        )
+        Box(modifier = Modifier.height(30.dp).padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, fontWeight = if (toggleFocused) FontWeight.Bold else FontWeight.Normal),
+                color = when {
+                    toggleFocused -> com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
+                    isEnabled -> Color.White
+                    else -> com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+                }
+            )
+        }
     }
 }
 
@@ -1621,7 +1638,17 @@ private fun ColorChipRow(
     onFocused: ((String) -> Unit)? = null,
     onColorSelected: (Int) -> Unit
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // room for the rings drawn outside the swatches (2.5dp gap + up to 3dp ring)
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(6.dp),
+        // ...and the row is laid out as if that padding were not there, so the swatches line up with the label
+        modifier = Modifier.layout { measurable, constraints ->
+            val e = 6.dp.roundToPx()
+            val p = measurable.measure(constraints.copy(maxWidth = if (constraints.hasBoundedWidth) constraints.maxWidth + 2 * e else constraints.maxWidth))
+            layout((p.width - 2 * e).coerceAtLeast(0), (p.height - 2 * e).coerceAtLeast(0)) { p.place(-e, -e) }
+        }
+    ) {
         items(colors) { color ->
             val focusKey = "$focusKeyPrefix:${color.toArgb()}"
             ColorChip(
@@ -1661,7 +1688,23 @@ private fun ColorChip(
             focusedContainerColor = color
         ),
         modifier = Modifier
-            .size(NuvioTheme.spacing.xxl)
+            .drawBehind {
+                // Nuvio Launcher (approved mockup): a white ring 2.5dp outside the swatch: 1.5dp for the colour in
+                // use, 3dp when focused
+                val ring = when {
+                    isFocused -> 3.dp.toPx()
+                    isSelected -> 1.5.dp.toPx()
+                    else -> 0f
+                }
+                if (ring > 0f) {
+                    drawCircle(
+                        color = Color.White,
+                        radius = size.minDimension / 2f + 2.5.dp.toPx() + ring / 2f,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = ring)
+                    )
+                }
+            }
+            .size(28.dp)
             .clearAndSetSemantics {
                 contentDescription = swatchLabel
                 role = Role.RadioButton
@@ -1686,13 +1729,6 @@ private fun ColorChip(
                     else -> false
                 }
             }
-            .then(
-                when {
-                    isSelected -> Modifier.border(NuvioTheme.spacing.xxs, Color.White, CircleShape)
-                    isFocused -> Modifier.border(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), CircleShape)
-                    else -> Modifier
-                }
-            )
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused && focusKey != null) {
@@ -1707,8 +1743,9 @@ private fun ColorChip(
 
 @Composable
 private fun overlayCardColors(selected: Boolean) = CardDefaults.colors(
-    containerColor = if (selected) NuvioTheme.colors.Secondary else Color.Transparent,
-    focusedContainerColor = if (selected) NuvioTheme.colors.Secondary else Color.Transparent
+    // Nuvio Launcher (approved mockup): the item in use on a faint white (12%); focused = the white pill
+    containerColor = if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+    focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
 )
 
 @Composable
@@ -1717,9 +1754,9 @@ private fun overlayCardBorder() = CardDefaults.border(
         border = BorderStroke(NuvioTheme.spacing.xxs, Color.Transparent),
         shape = RoundedCornerShape(NuvioTheme.radii.md)
     ),
-    focusedBorder = Border(
-        border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
-        shape = RoundedCornerShape(NuvioTheme.radii.md)
+    focusedBorder = Border(   // Nuvio Launcher: no focus ring, the white fill shows focus
+        border = BorderStroke(NuvioTheme.spacing.xxs, Color.Transparent),
+        shape = RoundedCornerShape(7.dp)
     )
 )
 

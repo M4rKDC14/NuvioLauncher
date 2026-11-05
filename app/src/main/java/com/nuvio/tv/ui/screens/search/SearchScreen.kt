@@ -1269,6 +1269,15 @@ private fun SearchInputField(
     var searchFieldFocused by remember { mutableStateOf(false) }
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
+    // Nuvio Launcher: the search box, mic and Discover buttons 15% smaller: every size inside (heights, icons,
+    // text, gaps) drawn at 85%.
+    val searchBarBaseDensity = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+            searchBarBaseDensity.density * 0.85f,
+            searchBarBaseDensity.fontScale
+        )
+    ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -1513,5 +1522,6 @@ private fun SearchInputField(
                 )
             }
         }
+    }
     }
 }

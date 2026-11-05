@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.collectAsState
@@ -96,7 +97,9 @@ fun PauseOverlay(
         ),
         topEndContent = {
             if (showClock) {
-                PauseOverlayClock(timeline = timeline)
+                // same place as the clock during playback: 32dp from the right, 20dp from the top (this box sits
+                // inside the pause screen's 56dp / 40dp padding)
+                PauseOverlayClock(modifier = Modifier.offset(x = 24.dp, y = (-20).dp), timeline = timeline)
             }
         }
     ) {
@@ -146,20 +149,19 @@ private fun PauseOverlayClock(
         }
     }
 
-    // Nuvio Launcher (approved mockup): 22sp time, "Ends at" in grey under it
+    // Nuvio Launcher: same as the clock during playback: 13sp semibold time, 10sp grey "Ends at" under it
     val t = timeline?.collectAsState()?.value
     Column(modifier = modifier, horizontalAlignment = Alignment.End) {
         Text(
             text = formatter.format(Date(nowMillis)),
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 22.sp),
-            color = Color.White
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+            color = Color.White.copy(alpha = 0.96f)
         )
         if (t != null && !t.isLive && t.duration > 0L) {
             Text(
                 text = stringResource(R.string.player_ends_at, formatter.format(Date(nowMillis + (t.duration - t.currentPosition).coerceAtLeast(0L)))),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
-                modifier = Modifier.padding(top = 2.dp)
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.sp),
+                color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
             )
         }
     }
@@ -188,11 +190,11 @@ private fun PauseMetadataView(
             // Nuvio Launcher (approved mockup): a small grey "PAUSED" label
             Text(
                 text = "PAUSED",
-                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp),
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 9.35.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.275.sp),   // all of this block: -15%
                 color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
             )
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
+            Spacer(modifier = Modifier.height(10.2.dp))
 
             if (!logo.isNullOrBlank()) {
                 var logoFailed by remember(logo) { mutableStateOf(false) }
@@ -206,14 +208,14 @@ private fun PauseMetadataView(
                         contentDescription = title,
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.BottomStart,
-                        modifier = Modifier.height(70.dp),
+                        modifier = Modifier.height(59.5.dp),
                         onError = { logoFailed = true }
                     )
                 } else {
                     Text(
                         text = title,
                         modifier = Modifier.align(title.contentTextDirection().toAbsoluteAlignment()),
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = MaterialTheme.typography.headlineLarge.let { it.copy(fontSize = it.fontSize * 0.85f, lineHeight = it.lineHeight * 0.85f) },
                         color = Color.White,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -223,7 +225,7 @@ private fun PauseMetadataView(
                 Text(
                     text = title,
                     modifier = Modifier.align(title.contentTextDirection().toAbsoluteAlignment()),
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineLarge.let { it.copy(fontSize = it.fontSize * 0.85f, lineHeight = it.lineHeight * 0.85f) },
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -241,9 +243,9 @@ private fun PauseMetadataView(
                 }
                 if (parts.isNotEmpty()) Text(
                     text = parts.joinToString(" · "),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.2.sp),
                     color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
-                    modifier = Modifier.padding(top = 7.dp)
+                    modifier = Modifier.padding(top = 6.dp)
                 )
             }
 
@@ -251,11 +253,11 @@ private fun PauseMetadataView(
                 val context = LocalContext.current
                 Text(
                     text = episodeTitle.localizeEpisodeTitle(context),
-                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 15.3.sp, fontWeight = FontWeight.Bold),
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 11.dp)
+                    modifier = Modifier.padding(top = 9.4.dp)
                 )
             }
 
@@ -263,24 +265,26 @@ private fun PauseMetadataView(
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = 13.6.sp,
+                        lineHeight = 20.4.sp,
                         textDirection = description.contentTextDirection()
                     ),
                     color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 9.dp).widthIn(max = 480.dp)
+                    modifier = Modifier.padding(top = 7.7.dp).widthIn(max = 408.dp)
                 )
             }
 
             // Nuvio Launcher: a thin progress bar under the synopsis
             if (t != null && !t.isLive && t.duration > 0L) {
                 Box(
-                    Modifier.padding(top = 15.dp).width(360.dp).height(3.dp)
+                    Modifier.padding(top = 12.8.dp).width(306.dp).height(2.6.dp)
                         .clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.25f))
                 ) {
                     Box(
                         Modifier.fillMaxWidth((t.currentPosition.toFloat() / t.duration).coerceIn(0f, 1f))
-                            .height(3.dp).background(Color.White)
+                            .height(2.6.dp).background(Color.White)
                     )
                 }
             }

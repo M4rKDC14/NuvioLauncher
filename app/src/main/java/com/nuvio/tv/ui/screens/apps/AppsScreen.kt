@@ -163,9 +163,11 @@ fun AppsScreen() {
     val settings by LauncherSettingsHolder.settings.collectAsState()
     val hidden = settings.hiddenPackages
     val groups = remember(allApps, hidden) { groupApps(allApps.filterNot { it.pkg in hidden }) }
-    val tileScale = settings.appsScale
+    // Nuvio Launcher: app banners are the same size as the catalog's landscape tiles (same 224x126 base, and the
+    // catalog's Tile size setting), so the two pages always match.
+    val tileScale = settings.catalogScale
     // never less than the focused banner's zoom overhang (17 at 120% zoom let it overlap its neighbours)
-    val tileGap = com.nuvio.tv.ui.launcher.zoomSafeGap(settings.appsTileSpacingDp.dp, 224.dp * settings.appsScale, settings.appsZoom)
+    val tileGap = com.nuvio.tv.ui.launcher.zoomSafeGap(settings.appsTileSpacingDp.dp, 224.dp * settings.catalogScale, settings.appsZoom)
     val tileZoom = settings.appsZoom
     val firstTile = LocalContentFocusRequester.current
     val listState = rememberLazyListState()

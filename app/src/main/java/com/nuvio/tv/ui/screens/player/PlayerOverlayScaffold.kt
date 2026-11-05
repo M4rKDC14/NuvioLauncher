@@ -40,6 +40,8 @@ internal fun PlayerOverlayScaffold(
     contentPadding: PaddingValues = PaddingValues(),
     /** Nuvio Launcher: the launcher's lighter shade (grey wash on the left and at the bottom, no tint). */
     launcherShade: Boolean = false,
+    /** Nuvio Launcher (approved mockups): when set, only this is painted behind the content (e.g. a flat 70% black). */
+    launcherScrim: Brush? = null,
     topEndContent: (@Composable () -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -131,7 +133,9 @@ internal fun PlayerOverlayScaffold(
                             startY = 0f, endY = size.height
                         )
                         onDrawBehind {
-                            if (launcherShade) {
+                            if (launcherScrim != null) {
+                                drawRect(brush = launcherScrim)
+                            } else if (launcherShade) {
                                 drawRect(brush = launcherLeft)
                                 drawRect(brush = launcherBottom)
                             } else {
@@ -154,4 +158,17 @@ internal fun PlayerOverlayScaffold(
             }
         }
     }
+}
+
+/**
+ * Nuvio Launcher: draws [content] with every size (dp and sp: boxes, gaps, icons, text) scaled by [scale], e.g. 0.85
+ * for "15% smaller", so a whole page shrinks evenly.
+ */
+@Composable
+internal fun LauncherScaled(scale: Float, content: @Composable () -> Unit) {
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(base.density * scale, base.fontScale),
+        content = content
+    )
 }

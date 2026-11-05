@@ -286,7 +286,7 @@ private fun LauncherSettingsMainPage(
             // ---- Tiles · Applications ----
             SettingsGroupCard(modifier = Modifier.fillMaxWidth(), title = "Tiles · Applications") {
                 TilePreviewStrip(
-                    sizePercent = settings.appsTileSizePercent,
+                    sizePercent = settings.catalogTileSizePercent,   // app banners follow the catalog's tile size
                     spacingDp = settings.appsTileSpacingDp,
                     zoomPercent = settings.appsFocusZoomPercent
                 )
@@ -297,6 +297,7 @@ private fun LauncherSettingsMainPage(
                     sizePercent = settings.appsTileSizePercent,
                     spacingDp = settings.appsTileSpacingDp,
                     zoomPercent = settings.appsFocusZoomPercent,
+                    showSize = false,   // the size comes from Tiles · Catalog
                     onSize = viewModel::setAppsTileSize,
                     onSpacing = viewModel::setAppsTileSpacing,
                     onZoom = viewModel::setAppsFocusZoom
@@ -467,9 +468,10 @@ private fun TileSliders(
     zoomPercent: Int,
     onSize: (Int) -> Unit,
     onSpacing: (Int) -> Unit,
-    onZoom: (Int) -> Unit
+    onZoom: (Int) -> Unit,
+    showSize: Boolean = true
 ) {
-    SliderSettingsItem(
+    if (showSize) SliderSettingsItem(
         title = "Tile size",
         subtitle = sizeSubtitle,
         value = sizePercent,
@@ -833,7 +835,8 @@ private val LauncherBackgroundColors = listOf(
     "Forest" to 0xFF14261A.toInt(),
     "Plum" to 0xFF26152C.toInt(),
     "Burgundy" to 0xFF2E1418.toInt(),
-    "Espresso" to 0xFF2A1F17.toInt()
+    "Espresso" to 0xFF2A1F17.toInt(),
+    "Graphite" to 0xFF1A1B1F.toInt()   // sampled from the main panel of the user's reference UI design
 )
 
 /**

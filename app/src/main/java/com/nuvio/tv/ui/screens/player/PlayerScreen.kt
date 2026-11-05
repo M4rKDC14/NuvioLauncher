@@ -1548,8 +1548,8 @@ fun PlayerScreen(
                 .then(playerControlsDim)
         )
 
+        // Nuvio Launcher (approved mockup): the clock always shows with the controls, not only when the clock setting is on.
         val showClockOverlay = uiState.showControls &&
-            uiState.osdClockEnabled &&
             uiState.error == null &&
             !uiState.showLoadingOverlay &&
             !uiState.showPauseOverlay &&
@@ -1570,7 +1570,7 @@ fun PlayerScreen(
             exit = fadeOut(animationSpec = tween(150)),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = 28.dp, top = NuvioTheme.spacing.xl)
+                .padding(end = 30.dp, top = 18.dp)   // + the clock's own 2dp padding = 32dp from the right, 20dp from the top (approved mockup)
                 .zIndex(2.15f)
                 .then(playerControlsDim)
         ) {
@@ -1956,6 +1956,7 @@ fun PlayerScreen(
             modifier = playerControlsDim
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                LauncherScaled(0.85f) {   // Nuvio Launcher: the Watch party panel 15% smaller (owner's request)
                 PartyPanel(
                     state = partyState,
                     profile = partyProfile,
@@ -1991,6 +1992,7 @@ fun PlayerScreen(
                     onClose = { viewModel.onEvent(PlayerEvent.OnDismissPartyPanel) },
                     modifier = Modifier.align(Alignment.CenterEnd)
                 )
+                }
             }
         }
 
@@ -2944,10 +2946,12 @@ private fun PlayerControlsOverlay(
                     onDispose { progressBarClearancePx = 0f }
                 }
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    // Nuvio Launcher (approved layout): the time sits at the right end of the progress bar's line.
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     // Column: the host stacks the chapter title above the bar.
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .weight(1f)
                             .onGloballyPositioned { coordinates ->
                                 val rootHeight = coordinates.findRootCoordinates().size.height
                                 if (rootHeight > 0) {
@@ -2967,9 +2971,12 @@ private fun PlayerControlsOverlay(
                             onClick = onPlayPause
                         )
                     }
+                    Spacer(modifier = Modifier.width(12.dp))   // approved mockup: 12dp from the bar to the time
+                    PlayerControlsTimeTextHost(viewModel = viewModel)
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                Spacer(modifier = Modifier.height(11.dp))   // approved mockup: 11dp from the bar to the buttons
             } else {
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
             }
@@ -2982,7 +2989,7 @@ private fun PlayerControlsOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(3.2.dp),   // approved mockup: 4dp - 20%
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val hasEpisodeContext = uiState.currentSeason != null && uiState.currentEpisode != null
@@ -3178,8 +3185,9 @@ private fun PlayerControlsOverlay(
                     )
                 }
 
-                // Right side - Time display only
-                PlayerControlsTimeTextHost(viewModel = viewModel)
+                // Right side - Time display: on the progress bar's line now (approved layout); live streams have no
+                // bar, so their "watched" time stays here.
+                if (isLivePlayback) PlayerControlsTimeTextHost(viewModel = viewModel)
             }
             }
         }
@@ -3250,8 +3258,8 @@ private fun PlayerControlsTimeTextHost(viewModel: PlayerViewModel) {
     // Nuvio Launcher: grey while the progress bar is not focused, white while it is.
     Text(
         text = timeText,
-        style = MaterialTheme.typography.bodyMedium,
-        color = if (PlayerProgressBarFocus.value) Color.White else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
+        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),   // approved mockup
+        color = if (PlayerProgressBarFocus.value) Color.White else PlayerIdleControl
     )
 }
 
@@ -3315,7 +3323,7 @@ private fun ControlButton(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .size(NuvioTheme.spacing.xxxl)
+            .size(38.4.dp)   // approved mockup: 48dp - 20%
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester)
                 else Modifier
@@ -3357,7 +3365,9 @@ private fun ControlButton(
         colors = IconButtonDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite,
-            contentColor = if (contentColor == Color.White) com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle else contentColor,
+            // white at 40%: clearly dimmer than the focused white button even on a film's black bars (the launcher
+            // grey #8E8E93 read as near-white there)
+            contentColor = if (contentColor == Color.White) PlayerIdleControl else contentColor,
             focusedContentColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusText
         ),
         scale = IconButtonDefaults.scale(focusedScale = 1.12f),
@@ -3367,13 +3377,13 @@ private fun ControlButton(
             Icon(
                 painter = iconPainter,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(NuvioTheme.spacing.xl)
+                modifier = Modifier.size(22.4.dp)   // approved mockup: 28dp - 20%
             )
         } else {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(22.4.dp)
             )
         }
     }
@@ -3542,8 +3552,8 @@ private fun ProgressBar(
                 .playerProgressFill(
                     progress = { animatedProgress },
                     bufferedProgress = { animatedBufferedProgress },
-                    bufferedColor = if (isFocused) NuvioTheme.colors.Secondary else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
-                    playedBrush = if (isFocused) accentBrush else androidx.compose.ui.graphics.SolidColor(com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle)
+                    bufferedColor = if (isFocused) NuvioTheme.colors.Secondary else PlayerIdleControl,
+                    playedBrush = if (isFocused) accentBrush else androidx.compose.ui.graphics.SolidColor(PlayerIdleControl)
                 )
                 // Chapter marks, drawn over the fill.
                 .drawBehind {
@@ -4288,27 +4298,27 @@ private fun SpeedSelectionDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         // The dialog is its own window, so the player's controls dim does not reach it.
-        Box(
+        // Nuvio Launcher (approved mockup): a launcher glass panel, 300dp wide; white 20sp title; grey rows, the
+        // focused one a white pill with dark bold text.
+        com.nuvio.tv.ui.launcher.LauncherGlass(
             modifier = Modifier
                 .playerControlsBrightness(brightness)
                 .width(300.dp)
-                .clip(RoundedCornerShape(NuvioTheme.radii.xl))
-                .background(NuvioTheme.colors.BackgroundElevated)
         ) {
             Column(
-                modifier = Modifier.padding(NuvioTheme.spacing.xl)
+                modifier = Modifier.padding(top = 26.dp, bottom = 24.dp)
             ) {
                 Text(
                     text = stringResource(R.string.player_speed_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = NuvioTheme.colors.TextPrimary,
-                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
+                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp, fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
+                    modifier = Modifier.padding(start = 28.dp, end = 28.dp, bottom = 14.dp)
                 )
 
                 LazyColumn(
                     state = listState,
-                    verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
-                    contentPadding = PaddingValues(top = NuvioTheme.spacing.xs)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp)
                 ) {
                     itemsIndexed(PLAYBACK_SPEEDS) { index, speed ->
                         SpeedItem(
@@ -4401,37 +4411,49 @@ private fun SpeedItem(
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val textColor = if (isFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
 
+    // Nuvio Launcher (approved mockup): 38dp rows, 7dp corners, no fill unless focused (white pill, dark bold text);
+    // the speed in use has a check.
     Card(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
+            .height(38.dp)
             .onFocusChanged { isFocused = it.isFocused },
         colors = CardDefaults.colors(
-            containerColor = if (isSelected) NuvioTheme.colors.Secondary.copy(alpha = 0.2f) else NuvioTheme.colors.BackgroundCard,
-            focusedContainerColor = NuvioTheme.colors.FocusBackground
+            containerColor = Color.Transparent,
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite
         ),
-        shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.sm))
+        border = CardDefaults.border(
+            border = Border.None,
+            focusedBorder = Border.None
+        ),
+        scale = CardDefaults.scale(focusedScale = 1f),
+        shape = CardDefaults.shape(shape = RoundedCornerShape(7.dp))
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(NuvioTheme.spacing.lg),
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = if (speed == 1f) stringResource(R.string.player_speed_normal) else "${speed}x",
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isSelected) NuvioTheme.colors.Primary else NuvioTheme.colors.TextPrimary
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = 15.sp,
+                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal
+                ),
+                color = textColor
             )
 
             if (isSelected) {
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = stringResource(R.string.cd_selected),
-                    tint = NuvioTheme.colors.Secondary,
-                    modifier = Modifier.size(NuvioTheme.spacing.xl)
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -4570,3 +4592,6 @@ private fun PlayerBufferingIndicator(
 
 /** Nuvio Launcher: whether the player's progress bar has focus (the time text turns white with it). */
 private val PlayerProgressBarFocus = androidx.compose.runtime.mutableStateOf(false)
+
+/** Nuvio Launcher: unfocused player controls, icons and time: white at 40%, so only the focused control stands out. */
+private val PlayerIdleControl = Color(0x66FFFFFF)

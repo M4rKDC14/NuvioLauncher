@@ -170,11 +170,8 @@ private fun PlaybackNavHost(
         composable(Screen.ExperienceModeSelection.route) {
             ExperienceModeSelectionScreen(
                 onContinue = { mode ->
-                    val destination = if (mode == ExperienceMode.ESSENTIAL) {
-                        Screen.Home.route
-                    } else {
-                        Screen.LayoutSelection.route
-                    }
+                    // Nuvio Launcher: the layout step is skipped; Home either way (MainActivity records the layout).
+                    val destination = Screen.Home.route
                     navController.navigate(destination) {
                         popUpTo(Screen.ExperienceModeSelection.route) { inclusive = true }
                     }

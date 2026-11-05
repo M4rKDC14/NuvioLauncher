@@ -43,14 +43,19 @@ internal object AutoSyncSyncedSubtitle {
 
 /** "Auto synced" chip for the selected add-on subtitle in the subtitle list; empty otherwise. */
 @Composable
-internal fun AutoSyncedChip(subtitleUrl: String, selected: Boolean) {
+internal fun AutoSyncedChip(subtitleUrl: String, selected: Boolean, onLight: Boolean = true) {
     val syncedUrl by AutoSyncSyncedSubtitle.url.collectAsState()
     if (!selected || syncedUrl != subtitleUrl) return
 
-    val contentColor = NuvioTheme.colors.OnSecondary.copy(alpha = 0.9f)
+    // Nuvio Launcher: the card in use is no longer white, only the focused one is ([onLight]); grey on a faint white
+    // chip otherwise, like the source chip beside it
+    val contentColor = if (onLight) NuvioTheme.colors.OnSecondary.copy(alpha = 0.9f) else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
     Row(
         modifier = Modifier
-            .background(NuvioTheme.colors.OnSecondary.copy(alpha = 0.14f), RoundedCornerShape(999.dp))
+            .background(
+                if (onLight) NuvioTheme.colors.OnSecondary.copy(alpha = 0.14f) else androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f),
+                RoundedCornerShape(999.dp)
+            )
             .padding(horizontal = NuvioTheme.spacing.sm, vertical = 3.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,

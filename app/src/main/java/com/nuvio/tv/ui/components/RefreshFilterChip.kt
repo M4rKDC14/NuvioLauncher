@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.components
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -37,11 +39,8 @@ fun RefreshFilterChip(
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val contentColor = if (isFocused) {
-        NuvioTheme.colors.OnSecondary
-    } else {
-        NuvioTheme.colors.TextSecondary
-    }
+    // Nuvio Launcher (approved mockup): a 32dp grey circle on white 12%; focused the white pill with a dark icon
+    val contentColor = if (isFocused) com.nuvio.tv.ui.launcher.LauncherStyle.FocusText else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
 
     val rotationAnimatable = remember { Animatable(0f) }
     var hasCompletedFullRotation by remember { mutableStateOf(false) }
@@ -79,38 +78,33 @@ fun RefreshFilterChip(
         }
     }
 
-    FilterChip(
-        selected = false,
+    // Nuvio Launcher: a plain 32dp clickable circle (the TV FilterChip has a 36dp minimum height)
+    androidx.tv.material3.Surface(
         onClick = onClick,
-        modifier = modifier.onFocusChanged {
-            isFocused = it.isFocused
-            onFocusChanged(it.isFocused)
-        },
-        colors = FilterChipDefaults.colors(
-            containerColor = NuvioTheme.colors.BackgroundCard,
-            focusedContainerColor = NuvioTheme.colors.Secondary,
+        modifier = modifier
+            .size(32.dp)
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged(it.isFocused)
+            },
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite,
             contentColor = contentColor,
             focusedContentColor = contentColor
         ),
-        border = FilterChipDefaults.border(
-            border = Border(
-                border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                shape = RoundedCornerShape(20.dp)
-            ),
-            focusedBorder = Border(
-                border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
-                shape = RoundedCornerShape(20.dp)
-            )
-        ),
-        shape = FilterChipDefaults.shape(shape = RoundedCornerShape(20.dp))
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = androidx.compose.foundation.shape.CircleShape)
     ) {
+      androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
         Icon(
             imageVector = Icons.Rounded.Refresh,
             contentDescription = stringResource(R.string.cd_refresh),
             modifier = Modifier
-                .size(20.dp)
+                .size(18.dp)
                 .graphicsLayer { rotationZ = rotationAnimatable.value },
             tint = contentColor
         )
+      }
     }
 }

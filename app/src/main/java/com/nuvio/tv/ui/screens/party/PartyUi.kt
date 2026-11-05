@@ -265,8 +265,10 @@ internal fun SeatsHero(
     size: Dp,
     ringColor: Color,
     modifier: Modifier = Modifier,
+    /** How far apart the seats sit, as a share of [size] (Nuvio Launcher: the player panel's mockup uses 0.86). */
+    stepFraction: Float = 0.72f,
 ) {
-    val step = size * 0.72f
+    val step = size * stepFraction
     Box(modifier = modifier.width(size + step * 2)) {
         OpenSeat(size = size, modifier = Modifier.offset(x = step * 2))
         OpenSeat(size = size, modifier = Modifier.offset(x = step))
