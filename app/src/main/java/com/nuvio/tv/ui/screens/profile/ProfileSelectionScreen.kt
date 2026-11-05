@@ -1069,9 +1069,9 @@ private fun ProfileCard(
             createFocusRingStyle(ThemeColors.getColorPalette(it))
         }
     }
-    // Nuvio Launcher: focus is the launcher's tile focus: the circle grows 12% and its shadow deepens; no ring.
+    // Nuvio Launcher: focus is the launcher's tile focus: the circle grows 15% and its shadow deepens; no ring.
     val itemScale = 1f
-    val avatarZoom = 1f + 0.12f * focusProgress
+    val avatarZoom = 1f + 0.15f * focusProgress   // focused profile 15% larger (owner's request; was 12%)
     val avatarSize = if (compact) ProfileSelectionSpacing.CompactAvatarSize else 96.dp
     val outerAvatarSize = androidx.compose.ui.unit.lerp(
         if (compact) ProfileSelectionSpacing.CompactOuterAvatarSize else 114.dp,
@@ -1247,7 +1247,7 @@ private fun AddProfileCard(
     val outerAvatarSize = if (compact) ProfileSelectionSpacing.CompactAvatarSize else 96.dp
     val nameColor = if (isFocused) Color.White else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle
     val plusColor = lerp(com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, Color.White, focusProgress)
-    val addZoom = 1f + 0.12f * focusProgress
+    val addZoom = 1f + 0.15f * focusProgress
     val addBackgroundColor = lerp(
         Color.White.copy(alpha = 0.06f),
         Color.White.copy(alpha = 0.12f),

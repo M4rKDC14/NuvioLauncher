@@ -105,8 +105,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  *    sits, straight Up/Down to the tile last focused in that row, Right stops at the end.
  */
 
-private val RowsTop = 176.dp
-private val TileTopAboveRowPad = 41.dp  // row title (12 + 21) + spacer 8; the tiles' top is this plus the row's top padding
+private val RowsTop = 160.dp   // was 176: moved up 16 so the first row's tiles fit fully on screen (owner's request)
+private val TileTopAboveRowPad = 37.dp  // row title (12 + 21) + spacer 4 (halved from 8); the tiles' top is this plus the row's top padding
 private val HeaderTop = 34.dp
 private val NameTop = 50.dp             // label (34 + 14) + 2
 private val LogoMaxWidth = 160.dp
@@ -472,7 +472,8 @@ private fun EntityRowBlock(
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 60.dp, end = LauncherStyle.Start, top = 12.dp)
         )
-        Spacer(Modifier.height(8.dp))
+        // title to tiles halved (owner's request): was 8, now 4, as on Home, Search and folder rows
+        Spacer(Modifier.height(4.dp))
         LazyRow(
             state = rowState,
             contentPadding = PaddingValues(start = LauncherStyle.Start, end = LauncherStyle.Start, top = look.rowTopPad, bottom = 20.dp),

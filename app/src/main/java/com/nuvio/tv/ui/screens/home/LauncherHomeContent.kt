@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.home
 
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
@@ -161,6 +163,10 @@ internal fun LauncherHomeContent(
     var savedRowKey by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
     var savedTile by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(0) }
     var heroFocused by remember { mutableStateOf(savedRowKey == null) }
+    // Where focus was when it left Home's rows for the side panel (Left from a row's first tile). Coming back with
+    // Right, Android picked the nearest tile on its own, often in the row above; focus goes back to this tile instead.
+    var contentHasFocus by remember { mutableStateOf(false) }
+    var exitRowKey by remember { mutableStateOf<String?>(null) }
     var focusedRow by remember { mutableIntStateOf(-1) }
     // The focused tile's picture, blurred behind the rows. Held in a state object and read only by the backdrop,
     // so a Left/Right press redraws the backdrop alone, not every row and tile (that redraw made the rows stutter).
@@ -258,7 +264,13 @@ internal fun LauncherHomeContent(
     ) {
         val screenH = maxHeight
         // Under the carousel picture: the focused tile's picture, blurred. It shows as the carousel scrolls away.
-        RowsBackdrop { rowBackdrop.value ?: current?.background ?: current?.poster }
+        // Performance: while the carousel picture fully covers the screen this backdrop is hidden behind it, so it
+        // is not drawn (it stays composed, so nothing reloads when the page scrolls down).
+        val carouselCoversAll by remember { androidx.compose.runtime.derivedStateOf { heroAlpha >= 0.999f } }
+        val carouselHasPicture = (current?.background ?: current?.poster) != null
+        Box(Modifier.fillMaxSize().drawWithContent { if (!(carouselCoversAll && carouselHasPicture)) drawContent() }) {
+            RowsBackdrop { rowBackdrop.value ?: current?.background ?: current?.poster }
+        }
         // Backdrop of the current carousel title, bright, with only a light shade on the left.
         // Fades out as the page scrolls. ModulateAlpha applies the fade to each draw directly (no offscreen buffer),
         // and once fully faded it is not drawn at all.
@@ -269,9 +281,27 @@ internal fun LauncherHomeContent(
             Crossfade(targetState = current?.background ?: current?.poster, animationSpec = tween(600), label = "backdrop") { url ->
                 if (url != null) AsyncImage(model = url, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0x73000000), 0.45f to Color(0x1F000000), 0.65f to Color.Transparent)))
-            // bottom of the picture darkens into the blurred rows background below it
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color(0x80000000))))
+            // The two shades, painted only where they are visible: the left one over the left 65% (it is clear beyond
+            // that), the bottom one over the bottom 40% (clear above). Same gradients as before, half the pixels.
+            Box(Modifier.fillMaxSize().drawWithCache {
+                val left = Brush.horizontalGradient(
+                    0f to Color(0x73000000), 0.45f to Color(0x1F000000), 0.65f to Color.Transparent,
+                    startX = 0f, endX = size.width
+                )
+                // bottom of the picture darkens into the blurred rows background below it
+                val bottom = Brush.verticalGradient(
+                    0.6f to Color.Transparent, 1f to Color(0x80000000),
+                    startY = 0f, endY = size.height
+                )
+                onDrawBehind {
+                    drawRect(left, size = androidx.compose.ui.geometry.Size(size.width * 0.65f, size.height))
+                    drawRect(
+                        bottom,
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, size.height * 0.6f),
+                        size = androidx.compose.ui.geometry.Size(size.width, size.height * 0.4f)
+                    )
+                }
+            })
         }
 
         // Focus in the rows keeps that row in the middle; focus in the carousel keeps the page at the top.
@@ -291,7 +321,17 @@ internal fun LauncherHomeContent(
         CompositionLocalProvider(LocalBringIntoViewSpec provides centeringSpec) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().onFocusChanged { st ->
+                    if (contentHasFocus && !st.hasFocus) {
+                        exitRowKey = savedRowKey   // leaving (side panel, another page): remember the row
+                    } else if (!contentHasFocus && st.hasFocus) {
+                        val key = exitRowKey
+                        val row = if (key == null) -1 else rows.indexOfFirst { it.key == key }
+                        // back in: put focus on that row's remembered tile, wherever Android landed first
+                        if (row >= 0) focusRow(row)
+                    }
+                    contentHasFocus = st.hasFocus
+                },
                 contentPadding = PaddingValues(bottom = screenH / 2)
             ) {
                 item(key = "hero") {

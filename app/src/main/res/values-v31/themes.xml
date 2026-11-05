@@ -3,7 +3,8 @@
 
     <style name="Theme.MyApplication.Launcher" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo_mark</item>
+        <!-- Nuvio Launcher: no Nuvio logo on the cold-start screen, just the launcher grey -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/launcher_splash_blank</item>
         <item name="postSplashScreenTheme">@style/Theme.MyApplication</item>
     </style>
 </resources>

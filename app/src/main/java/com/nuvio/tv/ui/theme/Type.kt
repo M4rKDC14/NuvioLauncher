@@ -39,8 +39,43 @@ val OpenSansFamily = FontFamily(
     vFont(R.font.opensans_variable, FontWeight.Bold)
 )
 
+// Nuvio Launcher: San Francisco alternatives (Manrope, Plus Jakarta Sans), a Helvetica-style font (Arimo) and
+// Microsoft's open Segoe UI stand-in (Selawik). Licences in assets/font-licenses (Selawik: SIL OFL 1.1).
+val ManropeFamily = FontFamily(
+    vFont(R.font.manrope_variable, FontWeight.Normal),
+    vFont(R.font.manrope_variable, FontWeight.Medium),
+    vFont(R.font.manrope_variable, FontWeight.SemiBold),
+    vFont(R.font.manrope_variable, FontWeight.Bold)
+)
+
+val PlusJakartaSansFamily = FontFamily(
+    vFont(R.font.plus_jakarta_sans_variable, FontWeight.Normal),
+    vFont(R.font.plus_jakarta_sans_variable, FontWeight.Medium),
+    vFont(R.font.plus_jakarta_sans_variable, FontWeight.SemiBold),
+    vFont(R.font.plus_jakarta_sans_variable, FontWeight.Bold)
+)
+
+val ArimoFamily = FontFamily(
+    vFont(R.font.arimo_variable, FontWeight.Normal),
+    vFont(R.font.arimo_variable, FontWeight.Medium),
+    vFont(R.font.arimo_variable, FontWeight.SemiBold),
+    vFont(R.font.arimo_variable, FontWeight.Bold)
+)
+
+// Selawik comes as separate files (not a variable font): regular also serves Medium, which it has no file for.
+val SelawikFamily = FontFamily(
+    Font(R.font.selawik_regular, FontWeight.Normal),
+    Font(R.font.selawik_regular, FontWeight.Medium),
+    Font(R.font.selawik_semibold, FontWeight.SemiBold),
+    Font(R.font.selawik_bold, FontWeight.Bold)
+)
+
 fun getFontFamily(appFont: AppFont): FontFamily = when (appFont) {
     AppFont.INTER -> InterFamily
+    AppFont.MANROPE -> ManropeFamily
+    AppFont.PLUS_JAKARTA_SANS -> PlusJakartaSansFamily
+    AppFont.ARIMO -> ArimoFamily
+    AppFont.SELAWIK -> SelawikFamily
     AppFont.DM_SANS -> DMSansFamily
     AppFont.OPEN_SANS -> OpenSansFamily
 }

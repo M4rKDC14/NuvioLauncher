@@ -85,7 +85,7 @@ import com.nuvio.tv.ui.util.localizedContentType
  *    Tile size, spacing and zoom follow Settings → Launcher (Catalog tiles), as on Home; the figures are the defaults.
  */
 
-private val RowsTop = 176.dp
+private val RowsTop = 160.dp   // was 176: moved up 16 so the first row's tiles fit fully on screen (owner's request)
 private val TileTopAboveRowPad = 37.dp  // row title (12 + 21) + spacer 4 (halved from 8); the tiles' top is this plus the row's top padding (12 by default)
 private const val LoadMoreAhead = 6     // ask for the next page this many tiles before the end
 
@@ -424,7 +424,9 @@ private fun FolderFocusedDetails(item: () -> MetaPreview?, enrichedPreviews: Sta
     val shown = item()?.let { enrichedPreviews.value[it.id] ?: it }
     if (shown != null) {
         val typeLabel = remember(shown.apiType) { localizedContentType(context, shown.apiType) }
-        Column(Modifier.padding(start = LauncherStyle.Start, top = 86.dp, end = LauncherStyle.Start)) {
+        // focused item's name, meta and description: up 8 (was 86) so the zoomed tile of the first row, now 16dp
+        // higher, stays clear of the description's last line
+        Column(Modifier.padding(start = LauncherStyle.Start, top = 78.dp, end = LauncherStyle.Start)) {
             Text(shown.name, color = Color.White, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val meta = folderMetaLine(shown, typeLabel)
             if (meta.isNotEmpty()) {

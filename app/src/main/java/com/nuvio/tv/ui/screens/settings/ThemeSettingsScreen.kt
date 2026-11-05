@@ -317,8 +317,10 @@ fun ThemeSettingsContent(
                 )
             }
 
-            // Nuvio Launcher: Ambient Mode is the page's first section now, so its first row takes focus on entry.
-            AmbientModeSettingsCard(firstRowFocusRequester = initialFocusRequester)
+            // Nuvio Launcher: Background (blur or solid colour) is the page's first section, so it takes focus on entry.
+            LauncherBackgroundSettingsCard(firstFocusRequester = initialFocusRequester)
+
+            AmbientModeSettingsCard()
 
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),

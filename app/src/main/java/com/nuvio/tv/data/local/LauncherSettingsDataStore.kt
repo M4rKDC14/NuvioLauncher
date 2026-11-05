@@ -43,7 +43,11 @@ data class LauncherSettings(
     val appsTileSizePercent: Int = DEFAULT_APPS_SIZE,
     val appsTileSpacingDp: Int = DEFAULT_APPS_SPACING,
     val appsFocusZoomPercent: Int = DEFAULT_APPS_ZOOM,
-    val hiddenPackages: Set<String> = emptySet()
+    val hiddenPackages: Set<String> = emptySet(),
+    /** Settings → Appearance → Background: false = the blurred picture of the last title, true = [backgroundColor]. */
+    val solidBackground: Boolean = false,
+    /** The solid background colour (ARGB), used when [solidBackground] is on. Default: the launcher grey. */
+    val backgroundColor: Int = DEFAULT_BACKGROUND_COLOR
 ) {
     val catalogScale: Float get() = catalogTileSizePercent / 100f
     val catalogZoom: Float get() = catalogFocusZoomPercent / 100f
@@ -52,6 +56,7 @@ data class LauncherSettings(
     val rotationMs: Long get() = rotationSeconds * 1_000L
 
     companion object {
+        const val DEFAULT_BACKGROUND_COLOR = 0xFF1E1F23.toInt()
         const val DEFAULT_ROTATION_SECONDS = 9
         val ROTATION_CHOICES = listOf(0, 6, 9, 12, 20)
         const val DEFAULT_HERO_COUNT = 8
@@ -114,6 +119,8 @@ class LauncherSettingsDataStore @Inject constructor(
     private val appsSpacingKey = intPreferencesKey("apps_tile_spacing")
     private val appsZoomKey = intPreferencesKey("apps_focus_zoom")
     private val hiddenPackagesKey = stringSetPreferencesKey("hidden_packages")
+    private val solidBackgroundKey = booleanPreferencesKey("solid_background")
+    private val backgroundColorKey = intPreferencesKey("background_color")
 
     val settings: Flow<LauncherSettings> = dataStore.data
         .catch { emit(emptyPreferences()) }
@@ -131,7 +138,9 @@ class LauncherSettingsDataStore @Inject constructor(
                 appsTileSizePercent = size(prefs[appsSizeKey], LauncherSettings.DEFAULT_APPS_SIZE),
                 appsTileSpacingDp = spacing(prefs[appsSpacingKey], LauncherSettings.DEFAULT_APPS_SPACING),
                 appsFocusZoomPercent = zoom(prefs[appsZoomKey], LauncherSettings.DEFAULT_APPS_ZOOM),
-                hiddenPackages = prefs[hiddenPackagesKey] ?: emptySet()
+                hiddenPackages = prefs[hiddenPackagesKey] ?: emptySet(),
+                solidBackground = prefs[solidBackgroundKey] ?: false,
+                backgroundColor = prefs[backgroundColorKey] ?: LauncherSettings.DEFAULT_BACKGROUND_COLOR
             )
         }
         .distinctUntilChanged()
@@ -154,6 +163,8 @@ class LauncherSettingsDataStore @Inject constructor(
     suspend fun setAppsTileSize(percent: Int) { dataStore.edit { it[appsSizeKey] = percent } }
     suspend fun setAppsTileSpacing(dp: Int) { dataStore.edit { it[appsSpacingKey] = dp } }
     suspend fun setAppsFocusZoom(percent: Int) { dataStore.edit { it[appsZoomKey] = percent } }
+    suspend fun setSolidBackground(solid: Boolean) { dataStore.edit { it[solidBackgroundKey] = solid } }
+    suspend fun setBackgroundColor(argb: Int) { dataStore.edit { it[backgroundColorKey] = argb } }
 
     suspend fun setAppHidden(packageName: String, hidden: Boolean) {
         dataStore.edit { prefs ->

@@ -38,6 +38,8 @@ internal fun PlayerOverlayScaffold(
     dismissOnBackgroundClick: Boolean = false,
     overlayTint: Color = Color.Black.copy(alpha = 0.34f),
     contentPadding: PaddingValues = PaddingValues(),
+    /** Nuvio Launcher: the launcher's lighter shade (grey wash on the left and at the bottom, no tint). */
+    launcherShade: Boolean = false,
     topEndContent: (@Composable () -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
@@ -120,12 +122,25 @@ internal fun PlayerOverlayScaffold(
                                 1f to Color.Transparent
                             )
                         )
+                        val launcherLeft = Brush.horizontalGradient(
+                            0f to Color(0xD1141518), 0.55f to Color(0x59141518), 0.75f to Color.Transparent,
+                            startX = 0f, endX = size.width
+                        )
+                        val launcherBottom = Brush.verticalGradient(
+                            0.45f to Color.Transparent, 1f to Color(0xA6141518),
+                            startY = 0f, endY = size.height
+                        )
                         onDrawBehind {
-                            drawRect(brush = horizontalGradient)
-                            if (overlayTint.alpha > 0f) {
-                                drawRect(color = overlayTint)
+                            if (launcherShade) {
+                                drawRect(brush = launcherLeft)
+                                drawRect(brush = launcherBottom)
+                            } else {
+                                drawRect(brush = horizontalGradient)
+                                if (overlayTint.alpha > 0f) {
+                                    drawRect(color = overlayTint)
+                                }
+                                drawRect(brush = verticalGradient)
                             }
-                            drawRect(brush = verticalGradient)
                         }
                     }
                     .padding(contentPadding)

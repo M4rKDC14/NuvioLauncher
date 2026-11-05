@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +75,12 @@ object LauncherStyle {
  */
 @Composable
 fun LauncherBlurredBackdrop(url: String?, modifier: Modifier = Modifier, alpha: Float = 0.6f, debounceMs: Long = 500) {
+    // Settings → Appearance → Background: one solid colour instead of the blurred picture.
+    val launcherSettings by com.nuvio.tv.data.local.LauncherSettingsHolder.settings.collectAsState()
+    if (launcherSettings.solidBackground) {
+        Box(modifier.fillMaxSize().background(Color(launcherSettings.backgroundColor)))
+        return
+    }
     // base: the picture fully shown. incoming: the next one, drawn over it and faded in only once it has loaded,
     // so a change never dips to black first. The picture changes only after focus has rested for debounceMs,
     // so the fade never runs during a scroll.

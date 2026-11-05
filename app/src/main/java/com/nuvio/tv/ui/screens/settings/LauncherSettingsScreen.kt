@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens.settings
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -818,4 +820,86 @@ private suspend fun FocusRequester.requestFocusSoon() {
         withFrameNanos { }
         if (runCatching { requestFocus() }.getOrDefault(false)) return
     }
+}
+
+/** Settings → Appearance → Background: preset colours for the solid background (dark, so text stays readable). */
+private val LauncherBackgroundColors = listOf(
+    "Launcher grey" to 0xFF1E1F23.toInt(),
+    "Black" to 0xFF000000.toInt(),
+    "Charcoal" to 0xFF2C2D33.toInt(),
+    "Midnight" to 0xFF0F1B2D.toInt(),
+    "Navy" to 0xFF15233F.toInt(),
+    "Teal" to 0xFF0E2A2A.toInt(),
+    "Forest" to 0xFF14261A.toInt(),
+    "Plum" to 0xFF26152C.toInt(),
+    "Burgundy" to 0xFF2E1418.toInt(),
+    "Espresso" to 0xFF2A1F17.toInt()
+)
+
+/**
+ * Settings → Appearance → Background (Nuvio Launcher): the blurred picture of the last title (as before) or one
+ * solid colour, picked from swatches. Applies to every launcher page that draws the blurred background.
+ */
+@Composable
+internal fun LauncherBackgroundSettingsCard(
+    firstFocusRequester: FocusRequester? = null,
+    viewModel: LauncherSettingsViewModel = hiltViewModel()
+) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    SettingsGroupCard(modifier = Modifier.fillMaxWidth(), title = "Background") {
+        LauncherChoiceRow(
+            title = "Background",
+            subtitle = "The blurred picture of the last title, or one solid colour",
+            options = listOf(false to "Blur", true to "Solid colour"),
+            selected = settings.solidBackground,
+            onSelect = viewModel::setSolidBackground,
+            firstOptionModifier = firstFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier
+        )
+        if (settings.solidBackground) {
+            val selectedName = LauncherBackgroundColors.firstOrNull { it.second == settings.backgroundColor }?.first ?: "Custom"
+            LauncherRowCard(title = "Colour", subtitle = selectedName) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    LauncherBackgroundColors.forEach { (name, argb) ->
+                        LauncherColorSwatch(
+                            color = Color(argb),
+                            name = name,
+                            selected = argb == settings.backgroundColor,
+                            onClick = { viewModel.setBackgroundColor(argb) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LauncherColorSwatch(color: Color, name: String, selected: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    androidx.tv.material3.Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .size(30.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .semantics { contentDescription = name },
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+            containerColor = color,
+            focusedContainerColor = color
+        ),
+        border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+            border = if (selected) androidx.tv.material3.Border(
+                androidx.compose.foundation.BorderStroke(2.dp, Color.White),
+                shape = androidx.compose.foundation.shape.CircleShape
+            ) else androidx.tv.material3.Border(
+                androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
+                shape = androidx.compose.foundation.shape.CircleShape
+            ),
+            focusedBorder = androidx.tv.material3.Border(
+                androidx.compose.foundation.BorderStroke(3.dp, Color.White),
+                shape = androidx.compose.foundation.shape.CircleShape
+            )
+        ),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.15f)
+    ) {}
 }

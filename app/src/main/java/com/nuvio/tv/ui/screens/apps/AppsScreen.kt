@@ -296,18 +296,25 @@ private fun AppTile(
     var focused by remember { mutableStateOf(false) }
     val tileWidth = TileWidth * sizeScale
     val tileHeight = TileHeight * sizeScale
+    // The focused banner zooms by the Applications focus zoom setting. Done here, as on the Home tiles: the card's
+    // own focus scaling did not zoom the banners on the TV.
+    val zoomNow by androidx.compose.animation.core.animateFloatAsState(if (focused) zoom else 1f, androidx.compose.animation.core.tween(160), label = "appZoom")
     Column(modifier = Modifier.width(tileWidth)) {
+        Box(
+            Modifier
+                .graphicsLayer { scaleX = zoomNow; scaleY = zoomNow }
+                .shadow(elevation = if (focused) 17.dp else 7.dp, shape = TileShape, ambientColor = Color.Black, spotColor = Color.Black)
+        ) {
         Card(
             onClick = onClick,
             modifier = modifier
                 .size(tileWidth, tileHeight)
-                .shadow(elevation = if (focused) 17.dp else 7.dp, shape = TileShape, ambientColor = Color.Black, spotColor = Color.Black)
                 .onFocusChanged {
                     focused = it.hasFocus
                     if (it.hasFocus) onFocused()
                 },
             shape = CardDefaults.shape(TileShape),
-            scale = CardDefaults.scale(focusedScale = zoom),
+            scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f),
             border = CardDefaults.border(border = Border.None, focusedBorder = Border.None),
             colors = CardDefaults.colors(containerColor = Color(0xFF2E3036), focusedContainerColor = Color(0xFF2E3036))
         ) {
@@ -323,6 +330,7 @@ private fun AppTile(
                     Text(text = app.label, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
+        }
         }
         // The app's name under every banner: white and moved down clear of the zoomed banner when focused
         // (the layout stays the same, so the page never jumps), soft white otherwise.
