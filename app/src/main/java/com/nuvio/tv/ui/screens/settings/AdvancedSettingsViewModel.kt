@@ -23,7 +23,7 @@ data class AdvancedSettingsUiState(
     val composeHighlighterEnabled: Boolean = false,
     val playbackIssueReportsEnabled: Boolean = false,
     val playerStatsHudEnabled: Boolean = false,
-    val rgb565Enabled: Boolean = true,
+    val rgb565Enabled: Boolean = false,   // Nuvio Launcher: matches the new default (full colour)
     val sentryEnabled: Boolean = true
 )
 

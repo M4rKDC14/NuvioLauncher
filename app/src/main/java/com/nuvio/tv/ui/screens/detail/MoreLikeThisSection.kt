@@ -185,6 +185,7 @@ fun MoreLikeThisSection(
                         onClick = { onItemClick(item) },
                         onLongPress = { onItemLongPress(item) },
                         subtitle = item.releaseInfo,
+                        showCaption = false,   // owner: no title or year under the tiles
                         isWatched = isItemWatched(item),
                         focusRequester = focusRequester,
                         upFocusRequester = upFocusRequester,

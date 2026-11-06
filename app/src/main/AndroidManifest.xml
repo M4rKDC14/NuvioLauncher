@@ -222,6 +222,19 @@
         </activity>
 
         <profileable android:shell="true" />
+        <!-- Nuvio Launcher: opens this launcher when the remote's Home button is pressed (switched on with adb) -->
+        <service
+            android:name="com.nuvio.tv.launcherhome.HomeKeyService"
+            android:exported="true"
+            android:label="@string/launcher_home_key_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/home_key_service" />
+        </service>
     </application>
 
 </manifest>

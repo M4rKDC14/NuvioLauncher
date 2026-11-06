@@ -230,6 +230,7 @@ fun TrailerSection(
                         landscape = true,
                         onClick = { onTrailerClick(item.trailer) },
                         subtitle = item.preview.releaseInfo,
+                        showCaption = false,   // owner: no title or type under the tiles
                         focusRequester = focusRequester,
                         upFocusRequester = upFocusRequester,
                         downFocusRequester = downFocusRequester,

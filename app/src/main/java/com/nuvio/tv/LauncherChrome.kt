@@ -15,4 +15,7 @@ object LauncherChrome {
      * Search, Library and Applications draw it blurred behind them, so every page feels like a layer over Home.
      */
     val lastBackdrop = mutableStateOf<String?>(null)
+
+    /** The Inputs popup (remote's Input button, or Inputs in the side panel) is open. */
+    val inputsOpen = mutableStateOf(false)
 }

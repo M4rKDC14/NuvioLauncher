@@ -12,7 +12,9 @@ class ImagePerformancePreferences @Inject constructor(
     private val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
     val rgb565Enabled: Boolean
-        get() = preferences.getBoolean(KEY_RGB565_ENABLED, true)
+        // Nuvio Launcher: off by default. 16-bit pictures showed stepped bands in the tiles' dark fades and soft
+        // colour in the pictures on the TV; full 32-bit colour costs twice the picture memory.
+        get() = preferences.getBoolean(KEY_RGB565_ENABLED, false)
 
     fun setRgb565Enabled(enabled: Boolean): Boolean {
         return preferences.edit()

@@ -1,5 +1,6 @@
 package com.nuvio.tv
 
+import androidx.compose.material.icons.filled.SettingsInputHdmi
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -398,6 +399,7 @@ open class MainActivity : ComponentActivity() {
         val launchSeason = intent?.getIntExtra("season", -1)?.takeIf { it >= 0 }
         val launchEpisode = intent?.getIntExtra("episode", -1)?.takeIf { it >= 0 }
         val launchEpisodeTitle = intent?.getStringExtra("episodeTitle")
+        captureOpenInputsIntent(intent)
         captureDeepLinkIntent(intent)
 
         setContent {
@@ -1122,6 +1124,13 @@ open class MainActivity : ComponentActivity() {
                                 )
                             )
                             add(
+                                DrawerItem(   // Nuvio Launcher: opens the Inputs popup (not a page)
+                                    route = com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE,
+                                    label = "Inputs",
+                                    icon = Icons.Default.SettingsInputHdmi
+                                )
+                            )
+                            add(
                                 DrawerItem(
                                     route = Screen.Settings.route,
                                     label = strNavSettings,
@@ -1159,9 +1168,9 @@ open class MainActivity : ComponentActivity() {
 
                     val updateViewModel: UpdateViewModel = hiltViewModel(this@MainActivity)
                     val updateState by updateViewModel.uiState.collectAsState()
-                    val updateBannerState = updateState.copy(
-                        showBanner = updateState.showBanner && currentRoute?.startsWith("player/") != true
-                    )
+                    // Nuvio Launcher: no "Update available" banner. It offers the official Nuvio's releases, which are
+                    // a different app (other id and signing key) and cannot update this launcher.
+                    val updateBannerState = updateState.copy(showBanner = false)
 
                     UpdateBannerHost(
                         state = updateBannerState,
@@ -1226,6 +1235,9 @@ open class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
+
+                            // Nuvio Launcher: the Inputs popup, over whatever page is open
+                            com.nuvio.tv.ui.launcher.LauncherInputsHost()
 
                             val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
                             autoNextOverlay?.let { ov ->
@@ -1333,6 +1345,15 @@ open class MainActivity : ComponentActivity() {
         setIntent(intent)
         captureDeepLinkIntent(intent)
         captureLaunchIntent(intent)
+        captureOpenInputsIntent(intent)
+    }
+
+    /** Nuvio Launcher: the Home-key service opens the app this way when the remote's Input button is pressed. */
+    private fun captureOpenInputsIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(com.nuvio.tv.ui.launcher.EXTRA_OPEN_INPUTS, false) == true) {
+            intent.removeExtra(com.nuvio.tv.ui.launcher.EXTRA_OPEN_INPUTS)
+            LauncherChrome.inputsOpen.value = true
+        }
     }
 
     private fun captureDeepLinkIntent(intent: Intent?) {
@@ -1637,14 +1658,20 @@ private fun LegacySidebarScaffold(
                                     expanded = isExpanded,
                                     onClick = {
                                         keyboardController?.hide()
-                                        onNavigate(item.route)
-                                        navigateToDrawerRoute(
-                                            navController = navController,
-                                            currentRoute = currentRoute,
-                                            targetRoute = item.route
-                                        )
-                                        drawerState.setValue(DrawerValue.Closed)
-                                        pendingContentFocusTransfer = currentRoute == item.route
+                                        if (item.route == com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE) {
+                                            // Nuvio Launcher: a popup, not a page
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            LauncherChrome.inputsOpen.value = true
+                                        } else {
+                                            onNavigate(item.route)
+                                            navigateToDrawerRoute(
+                                                navController = navController,
+                                                currentRoute = currentRoute,
+                                                targetRoute = item.route
+                                            )
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            pendingContentFocusTransfer = currentRoute == item.route
+                                        }
                                     },
                                     modifier = Modifier.focusRequester(
                                         drawerItemFocusRequesters.getValue(item.route)
@@ -2231,16 +2258,24 @@ private fun ModernSidebarScaffold(
                         onDrawerItemFocused = { focusedDrawerIndex = it },
                         onDrawerItemClick = { targetRoute ->
                             keyboardController?.hide()
-                            onNavigate(targetRoute)
-                            navigateToDrawerRoute(
-                                navController = navController,
-                                currentRoute = currentRoute,
-                                targetRoute = targetRoute
-                            )
-                            pendingSidebarFocusRequest = false
-                            isSidebarExpanded = false
-                            sidebarCollapsePending = false
-                            pendingContentFocusTransfer = currentRoute == targetRoute
+                            if (targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE) {
+                                // Nuvio Launcher: a popup, not a page
+                                pendingSidebarFocusRequest = false
+                                isSidebarExpanded = false
+                                sidebarCollapsePending = false
+                                LauncherChrome.inputsOpen.value = true
+                            } else {
+                                onNavigate(targetRoute)
+                                navigateToDrawerRoute(
+                                    navController = navController,
+                                    currentRoute = currentRoute,
+                                    targetRoute = targetRoute
+                                )
+                                pendingSidebarFocusRequest = false
+                                isSidebarExpanded = false
+                                sidebarCollapsePending = false
+                                pendingContentFocusTransfer = currentRoute == targetRoute
+                            }
                         },
                         activeProfileName = activeProfileName,
                         activeProfileColorHex = activeProfileColorHex,
