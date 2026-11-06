@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.data.local.AmbientModeDataStore
 import com.nuvio.tv.domain.model.AmbientModeSettings
+import com.nuvio.tv.domain.model.AmbientSource
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.ui.screens.ambient.AmbientCatalog
@@ -45,5 +46,13 @@ class AmbientModeSettingsViewModel @Inject constructor(
 
     fun setCatalogKeys(keys: List<String>) {
         viewModelScope.launch { dataStore.setCatalogKeys(keys) }
+    }
+
+    fun setSource(source: AmbientSource) {
+        viewModelScope.launch { dataStore.setSource(source) }
+    }
+
+    fun setCustomSubreddit(name: String) {
+        viewModelScope.launch { dataStore.setCustomSubreddit(name) }
     }
 }

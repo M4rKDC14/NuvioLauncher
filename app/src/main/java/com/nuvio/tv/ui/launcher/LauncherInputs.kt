@@ -75,6 +75,9 @@ const val LAUNCHER_INPUTS_ROUTE = "launcher_inputs"
 /** Intent extra the Home-key service sets when the Input button is pressed. */
 const val EXTRA_OPEN_INPUTS = "nuvio_open_inputs"
 
+/** Intent extra the Home-key service sets when the Home button is pressed: go back to the home screen. */
+const val EXTRA_GO_HOME = "nuvio_go_home"
+
 private data class LauncherInput(
     val id: String,
     val title: String,

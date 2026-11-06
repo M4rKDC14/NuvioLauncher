@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.border
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -109,10 +110,13 @@ private sealed class LRow(val key: String, val title: String) {
     class Catalog(val row: CatalogRow, title: String) : LRow("cat_" + row.addonId + "_" + row.catalogId + "_" + row.apiType, title)
     class Collection(val c: com.nuvio.tv.domain.model.Collection) : LRow("col_" + c.id, c.title)
     class Pending(val catalogKey: String, title: String) : LRow("ph_$catalogKey", title)
+    /** Nuvio Launcher: the apps pinned from Applications, first on Home. */
+    class Favourites(val apps: List<com.nuvio.tv.ui.screens.apps.LauncherApp>) : LRow("fav", "Favourites")
 }
 
-private fun rowsOf(state: HomeUiState): List<LRow> {
+private fun rowsOf(state: HomeUiState, favourites: List<com.nuvio.tv.ui.screens.apps.LauncherApp>): List<LRow> {
     val out = ArrayList<LRow>()
+    if (favourites.isNotEmpty()) out += LRow.Favourites(favourites)
     if (state.continueWatchingItems.isNotEmpty()) out += LRow.Continue(state.continueWatchingItems)
     if (state.homeRows.isNotEmpty()) {
         for (r in state.homeRows) when (r) {
@@ -152,7 +156,37 @@ internal fun LauncherHomeContent(
     val heroCount = launcherSettings.heroCount
     val rotateMs = launcherSettings.rotationMs
     val look = TileLook(launcherSettings.catalogScale, com.nuvio.tv.ui.launcher.zoomSafeGap(launcherSettings.catalogTileSpacingDp.dp, 224.dp * launcherSettings.catalogScale, launcherSettings.catalogZoom), launcherSettings.catalogZoom)
-    val rows = remember(uiState.continueWatchingItems, uiState.homeRows, uiState.catalogRows) { rowsOf(uiState) }
+    // Nuvio Launcher: Favourites. The installed apps are read once per visit to Home; the row shows the pinned ones
+    // in their saved order. While one is being moved, the order on screen is kept here and saved after each step.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val settingsVm: com.nuvio.tv.ui.screens.settings.LauncherSettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    var installedApps by remember { mutableStateOf<List<com.nuvio.tv.ui.screens.apps.LauncherApp>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        installedApps = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { com.nuvio.tv.ui.screens.apps.loadLauncherApps(context) }.getOrDefault(emptyList())
+        }
+    }
+    var favOrder by remember(launcherSettings.favourites) { mutableStateOf(launcherSettings.favourites) }
+    val favouriteApps = remember(favOrder, installedApps) { favOrder.mapNotNull { pkg -> installedApps.firstOrNull { it.pkg == pkg } } }
+    var movingFavourite by remember { mutableStateOf<String?>(null) }
+    var favouriteMenu by remember { mutableStateOf<com.nuvio.tv.ui.screens.apps.LauncherApp?>(null) }
+    val favActions = remember(favOrder, movingFavourite) {
+        FavouriteActions(
+            moving = movingFavourite,
+            onOpen = { pkg -> com.nuvio.tv.ui.screens.apps.launchApp(context, pkg) },
+            onLongPress = { app -> if (movingFavourite == null) favouriteMenu = app },
+            onStep = { pkg, by ->
+                val i = favOrder.indexOf(pkg)
+                val j = i + by
+                if (i >= 0 && j in favOrder.indices) {
+                    favOrder = favOrder.toMutableList().apply { add(j, removeAt(i)) }
+                    settingsVm.setFavourites(favOrder)
+                }
+            },
+            onEndMove = { movingFavourite = null }
+        )
+    }
+    val rows = remember(uiState.continueWatchingItems, uiState.homeRows, uiState.catalogRows, favouriteApps) { rowsOf(uiState, favouriteApps) }
     val hero = remember(uiState.heroItems, uiState.catalogRows, heroCount) {
         (uiState.heroItems.ifEmpty { uiState.catalogRows.firstOrNull { it.items.isNotEmpty() }?.items.orEmpty() })
             .filter { !it.background.isNullOrBlank() || !it.poster.isNullOrBlank() }.take(heroCount)
@@ -415,14 +449,43 @@ internal fun LauncherHomeContent(
                             onNavigateToDetail = onNavigateToDetail,
                             onContinueWatchingClick = onContinueWatchingClick,
                             onNavigateToFolderDetail = onNavigateToFolderDetail,
-                            onRequestLazyCatalogLoad = onRequestLazyCatalogLoad
+                            onRequestLazyCatalogLoad = onRequestLazyCatalogLoad,
+                            favActions = favActions
                         )
                     }
                 }
             }
         }
     }
+
+    // Nuvio Launcher: long-press on a favourite
+    favouriteMenu?.let { app ->
+        com.nuvio.tv.ui.launcher.AppOptionsDialog(
+            label = app.label,
+            onDismiss = { favouriteMenu = null },
+            options = listOf(
+                "Open" to { favouriteMenu = null; com.nuvio.tv.ui.screens.apps.launchApp(context, app.pkg) },
+                "Move" to { favouriteMenu = null; movingFavourite = app.pkg },
+                "Remove from Favourites" to {
+                    favouriteMenu = null
+                    favOrder = favOrder - app.pkg
+                    settingsVm.setFavourites(favOrder)
+                }
+            )
+        )
+    }
 }
+
+/** Nuvio Launcher: what the Favourites row's tiles do (open, long-press menu, Move mode). */
+private class FavouriteActions(
+    val moving: String?,
+    val onOpen: (String) -> Unit,
+    val onLongPress: (com.nuvio.tv.ui.screens.apps.LauncherApp) -> Unit,
+    val onStep: (String, Int) -> Unit,
+    val onEndMove: () -> Unit
+)
+
+private val FavouriteMoveKeys = setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionUp, Key.DirectionDown, Key.DirectionCenter, Key.Enter, Key.Back)
 
 @Composable
 private fun RowsBackdrop(url: () -> String?) {
@@ -517,7 +580,14 @@ private fun HeroButton(
     }
 }
 
-private class Tile(val key: String, val title: String, val image: String?, val landscape: Boolean, val square: Boolean = false, val progress: Float? = null, val badge: String? = null, val backdrop: String? = null, val onClick: () -> Unit)
+private class Tile(
+    val key: String, val title: String, val image: String?, val landscape: Boolean, val square: Boolean = false,
+    val progress: Float? = null, val badge: String? = null, val backdrop: String? = null,
+    /** Nuvio Launcher: an app's banner (or icon) for the Favourites row, and its long-press */
+    val art: androidx.compose.ui.graphics.ImageBitmap? = null, val artIsBanner: Boolean = false,
+    val pkg: String? = null, val onLongClick: (() -> Unit)? = null,
+    val onClick: () -> Unit
+)
 
 @Composable
 private fun RowBlock(
@@ -534,7 +604,8 @@ private fun RowBlock(
     onNavigateToDetail: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onNavigateToFolderDetail: (String, String) -> Unit,
-    onRequestLazyCatalogLoad: (String) -> Unit
+    onRequestLazyCatalogLoad: (String) -> Unit,
+    favActions: FavouriteActions
 ) {
     val items: List<Tile> = remember(row) {
         when (row) {
@@ -567,6 +638,10 @@ private fun RowBlock(
                 }
             }
             is LRow.Pending -> emptyList()
+            is LRow.Favourites -> row.apps.map { app ->
+                Tile("fa_" + app.pkg, app.label, null, true, art = app.art, artIsBanner = app.isBanner, pkg = app.pkg,
+                    onLongClick = { favActions.onLongPress(app) }) { favActions.onOpen(app.pkg) }
+            }
         }
     }
     if (row is LRow.Pending) LaunchedEffect(row.catalogKey) { onRequestLazyCatalogLoad(row.catalogKey) }
@@ -598,9 +673,21 @@ private fun RowBlock(
                     TileView(
                         tile = t,
                         look = look,
+                        moving = t.pkg != null && t.pkg == favActions.moving,
                         modifier = Modifier
                             .focusRequester(req)
                             .onPreviewKeyEvent { e ->
+                                // Nuvio Launcher: Move mode on a favourite. Left/Right move it along the row; OK or Back
+                                // ends it; Up/Down do nothing. Both press and release are taken, so OK does not open it.
+                                if (t.pkg != null && t.pkg == favActions.moving && e.key in FavouriteMoveKeys) {
+                                    if (e.type == KeyEventType.KeyDown) when (e.key) {
+                                        Key.DirectionLeft -> favActions.onStep(t.pkg, -1)
+                                        Key.DirectionRight -> favActions.onStep(t.pkg, 1)
+                                        Key.DirectionCenter, Key.Enter, Key.Back -> favActions.onEndMove()
+                                        else -> Unit
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
                                 // Back on a row's first tile opens the side panel (as Left does there). Both the press
                                 // and the release are taken, so the page's own Back (to the carousel) does not also run.
                                 if (e.key == Key.Back && i == 0) {
@@ -625,7 +712,7 @@ private fun RowBlock(
 }
 
 @Composable
-private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: () -> Unit) {
+private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, moving: Boolean = false, onFocused: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val w = (if (tile.landscape) 224.dp else if (tile.square) 126.dp else 120.dp) * look.scale
     val baseH = if (tile.landscape || tile.square) 126.dp else 180.dp
@@ -638,9 +725,12 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: 
             Modifier
                 .graphicsLayer { scaleX = scale; scaleY = scale }
                 .shadow(elevation = if (focused) 17.dp else 7.dp, shape = Corner, ambientColor = Color.Black, spotColor = Color.Black)
+                // Nuvio Launcher: a favourite being moved has a white outline, as in the Applications panel
+                .then(if (moving) Modifier.border(androidx.compose.foundation.BorderStroke(2.dp, com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite), Corner) else Modifier)
         ) {
             Card(
                 onClick = tile.onClick,
+                onLongClick = tile.onLongClick,
                 modifier = modifier.size(w, h).onFocusChanged { focused = it.hasFocus; if (it.hasFocus) onFocused() },
                 shape = CardDefaults.shape(Corner),
                 scale = CardDefaults.scale(focusedScale = 1f),
@@ -648,7 +738,14 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: 
                 colors = CardDefaults.colors(containerColor = Color(0xFF2A2C33), focusedContainerColor = Color(0xFF2A2C33))
             ) {
                 Box(Modifier.fillMaxSize()) {
-                    if (tile.image != null) AsyncImage(model = tile.image, contentDescription = tile.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    if (tile.art != null) {
+                        // Nuvio Launcher: an app's banner fills the tile; an app with only an icon shows it in the middle
+                        androidx.compose.foundation.Image(
+                            bitmap = tile.art, contentDescription = tile.title,
+                            contentScale = if (tile.artIsBanner) ContentScale.Crop else ContentScale.Fit,
+                            modifier = if (tile.artIsBanner) Modifier.fillMaxSize() else Modifier.align(Alignment.Center).size(54.dp * look.scale)
+                        )
+                    } else if (tile.image != null) AsyncImage(model = tile.image, contentDescription = tile.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     else Text(tile.title, color = Soft, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Center).padding(8.dp), maxLines = 3)
                     if (tile.badge != null || tile.progress != null) {
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xB3000000))))
@@ -665,9 +762,11 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, onFocused: 
             }
         }
         // Titles under tiles only on Continue Watching (owner's request); other rows show just the picture.
-        if (tile.title.isNotEmpty() && (tile.key.startsWith("cw_") || tile.key.startsWith("nu_"))) {
+        // (and on Favourites: the app's name, bold when focused, as in the approved mockup)
+        if (tile.title.isNotEmpty() && (tile.key.startsWith("cw_") || tile.key.startsWith("nu_") || tile.key.startsWith("fa_"))) {
             Text(
                 tile.title, color = if (focused) Color.White else com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                fontWeight = if (focused && tile.key.startsWith("fa_")) FontWeight.Bold else FontWeight.Normal,
                 // Same layout height whether focused or not (a changing row height made the page jitter);
                 // the focused title only moves down visually, clear of the zoomed tile.
                 modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) titleLift.toPx() else 0f }

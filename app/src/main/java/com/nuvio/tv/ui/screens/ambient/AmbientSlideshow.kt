@@ -241,6 +241,10 @@ private suspend fun loadSlide(
         logo?.cancel()
         return@coroutineScope null
     }
+    if (slide.landscapeOnly && backdrop.height > backdrop.width) {
+        logo?.cancel()
+        return@coroutineScope null
+    }
     LoadedSlide(slide, backdrop, logo?.await())
 }
 

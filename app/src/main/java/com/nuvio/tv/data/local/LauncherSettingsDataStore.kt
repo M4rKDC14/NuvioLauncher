@@ -1,5 +1,6 @@
 package com.nuvio.tv.data.local
 
+import androidx.datastore.preferences.core.stringPreferencesKey
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
@@ -44,6 +45,10 @@ data class LauncherSettings(
     val appsTileSpacingDp: Int = DEFAULT_APPS_SPACING,
     val appsFocusZoomPercent: Int = DEFAULT_APPS_ZOOM,
     val hiddenPackages: Set<String> = emptySet(),
+    /** Nuvio Launcher: the order apps were moved into in the Applications panel (packages, first to last). */
+    val appOrder: List<String> = emptyList(),
+    /** Nuvio Launcher: the apps in Home's Favourites row (packages, first to last). */
+    val favourites: List<String> = emptyList(),
     /** Settings → Appearance → Background: false = the blurred picture of the last title, true = [backgroundColor]. */
     val solidBackground: Boolean = false,
     /** The solid background colour (ARGB), used when [solidBackground] is on. Default: the launcher grey. */
@@ -119,6 +124,8 @@ class LauncherSettingsDataStore @Inject constructor(
     private val appsSpacingKey = intPreferencesKey("apps_tile_spacing")
     private val appsZoomKey = intPreferencesKey("apps_focus_zoom")
     private val hiddenPackagesKey = stringSetPreferencesKey("hidden_packages")
+    private val appOrderKey = stringPreferencesKey("app_order")
+    private val favouritesKey = stringPreferencesKey("favourite_apps")
     private val solidBackgroundKey = booleanPreferencesKey("solid_background")
     private val backgroundColorKey = intPreferencesKey("background_color")
 
@@ -139,6 +146,8 @@ class LauncherSettingsDataStore @Inject constructor(
                 appsTileSpacingDp = spacing(prefs[appsSpacingKey], LauncherSettings.DEFAULT_APPS_SPACING),
                 appsFocusZoomPercent = zoom(prefs[appsZoomKey], LauncherSettings.DEFAULT_APPS_ZOOM),
                 hiddenPackages = prefs[hiddenPackagesKey] ?: emptySet(),
+                appOrder = prefs[appOrderKey]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList(),
+                favourites = prefs[favouritesKey]?.split('\n')?.filter { it.isNotBlank() } ?: emptyList(),
                 solidBackground = prefs[solidBackgroundKey] ?: false,
                 backgroundColor = prefs[backgroundColorKey] ?: LauncherSettings.DEFAULT_BACKGROUND_COLOR
             )
@@ -165,6 +174,10 @@ class LauncherSettingsDataStore @Inject constructor(
     suspend fun setAppsFocusZoom(percent: Int) { dataStore.edit { it[appsZoomKey] = percent } }
     suspend fun setSolidBackground(solid: Boolean) { dataStore.edit { it[solidBackgroundKey] = solid } }
     suspend fun setBackgroundColor(argb: Int) { dataStore.edit { it[backgroundColorKey] = argb } }
+
+    suspend fun setAppOrder(packages: List<String>) { dataStore.edit { it[appOrderKey] = packages.joinToString("\n") } }
+
+    suspend fun setFavourites(packages: List<String>) { dataStore.edit { it[favouritesKey] = packages.distinct().joinToString("\n") } }
 
     suspend fun setAppHidden(packageName: String, hidden: Boolean) {
         dataStore.edit { prefs ->

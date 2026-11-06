@@ -148,7 +148,7 @@ private fun groupApps(apps: List<LauncherApp>): List<Pair<String, List<LauncherA
         if (inGroup.isEmpty()) null else GROUPS[g] to inGroup
     }
 
-private fun launchApp(context: Context, pkg: String) {
+internal fun launchApp(context: Context, pkg: String) {
     val pm = context.packageManager
     val intent = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg) ?: return
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }

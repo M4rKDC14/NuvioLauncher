@@ -18,4 +18,13 @@ object LauncherChrome {
 
     /** The Inputs popup (remote's Input button, or Inputs in the side panel) is open. */
     val inputsOpen = mutableStateOf(false)
+
+    /** The Applications panel (Applications in the side panel) is open. */
+    val appsOpen = mutableStateOf(false)
+
+    /** The Quick settings panel (Quick settings in the side panel) is open. */
+    val quickSettingsOpen = mutableStateOf(false)
+
+    /** Counts Home-button presses while the launcher is open; each one sends the shell back to the home screen. */
+    val goHomeRequests = mutableStateOf(0)
 }

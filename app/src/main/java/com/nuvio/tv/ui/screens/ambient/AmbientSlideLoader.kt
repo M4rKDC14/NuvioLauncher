@@ -37,8 +37,12 @@ class AmbientSlideLoader @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
-    private val metaPreviewEnricher: MetaPreviewEnricher
+    private val metaPreviewEnricher: MetaPreviewEnricher,
+    private val redditSlideSource: RedditSlideSource
 ) {
+    /** Nuvio Launcher: pictures from a Reddit community instead of the catalogs. */
+    suspend fun loadSubreddit(subreddit: String): List<AmbientSlide> = redditSlideSource.load(subreddit)
+
     suspend fun load(selectedKeys: List<String>): List<AmbientSlide> = coroutineScope {
         val addons = addonRepository.getInstalledAddons().first().enabledAddons() +
             serverCatalog.addons.first()

@@ -3156,7 +3156,7 @@ private fun PlayerControlsOverlay(
                                 onDownKey = onHideControls,
                                 onFocused = onResetHideTimer
                             )
-                            if (uiState.playbackIssueReportsEnabled) {
+                            if (false /* launcher: bug-report button removed */ && uiState.playbackIssueReportsEnabled) {
                                 ReportControlButton(
                                     reportId = uiState.playbackIssueReportId,
                                     showReportId = reportCodeVisible,

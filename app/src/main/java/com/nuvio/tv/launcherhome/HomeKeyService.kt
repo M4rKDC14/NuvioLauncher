@@ -36,7 +36,10 @@ class HomeKeyService : AccessibilityService() {
             .setClassName(packageName, "com.nuvio.tv.MainActivity")
             // back to the launcher's own task, closing anything opened on top of it (player, details, ...)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .apply { if (openInputs) putExtra(com.nuvio.tv.ui.launcher.EXTRA_OPEN_INPUTS, true) }
+            .apply {
+                if (openInputs) putExtra(com.nuvio.tv.ui.launcher.EXTRA_OPEN_INPUTS, true)
+                else putExtra(com.nuvio.tv.ui.launcher.EXTRA_GO_HOME, true)
+            }
         runCatching { startActivity(intent) }
     }
 

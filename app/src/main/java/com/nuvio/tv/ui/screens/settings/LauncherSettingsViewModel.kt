@@ -39,6 +39,8 @@ class LauncherSettingsViewModel @Inject constructor(
     fun setAppsTileSpacing(dp: Int) = save { it.setAppsTileSpacing(dp) }
     fun setAppsFocusZoom(percent: Int) = save { it.setAppsFocusZoom(percent) }
     fun setAppHidden(packageName: String, hidden: Boolean) = save { it.setAppHidden(packageName, hidden) }
+    fun setAppOrder(packages: List<String>) = save { it.setAppOrder(packages) }
+    fun setFavourites(packages: List<String>) = save { it.setFavourites(packages) }
     fun setSolidBackground(solid: Boolean) = save { it.setSolidBackground(solid) }
     fun setBackgroundColor(argb: Int) = save { it.setBackgroundColor(argb) }
     fun reset() = save { it.reset() }

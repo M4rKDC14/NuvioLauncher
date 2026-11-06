@@ -1,6 +1,7 @@
 package com.nuvio.tv
 
 import androidx.compose.material.icons.filled.SettingsInputHdmi
+import androidx.compose.material.icons.filled.Tune
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -1047,6 +1048,23 @@ open class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    val goHomeRequests = LauncherChrome.goHomeRequests.value
+                    LaunchedEffect(goHomeRequests) {
+                        if (goHomeRequests == 0) return@LaunchedEffect
+                        try {
+                            if (actualRoute == Screen.Home.route) {
+                                navigateToDrawerRoute(navController, actualRoute, Screen.Home.route)
+                            } else {
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(navController.graph.startDestinationId) { saveState = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w("NuvioNavigation", "Home button: could not go home", e)
+                        }
+                    }
+
                     LaunchedEffect(discoverLocation, currentRoute) {
                         if (discoverLocation == null) return@LaunchedEffect
                         val onDiscoverRoute = currentRoute == Screen.Discover.route ||
@@ -1128,6 +1146,13 @@ open class MainActivity : ComponentActivity() {
                                     route = com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE,
                                     label = "Inputs",
                                     icon = Icons.Default.SettingsInputHdmi
+                                )
+                            )
+                            add(
+                                DrawerItem(   // Nuvio Launcher: opens the Quick settings panel (not a page)
+                                    route = com.nuvio.tv.ui.launcher.LAUNCHER_QUICK_SETTINGS_ROUTE,
+                                    label = "Quick settings",
+                                    icon = Icons.Default.Tune
                                 )
                             )
                             add(
@@ -1238,6 +1263,16 @@ open class MainActivity : ComponentActivity() {
 
                             // Nuvio Launcher: the Inputs popup, over whatever page is open
                             com.nuvio.tv.ui.launcher.LauncherInputsHost()
+                            // Nuvio Launcher: the Applications panel, over whatever page is open
+                            com.nuvio.tv.ui.launcher.LauncherAppsHost()
+                            // Nuvio Launcher: the Quick settings panel, over whatever page is open
+                            val quickSettingsProfile = profileManager.activeProfile
+                            com.nuvio.tv.ui.launcher.LauncherQuickSettingsHost(
+                                profileName = quickSettingsProfile?.name,
+                                profileColorHex = quickSettingsProfile?.avatarColorHex,
+                                onStartAmbient = { ambientIdleController.show() },
+                                onSwitchProfile = handleSwitchProfile
+                            )
 
                             val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
                             autoNextOverlay?.let { ov ->
@@ -1346,6 +1381,18 @@ open class MainActivity : ComponentActivity() {
         captureDeepLinkIntent(intent)
         captureLaunchIntent(intent)
         captureOpenInputsIntent(intent)
+        captureGoHomeIntent(intent)
+    }
+
+    /** Nuvio Launcher: Home pressed while the launcher is open closes its popups and returns to the home screen. */
+    private fun captureGoHomeIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(com.nuvio.tv.ui.launcher.EXTRA_GO_HOME, false) == true) {
+            intent.removeExtra(com.nuvio.tv.ui.launcher.EXTRA_GO_HOME)
+            LauncherChrome.inputsOpen.value = false
+            LauncherChrome.appsOpen.value = false
+            LauncherChrome.quickSettingsOpen.value = false
+            LauncherChrome.goHomeRequests.value += 1
+        }
     }
 
     /** Nuvio Launcher: the Home-key service opens the app this way when the remote's Input button is pressed. */
@@ -1662,6 +1709,14 @@ private fun LegacySidebarScaffold(
                                             // Nuvio Launcher: a popup, not a page
                                             drawerState.setValue(DrawerValue.Closed)
                                             LauncherChrome.inputsOpen.value = true
+                                        } else if (item.route == Screen.Apps.route) {
+                                            // Nuvio Launcher: the Applications panel, not the page
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            LauncherChrome.appsOpen.value = true
+                                        } else if (item.route == com.nuvio.tv.ui.launcher.LAUNCHER_QUICK_SETTINGS_ROUTE) {
+                                            // Nuvio Launcher: the Quick settings panel, not a page
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            LauncherChrome.quickSettingsOpen.value = true
                                         } else {
                                             onNavigate(item.route)
                                             navigateToDrawerRoute(
@@ -2258,12 +2313,19 @@ private fun ModernSidebarScaffold(
                         onDrawerItemFocused = { focusedDrawerIndex = it },
                         onDrawerItemClick = { targetRoute ->
                             keyboardController?.hide()
-                            if (targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE) {
-                                // Nuvio Launcher: a popup, not a page
+                            if (targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE ||
+                                targetRoute == Screen.Apps.route ||
+                                targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_QUICK_SETTINGS_ROUTE
+                            ) {
+                                // Nuvio Launcher: a popup (Inputs), the Applications or the Quick settings panel, not a page
                                 pendingSidebarFocusRequest = false
                                 isSidebarExpanded = false
                                 sidebarCollapsePending = false
-                                LauncherChrome.inputsOpen.value = true
+                                when (targetRoute) {
+                                    Screen.Apps.route -> LauncherChrome.appsOpen.value = true
+                                    com.nuvio.tv.ui.launcher.LAUNCHER_QUICK_SETTINGS_ROUTE -> LauncherChrome.quickSettingsOpen.value = true
+                                    else -> LauncherChrome.inputsOpen.value = true
+                                }
                             } else {
                                 onNavigate(targetRoute)
                                 navigateToDrawerRoute(

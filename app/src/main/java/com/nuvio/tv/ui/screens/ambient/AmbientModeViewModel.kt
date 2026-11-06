@@ -24,6 +24,12 @@ import javax.inject.Inject
 private const val PRELOAD_DELAY_MS = 20_000L
 private const val REFRESH_INTERVAL_MS = 30L * 60_000L
 
+/** Nuvio Launcher: what the slides come from; a change of either part reloads them. */
+private data class SlideSource(val subreddit: String?, val catalogKeys: List<String>)
+
+private fun AmbientModeSettings.slideSource(): SlideSource =
+    subreddit?.let { SlideSource(it, emptyList()) } ?: SlideSource(null, catalogKeys)
+
 @HiltViewModel
 class AmbientModeViewModel @Inject constructor(
     dataStore: AmbientModeDataStore,
@@ -37,15 +43,15 @@ class AmbientModeViewModel @Inject constructor(
     val slides: StateFlow<List<AmbientSlide>> = _slides.asStateFlow()
 
     private var loadJob: Job? = null
-    private var loadingKeys: List<String>? = null
-    private var loadedKeys: List<String>? = null
+    private var loadingKeys: SlideSource? = null
+    private var loadedKeys: SlideSource? = null
     private var loadedAt = 0L
 
     init {
         viewModelScope.launch {
             settings
                 .filter { it.enabled }
-                .map { it.catalogKeys }
+                .map { it.slideSource() }
                 .distinctUntilChanged()
                 .collectLatest { keys ->
                     delay(PRELOAD_DELAY_MS)
@@ -55,7 +61,7 @@ class AmbientModeViewModel @Inject constructor(
     }
 
     fun onShown() {
-        val keys = settings.value.catalogKeys
+        val keys = settings.value.slideSource()
         val stale = SystemClock.elapsedRealtime() - loadedAt > REFRESH_INTERVAL_MS
         if (keys != loadedKeys || stale || _slides.value.isEmpty()) {
             refresh(keys)
@@ -64,13 +70,14 @@ class AmbientModeViewModel @Inject constructor(
         }
     }
 
-    private fun refresh(keys: List<String>) {
+    private fun refresh(keys: SlideSource) {
         if (loadJob?.isActive == true && loadingKeys == keys) return
         loadJob?.cancel()
         loadingKeys = keys
         loadJob = viewModelScope.launch {
             val slides = try {
-                loader.load(keys)
+                val subreddit = keys.subreddit
+                if (subreddit != null) loader.loadSubreddit(subreddit) else loader.load(keys.catalogKeys)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

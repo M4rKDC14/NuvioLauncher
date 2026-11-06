@@ -362,7 +362,7 @@ private fun catalogChipLabel(catalog: CatalogInfo): String {
  * on the row's white .07 ground, 9 above, 16 on the sides and 11 below, as in the mockup.
  */
 @Composable
-private fun LauncherRowCard(
+internal fun LauncherRowCard(
     title: String,
     subtitle: String?,
     content: @Composable () -> Unit
