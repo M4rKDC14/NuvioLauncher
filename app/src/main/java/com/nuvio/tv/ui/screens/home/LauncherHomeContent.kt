@@ -290,10 +290,8 @@ internal fun LauncherHomeContent(
         }
     }
 
-    BackHandler(enabled = !heroFocused) {
-        focusedRow = -1
-        runCatching { playFocus.requestFocus() }
-    }
+    // Nuvio Launcher: Back anywhere on Home opens the side panel (owner's request). This page no longer takes Back
+    // (it used to return to the carousel), so the shell's own Back, which opens the side panel, handles it.
 
     val current = hero.getOrNull(heroIndex.coerceAtMost((hero.size - 1).coerceAtLeast(0)))
     // the carousel title on screen is the "last focused picture" while the carousel has focus

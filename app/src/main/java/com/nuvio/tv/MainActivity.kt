@@ -401,6 +401,7 @@ open class MainActivity : ComponentActivity() {
         val launchEpisode = intent?.getIntExtra("episode", -1)?.takeIf { it >= 0 }
         val launchEpisodeTitle = intent?.getStringExtra("episodeTitle")
         captureOpenInputsIntent(intent)
+        captureOpenQuickSettingsIntent(intent)
         captureDeepLinkIntent(intent)
 
         setContent {
@@ -1382,6 +1383,17 @@ open class MainActivity : ComponentActivity() {
         captureLaunchIntent(intent)
         captureOpenInputsIntent(intent)
         captureGoHomeIntent(intent)
+        captureOpenQuickSettingsIntent(intent)
+    }
+
+    /** Nuvio Launcher: the Home-key service opens the app this way when the remote's gear button is pressed. */
+    private fun captureOpenQuickSettingsIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(com.nuvio.tv.ui.launcher.EXTRA_OPEN_QUICK_SETTINGS, false) == true) {
+            intent.removeExtra(com.nuvio.tv.ui.launcher.EXTRA_OPEN_QUICK_SETTINGS)
+            LauncherChrome.inputsOpen.value = false
+            LauncherChrome.appsOpen.value = false
+            LauncherChrome.quickSettingsOpen.value = true
+        }
     }
 
     /** Nuvio Launcher: Home pressed while the launcher is open closes its popups and returns to the home screen. */
@@ -1555,7 +1567,8 @@ private fun LegacySidebarScaffold(
 
     BackHandler(enabled = currentRoute in rootRoutes && drawerState.currentValue == DrawerValue.Open) {
         if (longPressBackHeld.value) return@BackHandler
-        onExitApp()
+        // Nuvio Launcher: Back in the side panel opens profile selection (a Home app does not exit)
+        onSwitchProfile()
     }
 
     LaunchedEffect(drawerState.currentValue, pendingContentFocusTransfer) {
@@ -2018,7 +2031,8 @@ private fun ModernSidebarScaffold(
 
     BackHandler(enabled = currentRoute in rootRoutes && isSidebarExpanded && !sidebarCollapsePending) {
         if (longPressBackHeld.value) return@BackHandler
-        onExitApp()
+        // Nuvio Launcher: Back in the side panel opens profile selection (a Home app does not exit)
+        onSwitchProfile()
     }
 
     LaunchedEffect(sidebarCollapsePending, isSidebarExpanded, showSidebar) {

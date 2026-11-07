@@ -78,6 +78,9 @@ const val EXTRA_OPEN_INPUTS = "nuvio_open_inputs"
 /** Intent extra the Home-key service sets when the Home button is pressed: go back to the home screen. */
 const val EXTRA_GO_HOME = "nuvio_go_home"
 
+/** Intent extra the Home-key service sets when the remote's gear button is pressed: open Quick settings. */
+const val EXTRA_OPEN_QUICK_SETTINGS = "nuvio_open_quick_settings"
+
 private data class LauncherInput(
     val id: String,
     val title: String,

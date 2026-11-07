@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.imageLoader
@@ -178,12 +179,15 @@ fun AmbientSlideshow(
                     )
                 )
         )
+        // Nuvio Launcher: a Reddit picture's caption is smaller and left-aligned (approved mockup: title 36sp -40% -30%,
+        // about 15.1sp; title and subreddit both at the lower left). Catalog slides keep their centred caption.
+        val redditCaption = loaded.slide.landscapeOnly
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 72.dp, end = 72.dp, bottom = 64.dp)
                 .widthIn(max = 560.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = if (redditCaption) Alignment.Start else Alignment.CenterHorizontally
         ) {
             val titleModifier = Modifier.graphicsLayer {
                 alpha = titleAlpha.value
@@ -202,10 +206,14 @@ fun AmbientSlideshow(
             } else {
                 Text(
                     text = loaded.slide.title,
-                    style = MaterialTheme.typography.displaySmall,
+                    style = if (redditCaption) {
+                        MaterialTheme.typography.displaySmall.copy(fontSize = 15.12.sp, lineHeight = 18.5.sp)
+                    } else {
+                        MaterialTheme.typography.displaySmall
+                    },
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
-                    textAlign = TextAlign.Center,
+                    textAlign = if (redditCaption) TextAlign.Start else TextAlign.Center,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = titleModifier
@@ -217,7 +225,7 @@ fun AmbientSlideshow(
                     text = loaded.slide.genres.joinToString("  •  "),
                     style = MaterialTheme.typography.titleSmall,
                     color = Color.White.copy(alpha = 0.85f),
-                    textAlign = TextAlign.Center,
+                    textAlign = if (redditCaption) TextAlign.Start else TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.graphicsLayer {

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Nuvio Launcher: the Home-key service only filters key events; it asks for no window or content events. -->
+<!-- Nuvio Launcher: the Home-key service filters key events and is told which screen comes to the front (to replace
+     Google TV's home after start-up or standby); it never reads what is on screen. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeAnnouncement"
+    android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRequestFilterKeyEvents"
     android:canRequestFilterKeyEvents="true"
