@@ -423,6 +423,14 @@ open class MainActivity : ComponentActivity() {
             }
             val hasSeenAuthQrOnFirstLaunch by hasSeenAuthQrFlow.collectAsState(initial = null)
             val authState by authManager.authState.collectAsState()
+            // Nuvio Launcher: the launcher has to open with no internet. Renewing an expired sign-in online can
+            // hang while the network is down (the TV was off for a while), so after 6 seconds the home screen
+            // opens anyway; the account carries on in the background and syncs once the connection is back.
+            var authWaitTimedOut by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                delay(6_000)
+                authWaitTimedOut = true
+            }
             val context = LocalContext.current
 
             LaunchedEffect(authSessionNoticeDataStore, context) {
@@ -748,7 +756,7 @@ open class MainActivity : ComponentActivity() {
 
                     var startupDestination = StartupDestination.Loading
                     val surfaceContentReady = hasSeenAuthQrOnFirstLaunch != null &&
-                        authState !is AuthState.Loading
+                        (authState !is AuthState.Loading || authWaitTimedOut)
 
                     if (!surfaceContentReady) {
                         // Still loading auth state; nothing to show yet.
