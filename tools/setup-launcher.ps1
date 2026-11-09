@@ -6,7 +6,8 @@
 # 2. Lets TCL start its button service (AUTO_START), then switches the service on, so Home, Input and the gear
 #    button open the launcher.
 # 3. Lets the sleep timer put the TV into standby (device admin, force-lock only), and gives notification access.
-# 4. Switches off the 19 apps trimmed in Phase 3 (restore-google-tv.ps1 switches them back on).
+# 4. Switches off Google TV's home (launcherx), so Nuvio Launcher is the only home screen.
+# 5. Switches off the 19 apps trimmed in Phase 3 (restore-google-tv.ps1 switches them back on).
 
 param([Parameter(Mandatory = $true)][string]$Apk)
 
@@ -40,6 +41,9 @@ adb shell dpm set-active-admin tv.nuviolauncher/com.nuvio.tv.launcherhome.Launch
 
 Write-Host "Giving notification access..."
 adb shell cmd notification allow_listener $listener
+
+Write-Host "Switching off Google TV's home, so Nuvio Launcher is the TV's only home screen..."
+adb shell pm disable-user --user 0 com.google.android.apps.tv.launcherx
 
 Write-Host "Switching off the trimmed apps..."
 foreach ($app in $apps) { adb shell pm disable-user --user 0 $app | Out-Null }

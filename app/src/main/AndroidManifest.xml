@@ -236,6 +236,18 @@
                 android:resource="@xml/home_key_service" />
         </service>
 
+        <!-- Nuvio Launcher: Ambient Mode as the TV's screensaver (chosen in the TV's screensaver settings or with adb) -->
+        <service
+            android:name="com.nuvio.tv.ui.screens.ambient.AmbientDreamService"
+            android:exported="true"
+            android:label="@string/launcher_screensaver_label"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
         <!-- Nuvio Launcher: lets the sleep timer put the TV into standby (switched on with adb; force-lock only) -->
         <receiver
             android:name="com.nuvio.tv.launcherhome.LauncherDeviceAdmin"

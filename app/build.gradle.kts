@@ -127,7 +127,7 @@ val releaseStorePasswordValue = env("NUVIO_RELEASE_STORE_PASSWORD")
 
 
 /** Nuvio Launcher: this build's version. Raise it for every build sent to the TV. */
-val launcherVersion = "1.6.18"
+val launcherVersion = "1.6.19"
 
 android {
     namespace = "com.nuvio.tv"
