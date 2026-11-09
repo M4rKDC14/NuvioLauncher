@@ -2,6 +2,7 @@ package com.nuvio.tv
 
 import androidx.compose.material.icons.filled.SettingsInputHdmi
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Mic
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -1129,6 +1130,13 @@ open class MainActivity : ComponentActivity() {
                                 )
                             )
                             add(
+                                DrawerItem(   // Nuvio Launcher: opens Google Assistant (approved mockup B), not a page
+                                    route = com.nuvio.tv.ui.launcher.LAUNCHER_VOICE_ROUTE,
+                                    label = "Voice search",
+                                    icon = Icons.Default.Mic
+                                )
+                            )
+                            add(
                                 DrawerItem(
                                     route = Screen.Library.route,
                                     label = strNavLibrary,
@@ -1535,6 +1543,7 @@ private fun LegacySidebarScaffold(
     onNavigate: (String) -> Unit,
     onExitApp: () -> Unit
 ) {
+    val voiceContext = androidx.compose.ui.platform.LocalContext.current
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val drawerItemFocusRequesters = rememberDrawerItemFocusRequesters(drawerItems)
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -1726,6 +1735,10 @@ private fun LegacySidebarScaffold(
                                             // Nuvio Launcher: the Applications panel, not the page
                                             drawerState.setValue(DrawerValue.Closed)
                                             LauncherChrome.appsOpen.value = true
+                                        } else if (item.route == com.nuvio.tv.ui.launcher.LAUNCHER_VOICE_ROUTE) {
+                                            // Nuvio Launcher: Google Assistant, not a page
+                                            drawerState.setValue(DrawerValue.Closed)
+                                            com.nuvio.tv.ui.launcher.openVoiceSearch(voiceContext)
                                         } else if (item.route == com.nuvio.tv.ui.launcher.LAUNCHER_QUICK_SETTINGS_ROUTE) {
                                             // Nuvio Launcher: the Quick settings panel, not a page
                                             drawerState.setValue(DrawerValue.Closed)
@@ -2327,7 +2340,12 @@ private fun ModernSidebarScaffold(
                         onDrawerItemFocused = { focusedDrawerIndex = it },
                         onDrawerItemClick = { targetRoute ->
                             keyboardController?.hide()
-                            if (targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE ||
+                            if (targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_VOICE_ROUTE) {
+                                // Nuvio Launcher: Google Assistant, not a page
+                                isSidebarExpanded = false
+                                sidebarCollapsePending = false
+                                com.nuvio.tv.ui.launcher.openVoiceSearch(launcherContext)
+                            } else if (targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_INPUTS_ROUTE ||
                                 targetRoute == Screen.Apps.route ||
                                 targetRoute == com.nuvio.tv.ui.launcher.LAUNCHER_QUICK_SETTINGS_ROUTE
                             ) {

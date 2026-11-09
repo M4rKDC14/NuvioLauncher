@@ -303,6 +303,9 @@ private fun AuthQrLoginPane(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // the launcher's logo above the heading (approved mockup, #10), sized with the page's 20% reduction
+        com.nuvio.tv.ui.components.LauncherLogo(width = 136.dp)
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = stringResource(R.string.auth_qr_tagline),
             style = MaterialTheme.typography.displayLarge.copy(

@@ -236,6 +236,20 @@
                 android:resource="@xml/home_key_service" />
         </service>
 
+        <!-- Nuvio Launcher: lets the sleep timer put the TV into standby (switched on with adb; force-lock only) -->
+        <receiver
+            android:name="com.nuvio.tv.launcherhome.LauncherDeviceAdmin"
+            android:exported="true"
+            android:label="@string/launcher_device_admin_label"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/launcher_device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Nuvio Launcher: reads the TV's notifications for the Quick settings panel (switched on with adb) -->
         <service
             android:name="com.nuvio.tv.launcherhome.LauncherNotificationService"

@@ -51,8 +51,17 @@ class HomeKeyService : AccessibilityService() {
 
     private var lastRedirectAt = 0L
 
+    // Sleep timer: switching the TV off before the time is up cancels it.
+    private val screenOffReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_OFF) SleepTimer.cancel()
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
+        runCatching { registerReceiver(screenOffReceiver, android.content.IntentFilter(Intent.ACTION_SCREEN_OFF)) }
         // the TV has just started: show the launcher rather than Google TV's home
         if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) redirectHome()
     }
@@ -72,11 +81,37 @@ class HomeKeyService : AccessibilityService() {
         openLauncher(com.nuvio.tv.ui.launcher.EXTRA_GO_HOME)
     }
 
-    private companion object {
-        const val GOOGLE_TV_HOME_PACKAGE = "com.google.android.apps.tv.launcherx"
-        const val GOOGLE_TV_HOME_SCREEN = ".home.HomeActivity"
-        const val BOOT_WINDOW_MS = 3L * 60_000L
-        const val REDIRECT_GAP_MS = 1_500L
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(screenOffReceiver) }
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
+    companion object {
+        @Volatile
+        private var instance: HomeKeyService? = null
+
+        /**
+         * Sleep timer: puts the TV into standby. Uses the device-admin "lock now" (switches the screen off, the same
+         * as the Sleep key) when it has been switched on with adb; otherwise this service's lock-screen action, which
+         * did nothing on the owner's TCL.
+         */
+        fun sleepNow(): Boolean {
+            val service = instance
+            val context = service ?: return false
+            val dpm = context.getSystemService(android.app.admin.DevicePolicyManager::class.java)
+            val admin = android.content.ComponentName(context, LauncherDeviceAdmin::class.java)
+            if (dpm != null && dpm.isAdminActive(admin)) {
+                if (runCatching { dpm.lockNow() }.isSuccess) return true
+            }
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.P) return false
+            return service.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+        }
+
+        private const val GOOGLE_TV_HOME_PACKAGE = "com.google.android.apps.tv.launcherx"
+        private const val GOOGLE_TV_HOME_SCREEN = ".home.HomeActivity"
+        private const val BOOT_WINDOW_MS = 3L * 60_000L
+        private const val REDIRECT_GAP_MS = 1_500L
     }
 
     override fun onInterrupt() = Unit

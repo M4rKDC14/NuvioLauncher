@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -111,6 +112,10 @@ class LauncherSettingsDataStore @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val dataStore = context.launcherSettingsDataStore
+
+    /** Nuvio Launcher backup: every saved value, and putting a saved set back. */
+    internal suspend fun exportPrefs(): org.json.JSONObject = dataStore.data.first().toBackupJson()
+    internal suspend fun importPrefs(json: org.json.JSONObject) { dataStore.edit { it.restoreFromBackupJson(json) } }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val rotationKey = intPreferencesKey("rotation_seconds")

@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import javax.inject.Inject
@@ -27,6 +28,10 @@ class AmbientModeDataStore @Inject constructor(
     }
 
     private fun store() = factory.get(profileManager.activeProfileId.value, FEATURE)
+
+    /** Nuvio Launcher backup: the active profile's Ambient Mode choices, and putting a saved set back. */
+    internal suspend fun exportPrefs(): org.json.JSONObject = store().data.first().toBackupJson()
+    internal suspend fun importPrefs(json: org.json.JSONObject) { store().edit { it.restoreFromBackupJson(json) } }
 
     private val enabledKey = booleanPreferencesKey("ambient_enabled")
     private val timeoutMinutesKey = intPreferencesKey("ambient_timeout_minutes")

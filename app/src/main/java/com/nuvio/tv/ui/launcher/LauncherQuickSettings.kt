@@ -123,7 +123,7 @@ fun LauncherQuickSettingsHost(
 /**
  * Sizes are the approved mockup's before its 80% scale (drawn at 80%): panel 306dp wide (244.8dp drawn), 30dp from
  * the top, right and bottom (24dp drawn), 24dp corners and padding. Date 13sp grey, time 32sp bold; round buttons
- * 40dp with 10sp labels. Tiles in two columns 8.5dp apart, 71.16dp high, 11.9dp corners, label 11.05sp semibold at the
+ * 40dp with 10sp labels. Tiles in two columns 8.5dp apart, 60.49dp high (Sleep timer full width below), 11.9dp corners, label 11.05sp semibold at the
  * top left (8.5dp from the top, 10dp from the side): grey on white .12, dark on white .95 (zoom 1.04) when focused.
  * Notifications below: one row each between thin lines, a grey dot, title 11.05sp and text 9.35sp; the list is
  * 150dp high, scrolls, and fades out at the bottom. "Back to close" 12sp at the bottom right.
@@ -238,6 +238,17 @@ private fun QuickSettingsPanel(
                             }
                         }
                     }
+                    // Sleep timer (approved mockup): full width, the chosen time and when the TV sleeps under it.
+                    val sleep by com.nuvio.tv.launcherhome.SleepTimer.state.collectAsState()
+                    val sleepSubtitle = sleep?.let { s ->
+                        val at = java.text.SimpleDateFormat(if (uses24Hour) "HH:mm" else "h:mm a", Locale.getDefault()).format(Date(s.endsAtWallClock))
+                        "${s.minutes} min \u00B7 TV sleeps at $at"
+                    } ?: "Off \u00B7 press to choose 15, 30, 60, 90 or 120 min"
+                    QsTileButton(
+                        tile = QsTile("Sleep timer") { com.nuvio.tv.launcherhome.SleepTimer.next() },
+                        subtitle = sleepSubtitle,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 // ---- notifications: one row each, scrolls, fades out at the bottom ----
@@ -247,7 +258,7 @@ private fun QuickSettingsPanel(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(150.dp)
+                            .height(90.dp)   // the Sleep timer row takes the rest (approved mockup)
                             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithContent {
                                 drawContent()
@@ -311,7 +322,7 @@ private fun QsRoundButton(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun QsTileButton(tile: QsTile, modifier: Modifier) {
+private fun QsTileButton(tile: QsTile, modifier: Modifier, subtitle: String? = null) {
     var focused by remember { mutableStateOf(false) }
     val zoom by animateFloatAsState(if (focused) 1.04f else 1f, tween(160), label = "qsTileZoom")
     val shape = RoundedCornerShape(11.9.dp)
@@ -324,21 +335,35 @@ private fun QsTileButton(tile: QsTile, modifier: Modifier) {
             onClick = tile.onClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(71.16.dp)
+                .height(60.49.dp)   // 15% lower than the first approved 71.16 (owner's request)
                 .onFocusChanged { focused = it.isFocused },
             colors = ClickableSurfaceDefaults.colors(containerColor = QsIdleFill, focusedContainerColor = QsFocusFill),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
             shape = ClickableSurfaceDefaults.shape(shape)
         ) {
-            Text(
-                text = tile.label,
-                fontSize = 11.05.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (focused) LauncherStyle.FocusText else QsGrey,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 8.5.dp)
-            )
+            Column(
+                modifier = Modifier.fillMaxSize().padding(start = 10.dp, end = 10.dp, top = 8.5.dp, bottom = 8.5.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = tile.label,
+                    fontSize = 11.05.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (focused) LauncherStyle.FocusText else QsGrey,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        fontSize = 9.35.sp,
+                        fontWeight = if (focused) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (focused) LauncherStyle.FocusText.copy(alpha = 0.65f) else QsGreyDark,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
@@ -401,5 +426,17 @@ private fun openSystemSettings(context: Context, action: String) {
         runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(flags)) }
     } catch (_: SecurityException) {
         runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(flags)) }
+    }
+}
+
+/** Side panel entry route for Voice search; it opens Google Assistant instead of a page. */
+const val LAUNCHER_VOICE_ROUTE = "launcher_voice_search"
+
+/** Nuvio Launcher: opens Google Assistant (ACTION_ASSIST, tested on the owner's TV), as the remote's mic button does. */
+fun openVoiceSearch(context: Context) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        android.widget.Toast.makeText(context, "Voice search isn't available on this TV", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

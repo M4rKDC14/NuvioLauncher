@@ -169,10 +169,13 @@ internal fun LauncherHomeContent(
     var favOrder by remember(launcherSettings.favourites) { mutableStateOf(launcherSettings.favourites) }
     val favouriteApps = remember(favOrder, installedApps) { favOrder.mapNotNull { pkg -> installedApps.firstOrNull { it.pkg == pkg } } }
     var movingFavourite by remember { mutableStateOf<String?>(null) }
+    // Nuvio Launcher: OK ends Move on its press; its release is swallowed too, or the favourite opened.
+    val swallowOkRelease = remember { booleanArrayOf(false) }
     var favouriteMenu by remember { mutableStateOf<com.nuvio.tv.ui.screens.apps.LauncherApp?>(null) }
     val favActions = remember(favOrder, movingFavourite) {
         FavouriteActions(
             moving = movingFavourite,
+            swallowOkRelease = swallowOkRelease,
             onOpen = { pkg -> com.nuvio.tv.ui.screens.apps.launchApp(context, pkg) },
             onLongPress = { app -> if (movingFavourite == null) favouriteMenu = app },
             onStep = { pkg, by ->
@@ -183,7 +186,7 @@ internal fun LauncherHomeContent(
                     settingsVm.setFavourites(favOrder)
                 }
             },
-            onEndMove = { movingFavourite = null }
+            onEndMove = { swallowOkRelease[0] = true; movingFavourite = null }
         )
     }
     val rows = remember(uiState.continueWatchingItems, uiState.homeRows, uiState.catalogRows, favouriteApps) { rowsOf(uiState, favouriteApps) }
@@ -445,7 +448,16 @@ internal fun LauncherHomeContent(
                 }
                 itemsIndexed(rows, key = { _, r -> r.key }) { ri, row ->
                     CompositionLocalProvider(LocalBringIntoViewSpec provides defaultSpec) {
+                        // Nuvio Launcher: the tile focus will come back to keeps its focused size while focus is in the
+                        // side panel, or while the rows are being restored after a folder or title. It used to shrink,
+                        // then grow back over ~4 frames when focus returned: that was the jump seen on the TV.
+                        val heldTileIndex = when {
+                            restoringRows && savedRowKey == row.key -> savedTile
+                            !contentHasFocus && exitRowKey == row.key -> exitTile
+                            else -> null
+                        }
                         RowBlock(
+                            heldTileIndex = heldTileIndex,
                             rowIndex = ri,
                             row = row,
                             focused = focusedRow == ri,
@@ -489,6 +501,7 @@ internal fun LauncherHomeContent(
 /** Nuvio Launcher: what the Favourites row's tiles do (open, long-press menu, Move mode). */
 private class FavouriteActions(
     val moving: String?,
+    val swallowOkRelease: BooleanArray,
     val onOpen: (String) -> Unit,
     val onLongPress: (com.nuvio.tv.ui.screens.apps.LauncherApp) -> Unit,
     val onStep: (String, Int) -> Unit,
@@ -601,6 +614,7 @@ private class Tile(
 
 @Composable
 private fun RowBlock(
+    heldTileIndex: Int?,
     rowIndex: Int,
     row: LRow,
     focused: Boolean,
@@ -674,7 +688,6 @@ private fun RowBlock(
             // that its tiles never re-entered, and Down/Up from the row next to it found nothing to focus (stuck).
             val rowTiles = remember(row.key) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
             DisposableEffect(rowIndex, rowTiles) { tiles[rowIndex] = rowTiles; onDispose { if (tiles[rowIndex] === rowTiles) tiles.remove(rowIndex) } }
-            val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             LazyRow(
                 // 6 above the tiles, plus however much more a zoomed poster grows than at the default size and zoom
                 contentPadding = PaddingValues(start = Start, end = Start, top = 6.dp + maxOf(0.dp, (180.dp * look.scale * (look.zoom - 1f) - 180.dp * 0.11f) / 2f), bottom = 26.dp),
@@ -686,12 +699,18 @@ private fun RowBlock(
                     TileView(
                         tile = t,
                         look = look,
+                        held = heldTileIndex == i,
                         moving = t.pkg != null && t.pkg == favActions.moving,
                         modifier = Modifier
                             .focusRequester(req)
                             .onPreviewKeyEvent { e ->
                                 // Nuvio Launcher: Move mode on a favourite. Left/Right move it along the row; OK or Back
                                 // ends it; Up/Down do nothing. Both press and release are taken, so OK does not open it.
+                                // (Back ends Move too; its release would otherwise open the side panel)
+                                if (favActions.swallowOkRelease[0] && (e.key == Key.DirectionCenter || e.key == Key.Enter || e.key == Key.Back) && e.type == KeyEventType.KeyUp) {
+                                    favActions.swallowOkRelease[0] = false
+                                    return@onPreviewKeyEvent true
+                                }
                                 if (t.pkg != null && t.pkg == favActions.moving && e.key in FavouriteMoveKeys) {
                                     if (e.type == KeyEventType.KeyDown) when (e.key) {
                                         Key.DirectionLeft -> favActions.onStep(t.pkg, -1)
@@ -701,12 +720,9 @@ private fun RowBlock(
                                     }
                                     return@onPreviewKeyEvent true
                                 }
-                                // Back on a row's first tile opens the side panel (as Left does there). Both the press
-                                // and the release are taken, so the page's own Back (to the carousel) does not also run.
-                                if (e.key == Key.Back && i == 0) {
-                                    if (e.type == KeyEventType.KeyDown) focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Left)
-                                    return@onPreviewKeyEvent true
-                                }
+                                // (Back on any tile, the first one included, now reaches the shell's own Back, which opens
+                                // the side panel. The first tile used to move focus Left itself and swallow Back; on the
+                                // TV that did nothing.)
                                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 when (e.key) {
                                     Key.DirectionLeft -> { sideways[0] = true; false }
@@ -725,19 +741,20 @@ private fun RowBlock(
 }
 
 @Composable
-private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, moving: Boolean = false, onFocused: () -> Unit) {
+private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, moving: Boolean = false, held: Boolean = false, onFocused: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val w = (if (tile.landscape) 224.dp else if (tile.square) 126.dp else 120.dp) * look.scale
     val baseH = if (tile.landscape || tile.square) 126.dp else 180.dp
     val h = baseH * look.scale
     // How far the focused title moves down: 10 at the default size and zoom, plus whatever more the zoomed tile grows.
     val titleLift = maxOf(4.dp, 10.dp + (h * (look.zoom - 1f) - baseH * 0.11f) / 2f)
-    val scale by animateFloatAsState(if (focused) look.zoom else 1f, tween(160), label = "zoom")
+    val big = focused || held
+    val scale by animateFloatAsState(if (big) look.zoom else 1f, tween(160), label = "zoom")
     Column(Modifier.width(w)) {
         Box(
             Modifier
                 .graphicsLayer { scaleX = scale; scaleY = scale }
-                .shadow(elevation = if (focused) 17.dp else 7.dp, shape = Corner, ambientColor = Color.Black, spotColor = Color.Black)
+                .shadow(elevation = if (big) 17.dp else 7.dp, shape = Corner, ambientColor = Color.Black, spotColor = Color.Black)
                 // Nuvio Launcher: a favourite being moved has a white outline, as in the Applications panel
                 .then(if (moving) Modifier.border(androidx.compose.foundation.BorderStroke(2.dp, com.nuvio.tv.ui.launcher.LauncherStyle.FocusWhite), Corner) else Modifier)
         ) {
@@ -782,7 +799,7 @@ private fun TileView(tile: Tile, look: TileLook, modifier: Modifier, moving: Boo
                 fontWeight = if (focused && tile.key.startsWith("fa_")) FontWeight.Bold else FontWeight.Normal,
                 // Same layout height whether focused or not (a changing row height made the page jitter);
                 // the focused title only moves down visually, clear of the zoomed tile.
-                modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (focused) titleLift.toPx() else 0f }
+                modifier = Modifier.padding(top = 8.dp).graphicsLayer { translationY = if (big) titleLift.toPx() else 0f }
             )
         }
     }

@@ -74,7 +74,9 @@ fun StartupSplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Nuvio Launcher: no Nuvio logo, just the loading animation.
+            // Nuvio Launcher (approved mockup): the launcher's logo, then the loading animation.
+            LauncherLogo(width = 280.dp)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(40.dp))
             LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
         }
     }

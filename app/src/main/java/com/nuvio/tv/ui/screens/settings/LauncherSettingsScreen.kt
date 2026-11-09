@@ -164,6 +164,8 @@ private fun LauncherSettingsMainPage(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     var showResetDialog by remember { mutableStateOf(false) }
+    var showRestoreDialog by remember { mutableStateOf(false) }
+    val restoreRowFocus = remember { FocusRequester() }
     val resetRowFocus = remember { FocusRequester() }
     val catalogs = layoutState.availableCatalogs
 
@@ -322,6 +324,34 @@ private fun LauncherSettingsMainPage(
                     modifier = Modifier.focusRequester(resetRowFocus)
                 )
             }
+
+            // ---- Backup (approved mockup) ----
+            SettingsGroupCard(modifier = Modifier.fillMaxWidth(), title = "Backup") {
+                val backupContext = androidx.compose.ui.platform.LocalContext.current
+                val lastBackupAt by viewModel.lastBackupAt.collectAsStateWithLifecycle()
+                val lastBackupText = lastBackupAt?.let {
+                    java.text.SimpleDateFormat("d MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(it))
+                } ?: "never"
+                SettingsActionRow(
+                    title = "Back up launcher settings",
+                    subtitle = "Saves to this TV \u00B7 Last backup: $lastBackupText",
+                    onClick = {
+                        viewModel.backup { ok ->
+                            android.widget.Toast.makeText(
+                                backupContext,
+                                if (ok) "Launcher settings backed up" else "Backup failed",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                )
+                SettingsActionRow(
+                    title = "Restore launcher settings",
+                    subtitle = "Favourites, app order, hidden apps, Ambient and tile settings",
+                    onClick = { showRestoreDialog = true },
+                    modifier = Modifier.focusRequester(restoreRowFocus)
+                )
+            }
         }
     }
 
@@ -333,6 +363,36 @@ private fun LauncherSettingsMainPage(
                 showResetDialog = false
             }
         )
+    }
+    if (showRestoreDialog) {
+        val restoreContext = androidx.compose.ui.platform.LocalContext.current
+        RestoreLauncherSettingsDialog(
+            onCancel = { showRestoreDialog = false },
+            onRestore = {
+                showRestoreDialog = false
+                viewModel.restore { result ->
+                    android.widget.Toast.makeText(
+                        restoreContext,
+                        when (result) {
+                            null -> "No backup on this TV yet"
+                            true -> "Launcher settings restored"
+                            false -> "The backup could not be read"
+                        },
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        )
+    }
+    // Focus goes back to the Restore row once its dialog closes.
+    var restoreDialogWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(showRestoreDialog) {
+        if (showRestoreDialog) {
+            restoreDialogWasOpen = true
+        } else if (restoreDialogWasOpen) {
+            restoreDialogWasOpen = false
+            restoreRowFocus.requestFocusSoon()
+        }
     }
     // Focus goes back to the Reset row once the dialog closes.
     var dialogWasOpen by remember { mutableStateOf(false) }
@@ -588,6 +648,37 @@ private fun ResetLauncherSettingsDialog(onCancel: () -> Unit, onReset: () -> Uni
             SettingsDialogActionButton(
                 text = "Reset",
                 onClick = onReset,
+                primary = true
+            )
+        }
+    }
+    // Cancel has focus first, so a stray OK changes nothing.
+    LaunchedEffect(Unit) { cancelFocus.requestFocusSoon() }
+}
+
+/** Settings → Launcher → Backup: asks before replacing the current settings with the saved ones. */
+@Composable
+private fun RestoreLauncherSettingsDialog(onCancel: () -> Unit, onRestore: () -> Unit) {
+    val cancelFocus = remember { FocusRequester() }
+    NuvioDialog(
+        onDismiss = onCancel,
+        title = "Restore launcher settings?",
+        subtitle = "Replaces your current favourites, app order, hidden apps, Ambient and tile settings with the backup.",
+        suppressFirstKeyUp = false
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SettingsDialogActionButton(
+                text = "Cancel",
+                onClick = onCancel,
+                modifier = Modifier.focusRequester(cancelFocus)
+            )
+            SettingsDialogActionButton(
+                text = "Restore",
+                onClick = onRestore,
                 primary = true
             )
         }

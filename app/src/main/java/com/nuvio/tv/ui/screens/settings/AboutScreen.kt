@@ -127,13 +127,8 @@ fun AboutSettingsContent(
 
                             // Nuvio Launcher (approved mockup): no Nuvio logo and no "Made with" line; the launcher's name,
                             // its version, and the Nuvio version it is built on.
-                            Text(
-                                text = "Nuvio Launcher",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = NuvioTheme.colors.TextPrimary,
-                                textAlign = TextAlign.Center
-                            )
+                            // the launcher's logo (approved mockup, #10), 210dp wide
+                            com.nuvio.tv.ui.components.LauncherLogo(width = 210.dp)
 
                             Text(
                                 text = "Version ${BuildConfig.LAUNCHER_VERSION}",

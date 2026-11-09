@@ -15,8 +15,25 @@ import javax.inject.Inject
 /** Settings → Launcher: Nuvio Launcher's own options, kept on this TV. */
 @HiltViewModel
 class LauncherSettingsViewModel @Inject constructor(
-    private val store: LauncherSettingsDataStore
+    private val store: LauncherSettingsDataStore,
+    private val backupStore: com.nuvio.tv.data.local.LauncherBackup
 ) : ViewModel() {
+
+    /** Nuvio Launcher backup: when the backup on this TV was made (null: none yet). */
+    val lastBackupAt = kotlinx.coroutines.flow.MutableStateFlow(backupStore.lastBackupAt())
+
+    fun backup(onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = backupStore.backup()
+            lastBackupAt.value = backupStore.lastBackupAt()
+            onDone(ok)
+        }
+    }
+
+    /** onDone gets null when there is no backup on this TV, false when it could not be read. */
+    fun restore(onDone: (Boolean?) -> Unit) {
+        viewModelScope.launch { onDone(backupStore.restore()) }
+    }
 
     val settings: StateFlow<LauncherSettings> = store.settings.stateIn(
         scope = viewModelScope,

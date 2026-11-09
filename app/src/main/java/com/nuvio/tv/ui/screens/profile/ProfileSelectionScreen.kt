@@ -896,8 +896,10 @@ private fun ProfileSelectionMainContent(
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Nuvio Launcher (approved mockup): no Nuvio wordmark; title 26 bold white, subtitle 12 grey.
-        Spacer(modifier = Modifier.height(78.dp))
+        // Nuvio Launcher (approved mockup): the launcher's logo (#10) above the title; title 26 bold white, subtitle 12 grey.
+        Spacer(modifier = Modifier.height(30.dp))
+        com.nuvio.tv.ui.components.LauncherLogo(width = 160.dp)
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
             text = screenTitle,

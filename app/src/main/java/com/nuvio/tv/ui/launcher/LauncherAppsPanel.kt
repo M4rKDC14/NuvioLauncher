@@ -140,6 +140,8 @@ private fun AppsPanel(onClose: () -> Unit) {
     var focusedRow by remember { mutableStateOf(0) }
     var menuFor by remember { mutableStateOf<LauncherApp?>(null) }
     var moving by remember { mutableStateOf<String?>(null) }
+    // Nuvio Launcher: OK ends Move on its press; its release is swallowed too, or the app under it opened.
+    val swallowOkRelease = remember { booleanArrayOf(false) }
     val requesters = remember { mutableStateMapOf<String, FocusRequester>() }
     val first = remember { FocusRequester() }
 
@@ -192,6 +194,10 @@ private fun AppsPanel(onClose: () -> Unit) {
                                             .then(if (ri == 0 && app == apps.first()) Modifier.focusRequester(first) else Modifier)
                                             .focusRequester(req)
                                             .onPreviewKeyEvent { e ->
+                                                if (swallowOkRelease[0] && (e.key == Key.DirectionCenter || e.key == Key.Enter) && e.type == KeyEventType.KeyUp) {
+                                                    swallowOkRelease[0] = false
+                                                    return@onPreviewKeyEvent true
+                                                }
                                                 if (moving != app.pkg) return@onPreviewKeyEvent false
                                                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent e.key in MoveKeys
                                                 when (e.key) {
@@ -208,7 +214,7 @@ private fun AppsPanel(onClose: () -> Unit) {
                                                         true
                                                     }
                                                     Key.DirectionUp, Key.DirectionDown -> true   // a move stays in its row
-                                                    Key.DirectionCenter, Key.Enter -> { moving = null; saveOrder(); true }
+                                                    Key.DirectionCenter, Key.Enter -> { swallowOkRelease[0] = true; moving = null; saveOrder(); true }
                                                     else -> false
                                                 }
                                             },
