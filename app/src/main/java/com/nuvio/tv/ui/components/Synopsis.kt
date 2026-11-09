@@ -53,6 +53,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.MaterialTheme
@@ -217,36 +223,38 @@ fun SynopsisOverlay(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         AmbientDialogEffect(onDismiss)
+        // Nuvio Launcher (approved mockup): the page behind stays sharp, only darkened 55% (no window dim on top).
+        val dialogWindow = (androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        androidx.compose.runtime.SideEffect { dialogWindow?.setDimAmount(0f) }
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF070707),
-                            Color(0xFF101010),
-                            Color(0xFF151515)
-                        )
-                    )
-                )
-                .padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xl)
+                .background(Color.Black.copy(alpha = 0.55f)),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            // The launcher's glass panel: 600dp wide, 24dp corners, 28/32/22 inside. Title 20sp bold; synopsis 14sp at
+            // 1.55 line height, white 85%; "Back to close" 10sp grey at the bottom right. Long text scrolls (Up/Down).
+            com.nuvio.tv.ui.launcher.LauncherGlass(
+                modifier = Modifier
+                    .width(600.dp)
+                    .heightIn(max = 480.dp),
+                shape = RoundedCornerShape(24.dp),
+                tint = Color(0xDB121316)
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.78f)
-                        .weight(1f)
-                        .drawWithContent {
+                Column(Modifier.padding(start = 32.dp, end = 32.dp, top = 28.dp, bottom = 22.dp)) {
+                    Text(
+                        text = title,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2
+                    )
+                    Spacer(Modifier.height(17.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .drawWithContent {
                             drawContent()
 
                             val maxScroll = scrollState.maxValue.toFloat()
@@ -301,24 +309,29 @@ fun SynopsisOverlay(
                         .focusable()
                         .semantics { contentDescription = title }
                         .verticalScroll(scrollState)
-                ) {
+                    ) {
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 14.sp,
+                                lineHeight = 21.7.sp,
+                                textDirection = description.contentTextDirection()
+                            ),
+                            color = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(end = 12.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(22.dp))
                     Text(
-                        text = description,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            textDirection = description.contentTextDirection()
-                        ),
-                        color = Color.White.copy(alpha = 0.92f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(end = NuvioTheme.spacing.lg)
+                        text = "Back to close",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = com.nuvio.tv.ui.launcher.LauncherStyle.TileTitleIdle,
+                        modifier = Modifier.align(Alignment.End)
                     )
                 }
-
-                Text(
-                    text = stringResource(R.string.hero_synopsis_dismiss_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.4f)
-                )
             }
         }
     }

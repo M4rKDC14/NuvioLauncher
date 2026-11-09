@@ -56,72 +56,25 @@ fun PosterOptionsDialog(
     onToggleLibrary: () -> Unit,
     onToggleWatched: () -> Unit
 ) {
-    val primaryFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        primaryFocusRequester.requestFocus()
+    // Nuvio Launcher: the launcher's own options popup (approved mockup), as for apps and Resume:
+    // narrow glass, title and "Title actions", centred pills with the focused one white.
+    val detailsLabel = stringResource(R.string.cw_action_go_to_details)
+    val libraryLabel = when {
+        showManageLists -> stringResource(R.string.library_manage_lists)
+        isInLibrary -> stringResource(R.string.hero_remove_from_library)
+        else -> stringResource(R.string.hero_add_to_library)
     }
-
-    NuvioDialog(
+    val watchedLabel = if (isWatched) stringResource(R.string.hero_mark_unwatched) else stringResource(R.string.hero_mark_watched)
+    com.nuvio.tv.ui.launcher.AppOptionsDialog(
+        label = title,
+        subtitle = stringResource(R.string.home_poster_dialog_subtitle),
         onDismiss = onDismiss,
-        title = title,
-        subtitle = stringResource(R.string.home_poster_dialog_subtitle)
-    ) {
-        Button(
-            onClick = onDetails,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(primaryFocusRequester),
-            colors = ButtonDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                contentColor = NuvioTheme.colors.TextPrimary
-            )
-        ) {
-            Text(stringResource(R.string.cw_action_go_to_details))
+        options = buildList {
+            add(detailsLabel to onDetails)
+            add(libraryLabel to { if (!isLibraryPending) onToggleLibrary() })
+            if (isMovie || isSeries) add(watchedLabel to { if (!isWatchedPending) onToggleWatched() })
         }
-
-        Button(
-            onClick = onToggleLibrary,
-            enabled = !isLibraryPending,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                contentColor = NuvioTheme.colors.TextPrimary
-            )
-        ) {
-            Text(
-                if (showManageLists) {
-                    stringResource(R.string.library_manage_lists)
-                } else {
-                    if (isInLibrary) {
-                        stringResource(R.string.hero_remove_from_library)
-                    } else {
-                        stringResource(R.string.hero_add_to_library)
-                    }
-                }
-            )
-        }
-
-        if (isMovie || isSeries) {
-            Button(
-                onClick = onToggleWatched,
-                enabled = !isWatchedPending,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary
-                )
-            ) {
-                Text(
-                    if (isWatched) {
-                        stringResource(R.string.hero_mark_unwatched)
-                    } else {
-                        stringResource(R.string.hero_mark_watched)
-                    }
-                )
-            }
-        }
-    }
+    )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -136,76 +89,19 @@ fun PosterListPickerDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val primaryFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        primaryFocusRequester.requestFocus()
-    }
-
-    NuvioDialog(
-        onDismiss = onDismiss,
+    // Nuvio Launcher: the launcher's popup look (approved mockup), shared by every "lists" popup.
+    com.nuvio.tv.ui.launcher.LauncherListPickerDialog(
         title = title,
         subtitle = stringResource(R.string.detail_lists_subtitle),
-        width = 500.dp
-    ) {
-        if (!error.isNullOrBlank()) {
-            Text(
-                text = error,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFFFB6B6)
-            )
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 300.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(tabs, key = { it.key }) { tab ->
-                val selected = membership[tab.key] == true
-                Button(
-                    onClick = { onToggle(tab.key) },
-                    enabled = !isPending,
-                    modifier = (if (tab.key == tabs.firstOrNull()?.key) {
-                        Modifier
-                            .fillMaxWidth()
-                            .focusRequester(primaryFocusRequester)
-                    } else {
-                        Modifier.fillMaxWidth()
-                    }).semantics {
-                        role = Role.Checkbox
-                        toggleableState = if (selected) ToggleableState.On else ToggleableState.Off
-                    },
-                    colors = ButtonDefaults.colors(
-                        containerColor = if (selected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
-                        contentColor = NuvioTheme.colors.TextPrimary
-                    )
-                ) {
-                    Text(
-                        text = tab.localizedMembershipTitle(),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-
-        Divider(color = NuvioTheme.colors.Border, thickness = NuvioTheme.spacing.hairline)
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-            Button(
-                onClick = onSave,
-                enabled = !isPending,
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary
-                )
-            ) {
-                Text(if (isPending) stringResource(R.string.action_saving) else stringResource(R.string.action_save))
-            }
-        }
-    }
+        lists = tabs.map { it.key to it.localizedMembershipTitle() },
+        membership = membership,
+        isPending = isPending,
+        error = error,
+        saveLabel = if (isPending) stringResource(R.string.action_saving) else stringResource(R.string.action_save),
+        onToggle = onToggle,
+        onSave = onSave,
+        onDismiss = onDismiss
+    )
 }
 
 @Composable

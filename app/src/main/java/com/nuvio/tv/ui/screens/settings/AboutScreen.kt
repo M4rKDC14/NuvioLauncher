@@ -45,7 +45,7 @@ import androidx.tv.material3.Text
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
-import com.nuvio.tv.ui.components.MemberBrandWordmark
+import androidx.compose.ui.text.font.FontWeight
 
 /**
  * Nuvio Launcher: the update rows (channel, banner, auto install and its notice, check for
@@ -125,20 +125,26 @@ fun AboutSettingsContent(
                         CompositionLocalProvider(LocalBringIntoViewSpec provides defaultBringIntoViewSpec) {
                             Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
 
-                            MemberBrandWordmark(
-                                height = 40.dp,
-                                contentDescription = stringResource(R.string.cd_nuvio_logo)
-                            )
-
+                            // Nuvio Launcher (approved mockup): no Nuvio logo and no "Made with" line; the launcher's name,
+                            // its version, and the Nuvio version it is built on.
                             Text(
-                                text = stringResource(R.string.about_made_with_love),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = NuvioTheme.colors.TextSecondary,
+                                text = "Nuvio Launcher",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = NuvioTheme.colors.TextPrimary,
                                 textAlign = TextAlign.Center
                             )
 
                             Text(
-                                text = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+                                text = "Version ${BuildConfig.LAUNCHER_VERSION}",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NuvioTheme.colors.TextPrimary,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Text(
+                                text = "Based on Nuvio ${BuildConfig.UPSTREAM_VERSION}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = NuvioTheme.colors.TextSecondary,
                                 textAlign = TextAlign.Center

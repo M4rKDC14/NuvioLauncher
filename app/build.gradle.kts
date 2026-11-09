@@ -125,6 +125,10 @@ val releaseKeyPasswordValue = env("NUVIO_RELEASE_KEY_PASSWORD")
 val releaseStorePasswordValue = env("NUVIO_RELEASE_STORE_PASSWORD")
     ?: localProperties.getProperty("NUVIO_RELEASE_STORE_PASSWORD", "815787")
 
+
+/** Nuvio Launcher: this build's version. Raise it for every build sent to the TV. */
+val launcherVersion = "1.6.14"
+
 android {
     namespace = "com.nuvio.tv"
     compileSdk = 36
@@ -135,8 +139,15 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1073
-        versionName = "1.1.0-beta.10"
+        // Nuvio Launcher: every build carries its own launcher version, so the TV can tell builds apart and an update
+        // always installs over the last one. versionCode = major*10000 + minor*100 + patch (1.6.14 -> 10614, above the
+        // 1073 the earlier builds used). The upstream Nuvio version stays first in versionName, and the launcher's is
+        // added as semver build metadata ("+launcher.x.y.z"), which version comparisons ignore, so Nuvio's servers
+        // still see 1.1.0-beta.10.
+        versionCode = launcherVersion.split('.').let { (a, b, c) -> a.toInt() * 10000 + b.toInt() * 100 + c.toInt() }
+        versionName = "1.1.0-beta.10+launcher.$launcherVersion"
+        buildConfigField("String", "LAUNCHER_VERSION", "\"$launcherVersion\"")
+        buildConfigField("String", "UPSTREAM_VERSION", "\"1.1.0-beta.10\"")
 
         buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${localProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
         buildConfigField("String", "INTRODB_API_URL", "\"${localProperties.getProperty("INTRODB_API_URL", "")}\"")

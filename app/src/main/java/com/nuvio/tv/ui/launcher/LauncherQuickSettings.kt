@@ -182,7 +182,7 @@ private fun QuickSettingsPanel(
                 .width(306.dp)
                 .fillMaxHeight(),
             shape = RoundedCornerShape(24.dp),
-            tint = Color(0xD1121316)   // .82, as the mockup
+            tint = Color(0xEB121316)   // .92: 10% less see-through than the mockup's .82 (owner's request)
         ) {
             Column(Modifier.fillMaxSize().padding(24.dp)) {
                 // ---- date, time, All settings, Profile ----

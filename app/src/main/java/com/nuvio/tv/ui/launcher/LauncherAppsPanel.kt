@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -318,6 +320,7 @@ private fun AppBanner(app: LauncherApp, moving: Boolean, modifier: Modifier, onC
 @Composable
 internal fun AppOptionsDialog(
     label: String,
+    subtitle: String = "App options",
     onDismiss: () -> Unit,
     options: List<Pair<String, () -> Unit>>
 ) {
@@ -328,12 +331,63 @@ internal fun AppOptionsDialog(
             NuvioDialog(onDismiss = onDismiss, title = "", width = 282.dp) {
                 Column {
                     Text(label, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("App options", fontSize = 14.sp, color = LauncherStyle.TileTitleIdle, modifier = Modifier.padding(top = 4.dp))
+                    Text(subtitle, fontSize = 14.sp, color = LauncherStyle.TileTitleIdle, modifier = Modifier.padding(top = 4.dp))
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     options.forEachIndexed { i, (text, action) ->
                         MenuPill(text, action, if (i == 0) Modifier.focusRequester(openFocus) else Modifier)
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Nuvio Launcher: "which lists hold this title", in the launcher's popup look (approved mockup): the title, the
+ * question in grey, one pill per list (a tick on the lists that hold it), and Save as the last pill.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun LauncherListPickerDialog(
+    title: String,
+    subtitle: String,
+    lists: List<Pair<String, String>>,          // key to name
+    membership: Map<String, Boolean>,
+    isPending: Boolean,
+    error: String?,
+    saveLabel: String,
+    onToggle: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val firstFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
+    LauncherScaled(0.85f) {
+        CompositionLocalProvider(LocalSettingsGlass provides true) {
+            NuvioDialog(onDismiss = onDismiss, title = "", width = 282.dp) {
+                Column {
+                    Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(subtitle, fontSize = 14.sp, color = LauncherStyle.TileTitleIdle, modifier = Modifier.padding(top = 4.dp))
+                    if (!error.isNullOrBlank()) {
+                        Text(error, fontSize = 12.sp, color = Color(0xFFFFB6B6), modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier
+                        .heightIn(max = 300.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                ) {
+                    lists.forEachIndexed { i, (key, name) ->
+                        val selected = membership[key] == true
+                        MenuPill(
+                            if (selected) "\u2713  $name" else name,
+                            { if (!isPending) onToggle(key) },
+                            if (i == 0) Modifier.focusRequester(firstFocus) else Modifier
+                        )
+                    }
+                    MenuPill(saveLabel, { if (!isPending) onSave() }, if (lists.isEmpty()) Modifier.focusRequester(firstFocus) else Modifier)
                 }
             }
         }

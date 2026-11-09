@@ -3303,80 +3303,19 @@ private fun LibraryListPickerDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val primaryFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        primaryFocusRequester.requestFocus()
-    }
-
-    NuvioDialog(
-        onDismiss = onDismiss,
+    // Nuvio Launcher: the launcher's popup look (approved mockup), shared by every "lists" popup.
+    com.nuvio.tv.ui.launcher.LauncherListPickerDialog(
         title = title,
         subtitle = stringResource(R.string.detail_lists_subtitle),
-        width = 500.dp
-    ) {
-        if (!error.isNullOrBlank()) {
-            Text(
-                text = error,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFFFB6B6)
-            )
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 300.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(tabs, key = { it.key }) { tab ->
-                val selected = membership[tab.key] == true
-                // The membership state is exposed through semantics below instead of a leading
-                // glyph in the label, so screen readers hear one clean name plus the state.
-                val titleText = tab.localizedMembershipTitle()
-                val rowModifier = if (tab.key == tabs.firstOrNull()?.key) {
-                    Modifier
-                        .fillMaxWidth()
-                        .focusRequester(primaryFocusRequester)
-                } else {
-                    Modifier.fillMaxWidth()
-                }
-                Button(
-                    onClick = { onToggle(tab.key) },
-                    enabled = !isPending,
-                    modifier = rowModifier.semantics {
-                        role = Role.Checkbox
-                        toggleableState = if (selected) ToggleableState.On else ToggleableState.Off
-                    },
-                    colors = ButtonDefaults.colors(
-                        containerColor = if (selected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
-                        contentColor = NuvioTheme.colors.TextPrimary
-                    )
-                ) {
-                    Text(
-                        text = titleText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-
-        HorizontalDivider(color = NuvioTheme.colors.Border, thickness = NuvioTheme.spacing.hairline)
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-            Button(
-                onClick = onSave,
-                enabled = !isPending,
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary
-                )
-            ) {
-                Text(if (isPending) stringResource(R.string.action_saving) else stringResource(R.string.action_save))
-            }
-        }
-    }
+        lists = tabs.map { it.key to it.localizedMembershipTitle() },
+        membership = membership,
+        isPending = isPending,
+        error = error,
+        saveLabel = if (isPending) stringResource(R.string.action_saving) else stringResource(R.string.action_save),
+        onToggle = onToggle,
+        onSave = onSave,
+        onDismiss = onDismiss
+    )
 }
 
 /**

@@ -224,8 +224,13 @@ internal fun LauncherHomeContent(
     // Up/Down: go to the target row's remembered tile (first tile if never visited). If that row isn't on screen
     // yet, scroll to it first and then focus the tile — otherwise Android picked the physically nearest tile,
     // often one to the right. Always consumes the press so Android never chooses on its own.
-    fun focusRow(target: Int): Boolean {
+    fun focusRow(requested: Int, step: Int = 1): Boolean {
         sideways[0] = false
+        // Nuvio Launcher: skip rows that have nothing to focus yet (a catalog still loading, or one that failed to
+        // load). Down onto such a row used to wait on it forever, so the page looked stuck and never reached the
+        // rows below it.
+        var target = requested
+        while (target in rows.indices && rows[target] is LRow.Pending) target += step
         if (target < 0) { runCatching { playFocus.requestFocus() }; return true }
         if (target > rows.lastIndex) return true
         fun tryFocus(): Boolean {
@@ -238,7 +243,9 @@ internal fun LauncherHomeContent(
         if (tryFocus()) return true
         navScope.launch {
             listState.animateScrollToItem(target + 1)   // item 0 is the carousel
-            repeat(12) {
+            // Nuvio Launcher: wait up to about half a second for the row's tiles (12 frames was not always enough
+            // on the TV after a long scroll, which also left focus stuck on the row above)
+            repeat(30) {
                 androidx.compose.runtime.withFrameNanos { }
                 if (tryFocus()) return@launch
             }
@@ -383,9 +390,14 @@ internal fun LauncherHomeContent(
                         onEnter = {
                             val key = exitRowKey
                             val row = if (key == null) -1 else rows.indexOfFirst { it.key == key }
-                            val req = if (row >= 0) tiles[row]?.get(exitTile)?.first else null
-                            if (req != null) {
-                                lastIndex[row] = exitTile
+                            // Nuvio Launcher: the tile you left from, or if that tile is not on screen any more, the nearest one
+                            // in the same row. (A missing tile used to drop to the slower path below: Android landed
+                            // somewhere first and focus was moved a frame later, which showed as the jitter.)
+                            val rowTiles = if (row >= 0) tiles[row].orEmpty() else emptyMap()
+                            val landKey = if (rowTiles.containsKey(exitTile)) exitTile else rowTiles.keys.minByOrNull { kotlin.math.abs(it - exitTile) }
+                            val req = landKey?.let { rowTiles[it]?.first }
+                            if (req != null && landKey != null) {
+                                lastIndex[row] = landKey
                                 sideways[0] = false
                                 enteredDirect[0] = runCatching { req.requestFocus() }.getOrDefault(false)
                             }
@@ -443,7 +455,7 @@ internal fun LauncherHomeContent(
                             lastIndex = lastIndex,
                             sideways = sideways,
                             onRowFocused = { b -> heroFocused = false; focusedRow = ri; savedRowKey = row.key; savedTile = lastIndex[ri] ?: 0; if (b != null) { rowBackdrop.value = b; com.nuvio.tv.LauncherChrome.lastBackdrop.value = b } },
-                            onVertical = { fromRow, _, down -> focusRow(if (down) fromRow + 1 else fromRow - 1) },
+                            onVertical = { fromRow, _, down -> if (down) focusRow(fromRow + 1, 1) else focusRow(fromRow - 1, -1) },
                             onNavigateToDetail = onNavigateToDetail,
                             onContinueWatchingClick = onContinueWatchingClick,
                             onNavigateToFolderDetail = onNavigateToFolderDetail,
@@ -657,8 +669,11 @@ private fun RowBlock(
                 repeat(6) { Box(Modifier.size(120.dp * look.scale, 180.dp * look.scale).clip(Corner).background(Color(0x14FFFFFF))) }
             }
         } else {
-            val rowTiles = remember(rowIndex) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
-            DisposableEffect(rowIndex) { tiles[rowIndex] = rowTiles; onDispose { tiles.remove(rowIndex) } }
+            // Nuvio Launcher: the row keeps its tile list by its own key, and registers it under its current position.
+            // It was keyed by position: when a row above appeared or dropped out, this row moved, got a new empty list
+            // that its tiles never re-entered, and Down/Up from the row next to it found nothing to focus (stuck).
+            val rowTiles = remember(row.key) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
+            DisposableEffect(rowIndex, rowTiles) { tiles[rowIndex] = rowTiles; onDispose { if (tiles[rowIndex] === rowTiles) tiles.remove(rowIndex) } }
             val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             LazyRow(
                 // 6 above the tiles, plus however much more a zoomed poster grows than at the default size and zoom
@@ -667,7 +682,7 @@ private fun RowBlock(
             ) {
                 itemsIndexed(items, key = { _, t -> t.key }) { i, t ->
                     val req = remember { FocusRequester() }
-                    DisposableEffect(i) { rowTiles[i] = req to 0f; onDispose { rowTiles.remove(i) } }
+                    DisposableEffect(i, rowTiles) { rowTiles[i] = req to 0f; onDispose { rowTiles.remove(i) } }
                     TileView(
                         tile = t,
                         look = look,

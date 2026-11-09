@@ -157,7 +157,15 @@ internal fun LauncherFolderContent(
 
     // Up/Down: the target row's remembered tile (first tile if never visited). If that row isn't on screen yet,
     // scroll to it first, then focus — otherwise Android picked the physically nearest tile, often one to the right.
-    fun focusRow(target: Int): Boolean {
+    fun focusRow(requested: Int, step: Int = 1): Boolean {
+        // Nuvio Launcher: skip rows with nothing to focus (still loading, or failed to load). Down onto such a row
+        // used to wait on it forever, so focus stayed on the row above and the page looked stuck.
+        var target = requested
+        fun hasTiles(i: Int): Boolean {
+            val t = rows[i].tab
+            return !t.isLoading && t.catalogRow?.items.orEmpty().any { !it.id.startsWith("__placeholder_") }
+        }
+        while (target in rows.indices && !hasTiles(target)) target += step
         if (target < 0 || target > rows.lastIndex) return true
         fun tryFocus(): Boolean {
             val cand = tiles[target].orEmpty()
@@ -169,7 +177,8 @@ internal fun LauncherFolderContent(
         if (tryFocus()) return true
         navScope.launch {
             rowsListState.animateScrollToItem(target)
-            repeat(12) {
+            // Nuvio Launcher: wait up to about half a second for the row's tiles (12 frames was not always enough)
+            repeat(30) {
                 androidx.compose.runtime.withFrameNanos { }
                 if (tryFocus()) return@launch
             }
@@ -259,7 +268,7 @@ internal fun LauncherFolderContent(
                                     onLoadMoreCatalog(cr.catalogId, cr.addonId, cr.apiType)
                                 }
                             },
-                            onVertical = { fromRow, _, down -> focusRow(if (down) fromRow + 1 else fromRow - 1) },
+                            onVertical = { fromRow, _, down -> if (down) focusRow(fromRow + 1, 1) else focusRow(fromRow - 1, -1) },
                             onClick = { item ->
                                 HeroBackdropState.update(item.backdropUrl)
                                 onNavigateToDetail(item.id, item.apiType, row.tab.catalogRow?.addonBaseUrl ?: "")
@@ -317,8 +326,11 @@ private fun FolderRowBlock(
                 }
             }
             else -> {
-                val rowTiles = remember(rowIndex) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
-                DisposableEffect(rowIndex) { tiles[rowIndex] = rowTiles; onDispose { tiles.remove(rowIndex) } }
+                // Nuvio Launcher: the row keeps its tile list by its own key, and registers it under its current position.
+                // It was keyed by position: when a row above appeared or dropped out, this row moved, got a new empty list
+                // that its tiles never re-entered, and Down/Up from the row next to it found nothing to focus (stuck).
+                val rowTiles = remember(row.key) { mutableMapOf<Int, Pair<FocusRequester, Float>>() }
+                DisposableEffect(rowIndex, rowTiles) { tiles[rowIndex] = rowTiles; onDispose { if (tiles[rowIndex] === rowTiles) tiles.remove(rowIndex) } }
                 val rowState = rememberLazyListState(initialFirstVisibleItemIndex = (initialFocusIndex ?: 0).coerceIn(0, items.lastIndex))
                 LazyRow(
                     state = rowState,
@@ -327,7 +339,7 @@ private fun FolderRowBlock(
                 ) {
                     itemsIndexed(items, key = { i, m -> "${m.id}_$i" }) { i, m ->
                         val req = remember { FocusRequester() }
-                        DisposableEffect(i) { rowTiles[i] = req to 0f; onDispose { rowTiles.remove(i) } }
+                        DisposableEffect(i, rowTiles) { rowTiles[i] = req to 0f; onDispose { rowTiles.remove(i) } }
                         if (initialFocusIndex != null && i == initialFocusIndex.coerceIn(0, items.lastIndex)) {
                             LaunchedEffect(Unit) {
                                 repeat(6) {
